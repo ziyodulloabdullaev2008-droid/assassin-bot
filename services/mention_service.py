@@ -3,6 +3,7 @@ from typing import Optional, Callable
 
 from telethon import events
 from telethon.tl.types import MessageEntityMentionName
+from telethon.tl.types import User as TlUser
 
 from core.logging import get_logger
 from core.state import app_state
@@ -136,7 +137,9 @@ async def monitor_mentions(
                         msg_url = f"https://t.me/c/{abs(int(event.chat_id))}/{message.id}"
 
                     msg_time = message.date.strftime("%H:%M:%S") if message.date else "??:??:??"
-                    sender_name = f"{sender.first_name} {sender.last_name or ''}".strip()
+                    sender_name = f"{getattr(sender, 'first_name', '')} {getattr(sender, 'last_name', '') or ''}".strip()
+                    if not sender_name:
+                        sender_name = "Неизвестно"
 
                     account_info = get_user_accounts(user_id)
                     account_name = "Неизвестно"
@@ -152,13 +155,29 @@ async def monitor_mentions(
                     notification += f"⏰ <b>Время:</b> {msg_time}\n"
                     notification += f"📝 <b>Текст:</b> {text_body[:200] if text_body else '(без текста)'}\n"
 
-                    buttons = [[
-                        InlineKeyboardButton(text="📬 Сообщение", url=msg_url),
-                        InlineKeyboardButton(text="👤 Профиль", url=f"tg://user?id={sender.id}"),
-                    ]]
-                    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+                    buttons = [[InlineKeyboardButton(text="📬 Сообщение", url=msg_url)]]
+                    sender_id = getattr(sender, "id", None)
+                    if isinstance(sender, TlUser) and isinstance(sender_id, int) and sender_id > 0:
+                        buttons[0].append(InlineKeyboardButton(text="👤 Профиль", url=f"tg://user?id={sender_id}"))
 
-                    await bot.send_message(user_id, notification, reply_markup=kb, parse_mode="HTML")
+                    try:
+                        kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+                        await bot.send_message(user_id, notification, reply_markup=kb, parse_mode="HTML")
+                    except Exception as notify_exc:
+                        # Не даем ошибке кнопки ломать enqueue_join
+                        logger.warning(
+                            "Ошибка отправки уведомления user=%s acc=%s: %s",
+                            user_id,
+                            account_number,
+                            notify_exc,
+                        )
+                        try:
+                            fallback_kb = InlineKeyboardMarkup(
+                                inline_keyboard=[[InlineKeyboardButton(text="📬 Сообщение", url=msg_url)]]
+                            )
+                            await bot.send_message(user_id, notification, reply_markup=fallback_kb, parse_mode="HTML")
+                        except Exception:
+                            pass
 
                     if text_body and message_has_keywords(text_body):
                         links, usernames = extract_join_links(text_body)
