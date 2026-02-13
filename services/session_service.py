@@ -151,10 +151,10 @@ async def _load_single_session(api_id: int, api_hash: str, user_id: int, account
         if not session_file_with_ext.exists():
             return False
 
-        client = TelegramClient(str(session_file), api_id, api_hash)
-        for attempt in range(4):
+        for attempt in range(2):
+            client = TelegramClient(str(session_file), api_id, api_hash)
             try:
-                await asyncio.wait_for(client.connect(), timeout=8.0)
+                await asyncio.wait_for(client.connect(), timeout=6.0)
                 if await client.is_user_authorized():
                     async with app_state.user_authenticated_lock:
                         app_state.user_authenticated.setdefault(user_id, {})
@@ -164,18 +164,26 @@ async def _load_single_session(api_id: int, api_hash: str, user_id: int, account
                 return False
             except asyncio.TimeoutError:
                 await _safe_disconnect(client)
-                if attempt < 3:
-                    await asyncio.sleep(0.8 * (attempt + 1))
+                if attempt < 1:
+                    await asyncio.sleep(0.6)
                     continue
+                logger.warning("Таймаут загрузки сессии %s_%s", user_id, account_number)
                 return False
             except Exception as exc:
                 exc_str = str(exc).lower()
                 await _safe_disconnect(client)
-                if "database is locked" in exc_str and attempt < 3:
-                    await asyncio.sleep(0.8 * (attempt + 1))
-                    continue
-                if "database is locked" not in exc_str:
-                    logger.warning("Ошибка загрузки сессии %s_%s: %s", user_id, account_number, exc)
+                if "database is locked" in exc_str:
+                    if attempt < 1:
+                        await asyncio.sleep(0.6)
+                        continue
+                    logger.warning(
+                        "Сессия %s_%s заблокирована (database is locked). "
+                        "Проверь, не запущен ли второй процесс бота.",
+                        user_id,
+                        account_number,
+                    )
+                    return False
+                logger.warning("Ошибка загрузки сессии %s_%s: %s", user_id, account_number, exc)
                 return False
     except Exception as exc:
         if "database is locked" not in str(exc).lower():
