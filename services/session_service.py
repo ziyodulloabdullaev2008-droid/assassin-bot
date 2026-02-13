@@ -20,6 +20,13 @@ logger = get_logger("session_service")
 async def recover_sessions_from_files(api_id: int, api_hash: str) -> bool:
     """Восстанавливает данные аккаунтов из файлов сессий если БД пуста."""
     logger.info("Проверяю восстановление сессий из файлов...")
+    users = get_all_users()
+    if users:
+        # Normal startup path: accounts are loaded from DB.
+        # Recovery from raw session files is only for empty DB/bootstrap case.
+        logger.info("Пропускаю восстановление из файлов: БД уже содержит пользователей (%s)", len(users))
+        return False
+
     session_files = list(BASE_DIR.glob("*/sessions/session_*.session"))
     session_files.extend(list(Path(__file__).resolve().parent.parent.glob("session_*.session")))
     if not session_files:
@@ -83,7 +90,7 @@ async def load_saved_sessions(api_id: int, api_hash: str, on_loaded: Optional[ca
     users = get_all_users()
     logger.info("Найдено пользователей в БД: %s", len(users))
 
-    tasks = []
+    accounts_to_load = []
     for user_id, _, _, _ in users:
         accounts = get_user_accounts(user_id)
         if not accounts:
@@ -91,33 +98,38 @@ async def load_saved_sessions(api_id: int, api_hash: str, on_loaded: Optional[ca
         for account_number, _, _, _, is_active in accounts:
             if not is_active:
                 continue
-            tasks.append(_load_single_session(api_id, api_hash, user_id, account_number))
+            accounts_to_load.append((user_id, account_number))
 
-    if tasks:
-        await asyncio.gather(*tasks, return_exceptions=True)
-        logger.info("Загружены аккаунты из БД")
+    if accounts_to_load:
+        loaded = 0
+        for user_id, account_number in accounts_to_load:
+            ok = await _load_single_session(api_id, api_hash, user_id, account_number)
+            if ok:
+                loaded += 1
+            await asyncio.sleep(0.15)
+        logger.info("Загружены аккаунты из БД: %s/%s", loaded, len(accounts_to_load))
 
     if on_loaded:
         await on_loaded()
 
 
-async def _load_single_session(api_id: int, api_hash: str, user_id: int, account_number: int) -> None:
+async def _load_single_session(api_id: int, api_hash: str, user_id: int, account_number: int) -> bool:
     try:
         # Skip duplicates when account is already restored/loaded in memory.
         existing = app_state.user_authenticated.get(user_id, {}).get(account_number)
         if existing:
             try:
                 if existing.is_connected():
-                    return
+                    return True
             except Exception:
-                return
+                return True
 
         accounts = get_user_accounts(user_id)
         account_info = next((a for a in accounts if a[0] == account_number), None)
         if not account_info:
-            return
+            return False
         if len(account_info) >= 5 and not account_info[4]:
-            return
+            return False
 
         session_file = session_base_path(user_id, account_number)
         session_file_with_ext = Path(f"{session_file}.session")
@@ -137,26 +149,38 @@ async def _load_single_session(api_id: int, api_hash: str, user_id: int, account
                     session_file_with_ext = old_session_file_with_ext
 
         if not session_file_with_ext.exists():
-            return
+            return False
 
         client = TelegramClient(str(session_file), api_id, api_hash)
-        try:
-            await asyncio.wait_for(client.connect(), timeout=5.0)
-            if await client.is_user_authorized():
-                async with app_state.user_authenticated_lock:
-                    app_state.user_authenticated.setdefault(user_id, {})
-                    app_state.user_authenticated[user_id][account_number] = client
-            else:
+        for attempt in range(4):
+            try:
+                await asyncio.wait_for(client.connect(), timeout=8.0)
+                if await client.is_user_authorized():
+                    async with app_state.user_authenticated_lock:
+                        app_state.user_authenticated.setdefault(user_id, {})
+                        app_state.user_authenticated[user_id][account_number] = client
+                    return True
                 await client.disconnect()
-        except asyncio.TimeoutError:
-            await _safe_disconnect(client)
-        except Exception as exc:
-            if "database is locked" not in str(exc).lower():
-                logger.warning("Ошибка загрузки сессии %s_%s: %s", user_id, account_number, exc)
-            await _safe_disconnect(client)
+                return False
+            except asyncio.TimeoutError:
+                await _safe_disconnect(client)
+                if attempt < 3:
+                    await asyncio.sleep(0.8 * (attempt + 1))
+                    continue
+                return False
+            except Exception as exc:
+                exc_str = str(exc).lower()
+                await _safe_disconnect(client)
+                if "database is locked" in exc_str and attempt < 3:
+                    await asyncio.sleep(0.8 * (attempt + 1))
+                    continue
+                if "database is locked" not in exc_str:
+                    logger.warning("Ошибка загрузки сессии %s_%s: %s", user_id, account_number, exc)
+                return False
     except Exception as exc:
         if "database is locked" not in str(exc).lower():
             logger.warning("Ошибка загрузки одной сессии: %s", exc)
+    return False
 
 
 async def _safe_disconnect(client: TelegramClient) -> None:
