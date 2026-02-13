@@ -50,6 +50,7 @@ from handlers.mentions_handlers import router as mentions_router
 from handlers.config_handlers import router as config_router
 
 from handlers.broadcast_handlers import router as broadcast_router
+from handlers.joins_handlers import router as joins_router
 
 from services.vip_service import is_vip_user_cached, update_vip_cache
 
@@ -2177,6 +2178,7 @@ dp.include_router(mentions_router)
 dp.include_router(config_router)
 
 dp.include_router(broadcast_router)
+dp.include_router(joins_router)
 
 dp.include_router(basic_router)
 
