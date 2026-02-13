@@ -1,12 +1,22 @@
 from aiogram import Router, F
 from aiogram.filters.command import Command
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from aiogram.exceptions import TelegramBadRequest
 
 from core.state import app_state
 from database import get_user_accounts
 from services.join_service import set_enabled, is_enabled, set_target_accounts, get_target_accounts
 
 router = Router()
+
+
+async def _safe_refresh_menu(query: CallbackQuery, user_id: int) -> None:
+    try:
+        await query.message.edit_text(_build_text(user_id), reply_markup=_build_menu(user_id), parse_mode="HTML")
+    except TelegramBadRequest as exc:
+        if "message is not modified" in str(exc).lower():
+            return
+        raise
 
 
 def _build_menu(user_id: int) -> InlineKeyboardMarkup:
@@ -59,7 +69,7 @@ async def joins_toggle_callback(query: CallbackQuery):
     user_id = query.from_user.id
     set_enabled(user_id, not is_enabled(user_id))
     await query.answer()
-    await query.message.edit_text(_build_text(user_id), reply_markup=_build_menu(user_id), parse_mode="HTML")
+    await _safe_refresh_menu(query, user_id)
 
 
 @router.callback_query(F.data == "joins_all")
@@ -67,7 +77,7 @@ async def joins_all_callback(query: CallbackQuery):
     user_id = query.from_user.id
     set_target_accounts(user_id, None)
     await query.answer()
-    await query.message.edit_text(_build_text(user_id), reply_markup=_build_menu(user_id), parse_mode="HTML")
+    await _safe_refresh_menu(query, user_id)
 
 
 @router.callback_query(F.data.startswith("joins_acc_"))
@@ -84,7 +94,7 @@ async def joins_acc_callback(query: CallbackQuery):
         selected.add(acc_num)
     set_target_accounts(user_id, list(selected))
     await query.answer()
-    await query.message.edit_text(_build_text(user_id), reply_markup=_build_menu(user_id), parse_mode="HTML")
+    await _safe_refresh_menu(query, user_id)
 
 
 @router.callback_query(F.data == "joins_close")
