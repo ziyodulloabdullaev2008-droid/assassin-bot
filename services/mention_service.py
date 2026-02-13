@@ -2,6 +2,7 @@ import asyncio
 from typing import Optional, Callable
 
 from telethon import events
+from telethon.tl.types import MessageEntityMentionName
 
 from core.logging import get_logger
 from core.state import app_state
@@ -73,7 +74,7 @@ async def monitor_mentions(
                 message = event.message
                 sender = await event.get_sender()
 
-                is_mentioned = False
+                is_mentioned = bool(getattr(message, "mentioned", False))
                 if message.reply_to_msg_id:
                     try:
                         replied_to = await client.get_messages(event.chat_id, ids=message.reply_to_msg_id)
@@ -82,8 +83,16 @@ async def monitor_mentions(
                     except Exception:
                         pass
 
-                if not is_mentioned and message.text:
-                    text_lower = message.text.lower()
+                if not is_mentioned:
+                    for ent in (getattr(message, "entities", None) or []):
+                        if isinstance(ent, MessageEntityMentionName):
+                            if getattr(ent, "user_id", None) == my_id:
+                                is_mentioned = True
+                                break
+
+                text_body = (message.text or getattr(message, "raw_text", "") or "").strip()
+                if not is_mentioned and text_body:
+                    text_lower = text_body.lower()
                     username_str = str(my_username) if my_username else f"user{my_id}"
                     username_check = f"@{username_str.lower()}" in text_lower
                     id_check = f"user{my_id}" in text_lower
@@ -117,7 +126,7 @@ async def monitor_mentions(
                         notification += f"💬 <b>Чат:</b> {chat_name} | <code>{event.chat_id}</code>\n"
                         notification += f"👤 <b>От:</b> {sender_name}\n"
                         notification += f"⏰ <b>Время:</b> {msg_time}\n"
-                        notification += f"📝 <b>Текст:</b> {message.text[:200] if message.text else '(без текста)'}\n"
+                        notification += f"📝 <b>Текст:</b> {text_body[:200] if text_body else '(без текста)'}\n"
 
                         buttons = [[
                             InlineKeyboardButton(text="📬 Сообщение", url=msg_url),
@@ -127,8 +136,8 @@ async def monitor_mentions(
 
                         await bot.send_message(user_id, notification, reply_markup=kb, parse_mode="HTML")
 
-                        if message.text and message_has_keywords(message.text):
-                            links, usernames = extract_join_links(message.text)
+                        if text_body and message_has_keywords(text_body):
+                            links, usernames = extract_join_links(text_body)
                             try:
                                 if message.buttons:
                                     for row in message.buttons:

@@ -239,6 +239,18 @@ async def _handle_join_request(client, req: dict) -> None:
                 return
             except Exception:
                 continue
+        else:
+            # Public links like https://t.me/channel_name
+            try:
+                entity = await client.get_entity(link)
+                if await _is_already_participant(client, entity):
+                    return
+                await client(JoinChannelRequest(entity))
+                return
+            except UserAlreadyParticipantError:
+                return
+            except Exception:
+                continue
 
     # Try usernames
     for username in usernames:
