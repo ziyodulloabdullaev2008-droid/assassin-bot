@@ -716,7 +716,14 @@ async def bc_batch_pause_callback(query: CallbackQuery, state: FSMContext):
 
     current_pause = config.get('chat_pause', '1-3')
 
-    text = f"⏳ <b>ТЕМП ОТПРАВКИ</b>\n\nТекущий: {current_pause} сек\n\nВведи новый (формат: мин-макс, например: 1-3) или одно число (2):"
+    text = (
+        f"⏳ <b>ТЕМП</b>\n\n"
+        "Темп = задержка между отправками по разным чатам во время активной рассылки.\n\n"
+        f"Текущий: <b>{current_pause}</b> сек\n\n"
+        "Введи новый:\n"
+        "• диапазон: <code>1-3</code>\n"
+        "• одно значение: <code>2</code>"
+    )
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
 
@@ -737,11 +744,13 @@ async def bc_plan_limit_callback(query: CallbackQuery, state: FSMContext):
     limit_rest = config.get('plan_limit_rest', 0)
 
     text = (
-        f"\u23f3 <b>\u041b\u0418\u041c\u0418\u0422 \u041f\u041b\u0410\u041d\u0418\u0420\u041e\u0412\u0410\u041d\u0418\u042f</b>\n\n"
-        f"\u0422\u0435\u043a\u0443\u0449\u0438\u0439: {limit_count} / \u043e\u0442\u0434\u044b\u0445 {limit_rest} \u043c\u0438\u043d\n\n"
-        "\u0412\u0432\u0435\u0434\u0438 \u043b\u0438\u043c\u0438\u0442 \u0438 \u043e\u0442\u0434\u044b\u0445 \u0447\u0435\u0440\u0435\u0437 \u043f\u0440\u043e\u0431\u0435\u043b \u0438\u043b\u0438 \u0437\u0430\u043f\u044f\u0442\u0443\u044e\n"
-        "\u041f\u0440\u0438\u043c\u0435\u0440: 10 3\n"
-        "\u0427\u0442\u043e\u0431\u044b \u043e\u0442\u043a\u043b\u044e\u0447\u0438\u0442\u044c: 0 0"
+        "⏳ <b>ЛИМИТ</b>\n\n"
+        "Лимит = сколько сообщений планировать одновременно и какой отдых делать после пакета.\n\n"
+        f"Текущий: <b>{limit_count}</b> / отдых <b>{limit_rest}</b> мин\n\n"
+        "Введи два числа через пробел:\n"
+        "<code>лимит отдых_в_минутах</code>\n"
+        "Пример: <code>10 3</code>\n"
+        "Отключить лимит: <code>0 0</code>"
     )
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
