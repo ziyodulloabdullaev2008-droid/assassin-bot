@@ -18,6 +18,9 @@ def setup_logging(level: int = logging.INFO) -> None:
     # Reduce noisy Telethon informational chatter in all outputs.
     logging.getLogger("telethon.network.mtprotosender").setLevel(logging.WARNING)
     logging.getLogger("telethon.client.updates").setLevel(logging.WARNING)
+    # Keep aiogram only on warnings/errors to avoid per-update spam.
+    logging.getLogger("aiogram.event").setLevel(logging.WARNING)
+    logging.getLogger("aiogram.dispatcher").setLevel(logging.WARNING)
 
 
 def get_logger(name: str) -> logging.Logger:
