@@ -1,4 +1,6 @@
 import asyncio
+import shutil
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -166,6 +168,15 @@ async def _load_single_session(api_id: int, api_hash: str, user_id: int, account
                     exc_str = str(exc).lower()
                     await _safe_disconnect(client)
                     if "database is locked" in exc_str:
+                        cloned_ok = await _try_load_from_clone(
+                            session_file,
+                            api_id,
+                            api_hash,
+                            user_id,
+                            account_number,
+                        )
+                        if cloned_ok:
+                            return True
                         if attempt < 1:
                             await asyncio.sleep(0.6)
                             continue
@@ -218,3 +229,41 @@ async def _safe_disconnect(client: TelegramClient) -> None:
         await client.disconnect()
     except Exception:
         pass
+
+
+async def _try_load_from_clone(
+    session_file: Path,
+    api_id: int,
+    api_hash: str,
+    user_id: int,
+    account_number: int,
+) -> bool:
+    src = Path(f"{session_file}.session")
+    if not src.exists():
+        return False
+
+    clone_base = src.with_name(f"{src.stem}_startup_clone_{int(time.time())}")
+    clone_session = Path(f"{clone_base}.session")
+    client = None
+    try:
+        shutil.copy2(src, clone_session)
+        client = TelegramClient(str(clone_base), api_id, api_hash)
+        await asyncio.wait_for(client.connect(), timeout=6.0)
+        if not await client.is_user_authorized():
+            await _safe_disconnect(client)
+            return False
+
+        async with app_state.user_authenticated_lock:
+            app_state.user_authenticated.setdefault(user_id, {})
+            app_state.user_authenticated[user_id][account_number] = client
+
+        logger.warning(
+            "Сессия %s_%s загружена из clone-файла из-за lock оригинала",
+            user_id,
+            account_number,
+        )
+        return True
+    except Exception:
+        if client:
+            await _safe_disconnect(client)
+        return False
