@@ -16,6 +16,7 @@ async def monitor_mentions(
     account_number: int,
     *,
     get_tracked_chats: Callable,
+    get_broadcast_chats: Optional[Callable] = None,
     get_user_accounts: Callable,
     normalize_chat_id: Callable,
     InlineKeyboardButton,
@@ -55,6 +56,8 @@ async def monitor_mentions(
                     return
 
                 tracked_chats = get_tracked_chats(user_id)
+                if not tracked_chats and get_broadcast_chats:
+                    tracked_chats = get_broadcast_chats(user_id)
                 chat_ids = [chat_id for chat_id, _ in tracked_chats]
 
                 current_chat_id = normalize_chat_id(event.chat_id)
@@ -152,6 +155,7 @@ async def start_mention_monitoring(
     user_id: int,
     *,
     get_tracked_chats: Callable,
+    get_broadcast_chats: Optional[Callable] = None,
     get_user_accounts: Callable,
     normalize_chat_id: Callable,
     InlineKeyboardButton,
@@ -174,6 +178,7 @@ async def start_mention_monitoring(
                 user_id,
                 account_number,
                 get_tracked_chats=get_tracked_chats,
+                get_broadcast_chats=get_broadcast_chats,
                 get_user_accounts=get_user_accounts,
                 normalize_chat_id=normalize_chat_id,
                 InlineKeyboardButton=InlineKeyboardButton,

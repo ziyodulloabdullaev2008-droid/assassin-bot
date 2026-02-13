@@ -67,6 +67,7 @@ from database import (
     add_user_account_with_number,
 
     add_tracked_chat, remove_tracked_chat, get_tracked_chats, is_chat_tracked,
+    get_broadcast_chats,
 
 )
 
@@ -245,6 +246,7 @@ async def start_mention_monitoring(user_id: int):
         user_id,
 
         get_tracked_chats=get_tracked_chats,
+        get_broadcast_chats=get_broadcast_chats,
 
         get_user_accounts=get_user_accounts,
 

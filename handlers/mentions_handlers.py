@@ -25,6 +25,7 @@ async def _start_monitoring(bot, user_id: int):
         bot,
         user_id,
         get_tracked_chats=get_tracked_chats,
+        get_broadcast_chats=get_broadcast_chats,
         get_user_accounts=get_user_accounts,
         normalize_chat_id=normalize_chat_id,
         InlineKeyboardButton=InlineKeyboardButton,
@@ -180,12 +181,17 @@ async def tc_add_chat_callback(query: CallbackQuery, state: FSMContext):
 @router.message(TrackedChatsState.waiting_for_chat_id)
 async def process_add_tracked_chat(message: Message, state: FSMContext):
     user_id = message.from_user.id
-    raw_input = message.text.strip()
-    lines = [line.strip() for line in raw_input.splitlines() if line.strip()]
+    raw_input = (message.text or "").strip()
+    lines = [line.strip() for line in raw_input.replace(",", "\n").splitlines() if line.strip()]
 
     if not lines:
         await message.answer("❌ Некорректный ID")
         return
+
+    client = None
+    user_clients = app_state.user_authenticated.get(user_id, {})
+    if user_clients:
+        client = next(iter(user_clients.values()))
 
     added_count = 0
     already_count = 0
@@ -193,13 +199,26 @@ async def process_add_tracked_chat(message: Message, state: FSMContext):
 
     for chat_input in lines:
         try:
-            chat_id = int(chat_input) if chat_input.lstrip("-").isdigit() else chat_input
-        except Exception:
-            invalid_count += 1
-            continue
+            chat_id: int
+            chat_name: str
 
-        try:
-            added = add_tracked_chat(user_id, chat_id, chat_input if isinstance(chat_id, int) else chat_input)
+            if chat_input.lstrip("-").isdigit():
+                chat_id = int(chat_input)
+                chat_name = f"Чат {chat_id}"
+            else:
+                if not client:
+                    invalid_count += 1
+                    continue
+                entity = await client.get_entity(chat_input)
+                chat_id = int(getattr(entity, "id", 0))
+                if not chat_id:
+                    invalid_count += 1
+                    continue
+                title = getattr(entity, "title", None) or getattr(entity, "first_name", None)
+                username = getattr(entity, "username", None)
+                chat_name = str(title or (f"@{username}" if username else chat_input))
+
+            added = add_tracked_chat(user_id, chat_id, chat_name)
             if added:
                 added_count += 1
             else:

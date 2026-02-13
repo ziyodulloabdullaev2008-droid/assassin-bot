@@ -57,9 +57,9 @@ def extract_join_links(text: str) -> Tuple[List[str], List[str]]:
     usernames = []
     if not text:
         return links, usernames
-    for match in re.findall(r"(https?://t\\.me/\\+[-_\\w]+)", text, flags=re.IGNORECASE):
+    for match in re.findall(r"(https?://t\.me/\+[-_\w]+)", text, flags=re.IGNORECASE):
         links.append(match)
-    for match in re.findall(r"(https?://t\\.me/joinchat/[-_\\w]+)", text, flags=re.IGNORECASE):
+    for match in re.findall(r"(https?://t\.me/joinchat/[-_\w]+)", text, flags=re.IGNORECASE):
         links.append(match)
     for match in re.findall(r"@([a-zA-Z0-9_]{4,})", text):
         usernames.append(match)
@@ -206,10 +206,10 @@ async def _handle_join_request(client, req: dict) -> None:
 
 
 def _extract_invite_hash(link: str) -> Optional[str]:
-    m = re.search(r"/\\+([-_\\w]+)$", link)
+    m = re.search(r"/\+([-_\w]+)$", link)
     if m:
         return m.group(1)
-    m = re.search(r"/joinchat/([-_\\w]+)$", link)
+    m = re.search(r"/joinchat/([-_\w]+)$", link)
     if m:
         return m.group(1)
     return None
