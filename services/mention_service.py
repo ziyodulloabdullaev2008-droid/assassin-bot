@@ -1,4 +1,6 @@
 import asyncio
+import html
+import re
 from typing import Optional, Callable
 
 from telethon import events
@@ -10,6 +12,46 @@ from core.state import app_state
 from services.join_service import enqueue_join, extract_join_links, message_has_keywords
 
 logger = get_logger("mention_service")
+
+
+def _dedupe_keep_order(items: list[str]) -> list[str]:
+    seen = set()
+    out = []
+    for item in items:
+        key = (item or "").strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(key)
+    return out
+
+
+def _is_tg_link(url: str) -> bool:
+    return isinstance(url, str) and "t.me/" in url.lower()
+
+
+def _strip_tg_links(text: str, max_len: int = 200) -> str:
+    if not text:
+        return "(без текста)"
+    cleaned = re.sub(r"https?://t\.me/\S+", "[tg-link]", text, flags=re.IGNORECASE)
+    cleaned = cleaned.strip()
+    if len(cleaned) > max_len:
+        cleaned = cleaned[:max_len] + "…"
+    return cleaned or "(без текста)"
+
+
+def _format_join_targets(links: list[str], usernames: list[str], limit: int = 6) -> str:
+    rows = []
+    for link in links[:limit]:
+        compact = re.sub(r"^https?://", "", link, flags=re.IGNORECASE)
+        rows.append(f"• <code>{html.escape(compact)}</code>")
+    slots_left = max(0, limit - len(rows))
+    for username in usernames[:slots_left]:
+        rows.append(f"• <code>@{html.escape(username)}</code>")
+    hidden = max(0, len(links) + len(usernames) - len(rows))
+    if hidden:
+        rows.append(f"• и еще {hidden}")
+    return "\n".join(rows) if rows else "• не распознаны"
 
 
 async def monitor_mentions(
@@ -141,6 +183,23 @@ async def monitor_mentions(
                     if not sender_name:
                         sender_name = "Неизвестно"
 
+                    links, usernames = extract_join_links(text_body) if text_body else ([], [])
+                    button_links = []
+                    try:
+                        if message.buttons:
+                            for row in message.buttons:
+                                for btn in row:
+                                    url = getattr(btn, "url", None)
+                                    if url and _is_tg_link(url):
+                                        button_links.append(url)
+                    except Exception:
+                        pass
+
+                    links = _dedupe_keep_order(list(links) + button_links)
+                    usernames = _dedupe_keep_order(list(usernames))
+                    has_join_keywords = bool(text_body and message_has_keywords(text_body))
+                    is_join_request = has_join_keywords and bool(links or usernames)
+
                     account_info = get_user_accounts(user_id)
                     account_name = "Неизвестно"
                     for acc_num, telegram_id, username_acc, first_name, is_active in account_info:
@@ -148,12 +207,21 @@ async def monitor_mentions(
                             account_name = first_name or username_acc or f"Акк {account_number}"
                             break
 
-                    notification = "🔔 <b>УПОМИНАНИЕ В ЧАТЕ</b>\n\n"
-                    notification += f"👤 <b>Упомянут аккаунт:</b> {account_name}\n"
-                    notification += f"💬 <b>Чат:</b> {chat_name} | <code>{event.chat_id}</code>\n"
-                    notification += f"👤 <b>От:</b> {sender_name}\n"
-                    notification += f"⏰ <b>Время:</b> {msg_time}\n"
-                    notification += f"📝 <b>Текст:</b> {text_body[:200] if text_body else '(без текста)'}\n"
+                    if is_join_request:
+                        notification = "🚪 <b>ЗАПРОС НА ВСТУПЛЕНИЕ</b>\n\n"
+                        notification += f"👤 <b>Аккаунт:</b> {html.escape(account_name)}\n"
+                        notification += f"💬 <b>Чат:</b> {html.escape(chat_name)} | <code>{event.chat_id}</code>\n"
+                        notification += f"👤 <b>От:</b> {html.escape(sender_name)}\n"
+                        notification += f"⏰ <b>Время:</b> {msg_time}\n"
+                        notification += f"🔗 <b>Цели для вступления:</b> {len(links) + len(usernames)}\n"
+                        notification += f"{_format_join_targets(links, usernames)}\n"
+                    else:
+                        notification = "🔔 <b>УПОМИНАНИЕ В ЧАТЕ</b>\n\n"
+                        notification += f"👤 <b>Упомянут аккаунт:</b> {html.escape(account_name)}\n"
+                        notification += f"💬 <b>Чат:</b> {html.escape(chat_name)} | <code>{event.chat_id}</code>\n"
+                        notification += f"👤 <b>От:</b> {html.escape(sender_name)}\n"
+                        notification += f"⏰ <b>Время:</b> {msg_time}\n"
+                        notification += f"📝 <b>Текст:</b> {html.escape(_strip_tg_links(text_body, 200))}\n"
 
                     buttons = [[InlineKeyboardButton(text="📬 Сообщение", url=msg_url)]]
                     sender_id = getattr(sender, "id", None)
@@ -162,7 +230,13 @@ async def monitor_mentions(
 
                     try:
                         kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-                        await bot.send_message(user_id, notification, reply_markup=kb, parse_mode="HTML")
+                        await bot.send_message(
+                            user_id,
+                            notification,
+                            reply_markup=kb,
+                            parse_mode="HTML",
+                            disable_web_page_preview=True,
+                        )
                     except Exception as notify_exc:
                         # Не даем ошибке кнопки ломать enqueue_join
                         logger.warning(
@@ -175,21 +249,17 @@ async def monitor_mentions(
                             fallback_kb = InlineKeyboardMarkup(
                                 inline_keyboard=[[InlineKeyboardButton(text="📬 Сообщение", url=msg_url)]]
                             )
-                            await bot.send_message(user_id, notification, reply_markup=fallback_kb, parse_mode="HTML")
+                            await bot.send_message(
+                                user_id,
+                                notification,
+                                reply_markup=fallback_kb,
+                                parse_mode="HTML",
+                                disable_web_page_preview=True,
+                            )
                         except Exception:
                             pass
 
-                    if text_body and message_has_keywords(text_body):
-                        links, usernames = extract_join_links(text_body)
-                        try:
-                            if message.buttons:
-                                for row in message.buttons:
-                                    for btn in row:
-                                        url = getattr(btn, "url", None)
-                                        if url:
-                                            links.append(url)
-                        except Exception:
-                            pass
+                    if has_join_keywords:
                         await enqueue_join(
                             user_id,
                             chat_id=event.chat_id,
