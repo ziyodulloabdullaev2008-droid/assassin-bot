@@ -26,6 +26,7 @@ async def recover_sessions_from_files(api_id: int, api_hash: str) -> bool:
         return False
 
     recovered = 0
+    seen_accounts = set()
     for session_path in session_files:
         try:
             filename = session_path.stem
@@ -38,6 +39,10 @@ async def recover_sessions_from_files(api_id: int, api_hash: str) -> bool:
 
             user_id = int(parts[0])
             account_number = int(parts[1])
+            key = (user_id, account_number)
+            if key in seen_accounts:
+                continue
+            seen_accounts.add(key)
 
             client = TelegramClient(str(session_path), api_id, api_hash)
             try:
@@ -98,6 +103,15 @@ async def load_saved_sessions(api_id: int, api_hash: str, on_loaded: Optional[ca
 
 async def _load_single_session(api_id: int, api_hash: str, user_id: int, account_number: int) -> None:
     try:
+        # Skip duplicates when account is already restored/loaded in memory.
+        existing = app_state.user_authenticated.get(user_id, {}).get(account_number)
+        if existing:
+            try:
+                if existing.is_connected():
+                    return
+            except Exception:
+                return
+
         accounts = get_user_accounts(user_id)
         account_info = next((a for a in accounts if a[0] == account_number), None)
         if not account_info:
