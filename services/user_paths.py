@@ -42,3 +42,7 @@ def broadcast_config_backup_path(user_id: int) -> Path:
 
 def broadcast_profiles_path(user_id: int) -> Path:
     return user_broadcast_dir(user_id) / "broadcast_profiles.json"
+
+
+def joins_settings_path(user_id: int) -> Path:
+    return ensure_user_dir(user_id) / "joins_settings.json"

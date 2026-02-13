@@ -36,6 +36,7 @@ from services.mention_service import start_mention_monitoring as start_mention_m
 from services.mention_utils import normalize_chat_id
 
 from services.broadcast_config_service import load_broadcast_configs
+from services.join_service import load_all_settings as load_all_joins_settings
 
 from ui.main_menu_ui import get_main_menu_keyboard
 
@@ -2158,6 +2159,7 @@ async def main():
                                        
 
     load_broadcast_configs()
+    load_all_joins_settings()
 
     
 

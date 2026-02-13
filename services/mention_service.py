@@ -55,13 +55,17 @@ async def monitor_mentions(
                 if event.sender_id == my_id:
                     return
 
-                tracked_chats = get_tracked_chats(user_id)
-                if not tracked_chats and get_broadcast_chats:
-                    tracked_chats = get_broadcast_chats(user_id)
-                chat_ids = [chat_id for chat_id, _ in tracked_chats]
+                tracked_chats = get_tracked_chats(user_id) or []
+                if get_broadcast_chats:
+                    tracked_chats = list(tracked_chats) + list(get_broadcast_chats(user_id) or [])
 
                 current_chat_id = normalize_chat_id(event.chat_id)
-                normalized_chat_ids = [normalize_chat_id(cid) for cid in chat_ids]
+                normalized_chat_ids = set()
+                for chat_id, _ in tracked_chats:
+                    try:
+                        normalized_chat_ids.add(normalize_chat_id(chat_id))
+                    except Exception:
+                        continue
 
                 if current_chat_id not in normalized_chat_ids:
                     return
@@ -142,8 +146,8 @@ async def monitor_mentions(
                             )
                     except Exception:
                         pass
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("mention handler skipped due to error: %s", exc)
 
         await client.run_until_disconnected()
     except Exception as exc:

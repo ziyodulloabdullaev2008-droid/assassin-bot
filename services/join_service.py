@@ -1,6 +1,8 @@
 import asyncio
+import json
 import random
 import re
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 from telethon.errors import UserAlreadyParticipantError, UserNotParticipantError
@@ -8,6 +10,7 @@ from telethon.tl.functions.channels import JoinChannelRequest, GetParticipantReq
 from telethon.tl.functions.messages import ImportChatInviteRequest
 
 from core.state import app_state
+from services.user_paths import BASE_DIR, joins_settings_path
 
 
 _KEYWORDS = ["\u043f\u043e\u0434\u043f\u0438\u0441\u0430\u0442\u044c\u0441\u044f", "\u0432\u0441\u0442\u0443\u043f\u0438\u0442\u044c", "\u043d\u0435\u043e\u0431\u0445\u043e\u0434\u0438\u043c\u043e"]
@@ -33,6 +36,7 @@ def _get_seen(user_id: int) -> set:
 
 def set_enabled(user_id: int, enabled: bool) -> None:
     app_state.joins_enabled[user_id] = enabled
+    _save_settings(user_id)
     if enabled:
         _ensure_worker(user_id)
 
@@ -46,10 +50,68 @@ def set_target_accounts(user_id: int, account_numbers: Optional[List[int]]) -> N
         app_state.joins_target_accounts[user_id] = set()
     else:
         app_state.joins_target_accounts[user_id] = set(account_numbers)
+    _save_settings(user_id)
 
 
 def get_target_accounts(user_id: int) -> Optional[set]:
     return app_state.joins_target_accounts.get(user_id, set())
+
+
+def _save_settings(user_id: int) -> None:
+    path = joins_settings_path(user_id)
+    payload = {
+        "enabled": bool(app_state.joins_enabled.get(user_id, False)),
+        "target_accounts": sorted(list(app_state.joins_target_accounts.get(user_id, set()))),
+    }
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def load_all_settings() -> None:
+    # users/*/joins_settings.json
+    for path in BASE_DIR.glob("*/joins_settings.json"):
+        if not path.is_file():
+            continue
+        _load_settings_file(path)
+    # legacy fallback in project root (joins_settings_<user_id>.json)
+    for path in Path(__file__).resolve().parent.parent.glob("joins_settings_*.json"):
+        if not path.is_file():
+            continue
+        _load_settings_file(path)
+
+
+def _load_settings_file(path: Path) -> None:
+    user_id: Optional[int] = None
+    try:
+        if path.parent.name.isdigit():
+            user_id = int(path.parent.name)
+        elif path.stem.startswith("joins_settings_"):
+            user_id = int(path.stem.replace("joins_settings_", ""))
+        if not user_id:
+            return
+
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        enabled = bool(data.get("enabled", False))
+        targets = data.get("target_accounts") or []
+        clean_targets = set()
+        for item in targets:
+            try:
+                clean_targets.add(int(item))
+            except Exception:
+                continue
+
+        app_state.joins_enabled[user_id] = enabled
+        app_state.joins_target_accounts[user_id] = clean_targets
+
+        if enabled:
+            _ensure_worker(user_id)
+    except Exception:
+        return
 
 
 def extract_join_links(text: str) -> Tuple[List[str], List[str]]:
