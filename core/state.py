@@ -36,6 +36,7 @@ class AppState:
     joins_task: Dict[int, asyncio.Task] = field(default_factory=dict)
     joins_seen: Dict[int, set] = field(default_factory=dict)
     joins_target_accounts: Dict[int, set] = field(default_factory=dict)
+    joins_delay_config: Dict[int, Dict[str, int]] = field(default_factory=dict)
 
 
 app_state = AppState()

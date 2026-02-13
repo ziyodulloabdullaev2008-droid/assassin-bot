@@ -5,7 +5,6 @@ from typing import Optional, Callable
 
 from telethon import events
 from telethon.tl.types import MessageEntityMentionName
-from telethon.tl.types import User as TlUser
 
 from core.logging import get_logger
 from core.state import app_state
@@ -225,7 +224,9 @@ async def monitor_mentions(
 
                     buttons = [[InlineKeyboardButton(text="📬 Сообщение", url=msg_url)]]
                     sender_id = getattr(sender, "id", None)
-                    if isinstance(sender, TlUser) and isinstance(sender_id, int) and sender_id > 0:
+                    if not isinstance(sender_id, int):
+                        sender_id = event.sender_id
+                    if isinstance(sender_id, int) and sender_id > 0:
                         buttons[0].append(InlineKeyboardButton(text="👤 Профиль", url=f"tg://user?id={sender_id}"))
 
                     try:

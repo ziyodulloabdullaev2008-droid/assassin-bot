@@ -14,6 +14,10 @@ from services.user_paths import BASE_DIR, joins_settings_path
 
 
 _KEYWORDS = ["\u043f\u043e\u0434\u043f\u0438\u0441\u0430\u0442\u044c\u0441\u044f", "\u0432\u0441\u0442\u0443\u043f\u0438\u0442\u044c", "\u043d\u0435\u043e\u0431\u0445\u043e\u0434\u0438\u043c\u043e"]
+DEFAULT_PER_TARGET_DELAY_MIN = 7
+DEFAULT_PER_TARGET_DELAY_MAX = 15
+DEFAULT_BETWEEN_CHATS_DELAY_MIN = 20
+DEFAULT_BETWEEN_CHATS_DELAY_MAX = 30
 
 
 def _get_lock(user_id: int) -> asyncio.Lock:
@@ -57,11 +61,91 @@ def get_target_accounts(user_id: int) -> Optional[set]:
     return app_state.joins_target_accounts.get(user_id, set())
 
 
+def _normalize_range(min_value: int, max_value: int, default_min: int, default_max: int) -> tuple[int, int]:
+    try:
+        min_value = int(min_value)
+        max_value = int(max_value)
+    except Exception:
+        return default_min, default_max
+    min_value = max(1, min_value)
+    max_value = max(1, max_value)
+    if min_value > max_value:
+        min_value, max_value = max_value, min_value
+    return min_value, max_value
+
+
+def get_delay_config(user_id: int) -> dict:
+    cfg = app_state.joins_delay_config.get(user_id) or {}
+    per_min, per_max = _normalize_range(
+        cfg.get("per_target_min", DEFAULT_PER_TARGET_DELAY_MIN),
+        cfg.get("per_target_max", DEFAULT_PER_TARGET_DELAY_MAX),
+        DEFAULT_PER_TARGET_DELAY_MIN,
+        DEFAULT_PER_TARGET_DELAY_MAX,
+    )
+    between_min, between_max = _normalize_range(
+        cfg.get("between_chats_min", DEFAULT_BETWEEN_CHATS_DELAY_MIN),
+        cfg.get("between_chats_max", DEFAULT_BETWEEN_CHATS_DELAY_MAX),
+        DEFAULT_BETWEEN_CHATS_DELAY_MIN,
+        DEFAULT_BETWEEN_CHATS_DELAY_MAX,
+    )
+    normalized = {
+        "per_target_min": per_min,
+        "per_target_max": per_max,
+        "between_chats_min": between_min,
+        "between_chats_max": between_max,
+    }
+    app_state.joins_delay_config[user_id] = normalized
+    return dict(normalized)
+
+
+def set_delay_config(
+    user_id: int,
+    *,
+    per_target_min: Optional[int] = None,
+    per_target_max: Optional[int] = None,
+    between_chats_min: Optional[int] = None,
+    between_chats_max: Optional[int] = None,
+) -> dict:
+    cfg = get_delay_config(user_id)
+    if per_target_min is not None:
+        cfg["per_target_min"] = int(per_target_min)
+    if per_target_max is not None:
+        cfg["per_target_max"] = int(per_target_max)
+    if between_chats_min is not None:
+        cfg["between_chats_min"] = int(between_chats_min)
+    if between_chats_max is not None:
+        cfg["between_chats_max"] = int(between_chats_max)
+
+    per_min, per_max = _normalize_range(
+        cfg["per_target_min"],
+        cfg["per_target_max"],
+        DEFAULT_PER_TARGET_DELAY_MIN,
+        DEFAULT_PER_TARGET_DELAY_MAX,
+    )
+    between_min, between_max = _normalize_range(
+        cfg["between_chats_min"],
+        cfg["between_chats_max"],
+        DEFAULT_BETWEEN_CHATS_DELAY_MIN,
+        DEFAULT_BETWEEN_CHATS_DELAY_MAX,
+    )
+    normalized = {
+        "per_target_min": per_min,
+        "per_target_max": per_max,
+        "between_chats_min": between_min,
+        "between_chats_max": between_max,
+    }
+    app_state.joins_delay_config[user_id] = normalized
+    _save_settings(user_id)
+    return dict(normalized)
+
+
 def _save_settings(user_id: int) -> None:
     path = joins_settings_path(user_id)
+    delay_cfg = get_delay_config(user_id)
     payload = {
         "enabled": bool(app_state.joins_enabled.get(user_id, False)),
         "target_accounts": sorted(list(app_state.joins_target_accounts.get(user_id, set()))),
+        "delay": delay_cfg,
     }
     try:
         with open(path, "w", encoding="utf-8") as f:
@@ -107,6 +191,25 @@ def _load_settings_file(path: Path) -> None:
 
         app_state.joins_enabled[user_id] = enabled
         app_state.joins_target_accounts[user_id] = clean_targets
+        delay_raw = data.get("delay") or {}
+        per_min, per_max = _normalize_range(
+            delay_raw.get("per_target_min", DEFAULT_PER_TARGET_DELAY_MIN),
+            delay_raw.get("per_target_max", DEFAULT_PER_TARGET_DELAY_MAX),
+            DEFAULT_PER_TARGET_DELAY_MIN,
+            DEFAULT_PER_TARGET_DELAY_MAX,
+        )
+        between_min, between_max = _normalize_range(
+            delay_raw.get("between_chats_min", DEFAULT_BETWEEN_CHATS_DELAY_MIN),
+            delay_raw.get("between_chats_max", DEFAULT_BETWEEN_CHATS_DELAY_MAX),
+            DEFAULT_BETWEEN_CHATS_DELAY_MIN,
+            DEFAULT_BETWEEN_CHATS_DELAY_MAX,
+        )
+        app_state.joins_delay_config[user_id] = {
+            "per_target_min": per_min,
+            "per_target_max": per_max,
+            "between_chats_min": between_min,
+            "between_chats_max": between_max,
+        }
 
         if enabled:
             _ensure_worker(user_id)
@@ -211,72 +314,103 @@ async def _join_worker(user_id: int) -> None:
             client = app_state.user_authenticated.get(user_id, {}).get(acc_num)
             if not client:
                 continue
-            await _handle_join_request(client, req)
-            await asyncio.sleep(random.uniform(10, 15))
+            await _handle_join_request(client, req, user_id)
 
-        await asyncio.sleep(random.uniform(5, 10))
+        # Requests from different chats are processed strictly one-by-one
+        # with long cooldown to reduce spam blocks.
+        cfg = get_delay_config(user_id)
+        await asyncio.sleep(random.uniform(cfg["between_chats_min"], cfg["between_chats_max"]))
 
 
-async def _handle_join_request(client, req: dict) -> None:
-    links = req.get("links") or []
-    usernames = req.get("usernames") or []
+async def _handle_join_request(client, req: dict, user_id: int) -> None:
+    links = _unique_preserve_order(req.get("links") or [])
+    usernames = _unique_preserve_order(req.get("usernames") or [])
     chat_id = req.get("chat_id")
+    targets_count = len(links) + len(usernames) + (1 if chat_id is not None else 0)
+    step = 0
+    cfg = get_delay_config(user_id)
+    per_min = cfg["per_target_min"]
+    per_max = cfg["per_target_max"]
 
-    # Try invite links first
+    # Try links from buttons/text. Each target gets its own delay.
     for link in links:
+        step += 1
         invite_hash = _extract_invite_hash(link)
         if invite_hash:
             try:
                 try:
                     entity = await client.get_entity(link)
                     if await _is_already_participant(client, entity):
-                        return
+                        pass
+                    else:
+                        await client(ImportChatInviteRequest(invite_hash))
                 except Exception:
-                    pass
-                await client(ImportChatInviteRequest(invite_hash))
-                return
+                    await client(ImportChatInviteRequest(invite_hash))
             except UserAlreadyParticipantError:
-                return
+                pass
             except Exception:
-                continue
+                pass
         else:
             # Public links like https://t.me/channel_name
             try:
                 entity = await client.get_entity(link)
                 if await _is_already_participant(client, entity):
-                    return
-                await client(JoinChannelRequest(entity))
-                return
+                    pass
+                else:
+                    await client(JoinChannelRequest(entity))
             except UserAlreadyParticipantError:
-                return
+                pass
             except Exception:
-                continue
+                pass
+
+        if step < targets_count:
+            await asyncio.sleep(random.uniform(per_min, per_max))
 
     # Try usernames
     for username in usernames:
+        step += 1
         try:
             entity = await client.get_entity(username)
             if await _is_already_participant(client, entity):
-                return
-            await client(JoinChannelRequest(entity))
-            return
+                pass
+            else:
+                await client(JoinChannelRequest(entity))
         except UserAlreadyParticipantError:
-            return
+            pass
         except Exception:
-            continue
+            pass
+
+        if step < targets_count:
+            await asyncio.sleep(random.uniform(per_min, per_max))
 
     # Try by chat_id
     if chat_id is not None:
+        step += 1
         try:
             entity = await client.get_entity(chat_id)
             if await _is_already_participant(client, entity):
-                return
-            await client(JoinChannelRequest(entity))
-            return
+                pass
+            else:
+                await client(JoinChannelRequest(entity))
         except UserAlreadyParticipantError:
-            return
+            pass
         except Exception:
-            return
+            pass
+
+        if step < targets_count:
+            await asyncio.sleep(random.uniform(per_min, per_max))
+
+
+def _unique_preserve_order(items: List[str]) -> List[str]:
+    out: List[str] = []
+    seen = set()
+    for item in items:
+        key = (item or "").strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(key)
+    return out
 
 
 def _extract_invite_hash(link: str) -> Optional[str]:
