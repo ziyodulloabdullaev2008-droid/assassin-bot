@@ -577,28 +577,19 @@ def remove_tracked_chat(user_id: int, chat_id: int):
 
 
 def get_tracked_chats(user_id: int) -> List[Tuple]:
+    """Получить все отслеживаемые чаты пользователя с retry при database locked"""
 
-    """Получить все отслеживаемые чаты пользователя"""
+    def _get():
+        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT chat_id, chat_name FROM tracked_chats WHERE user_id = ?
+        """, (user_id,))
+        result = cursor.fetchall()
+        conn.close()
+        return result
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
-
-    cursor = conn.cursor()
-
-    
-
-    cursor.execute("""
-
-        SELECT chat_id, chat_name FROM tracked_chats WHERE user_id = ?
-
-    """, (user_id,))
-
-    result = cursor.fetchall()
-
-    conn.close()
-
-    
-
-    return result
+    return _retry_db_operation(_get, max_retries=3, base_delay=0.5)
 
 
 

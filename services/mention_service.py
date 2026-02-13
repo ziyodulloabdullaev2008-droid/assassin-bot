@@ -30,6 +30,8 @@ async def monitor_mentions(
         return
 
     client = app_state.user_authenticated[user_id][account_number]
+    logger.info("Запуск мониторинга упоминаний: user=%s account=%s", user_id, account_number)
+    last_chat_filters = []
 
     try:
         await asyncio.sleep(2)
@@ -52,24 +54,60 @@ async def monitor_mentions(
 
         @client.on(events.NewMessage)
         async def handler(event):
+            nonlocal last_chat_filters
             try:
                 if event.sender_id == my_id:
                     return
 
-                tracked_chats = get_tracked_chats(user_id) or []
-                if get_broadcast_chats:
-                    tracked_chats = list(tracked_chats) + list(get_broadcast_chats(user_id) or [])
+                tracked_chats = []
+                try:
+                    tracked_chats = get_tracked_chats(user_id) or []
+                    if get_broadcast_chats:
+                        tracked_chats = list(tracked_chats) + list(get_broadcast_chats(user_id) or [])
+                    if tracked_chats:
+                        last_chat_filters = tracked_chats
+                except Exception as exc:
+                    if last_chat_filters:
+                        tracked_chats = list(last_chat_filters)
+                        logger.warning(
+                            "Не удалось обновить список чатов (использую кеш) user=%s acc=%s: %s",
+                            user_id,
+                            account_number,
+                            exc,
+                        )
+                    else:
+                        logger.warning(
+                            "Не удалось получить список чатов user=%s acc=%s: %s",
+                            user_id,
+                            account_number,
+                            exc,
+                        )
+                        return
 
                 current_chat_id = normalize_chat_id(event.chat_id)
                 normalized_chat_ids = set()
+                tracked_usernames = set()
                 for chat_id, _ in tracked_chats:
                     try:
                         normalized_chat_ids.add(normalize_chat_id(chat_id))
                     except Exception:
-                        continue
+                        chat_id_str = str(chat_id or "").strip().lower()
+                        if chat_id_str.startswith("@"):
+                            tracked_usernames.add(chat_id_str[1:])
+                        elif chat_id_str:
+                            tracked_usernames.add(chat_id_str)
 
                 if current_chat_id not in normalized_chat_ids:
-                    return
+                    if tracked_usernames:
+                        try:
+                            chat = await event.get_chat()
+                            username = str(getattr(chat, "username", "") or "").lower().strip()
+                            if not username or username not in tracked_usernames:
+                                return
+                        except Exception:
+                            return
+                    else:
+                        return
 
                 message = event.message
                 sender = await event.get_sender()
@@ -153,10 +191,10 @@ async def monitor_mentions(
                                 links=links,
                                 usernames=usernames,
                             )
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning("Ошибка обработки упоминания user=%s acc=%s: %s", user_id, account_number, exc)
             except Exception as exc:
-                logger.debug("mention handler skipped due to error: %s", exc)
+                logger.warning("mention handler error user=%s acc=%s: %s", user_id, account_number, exc)
 
         await client.run_until_disconnected()
     except Exception as exc:
@@ -216,3 +254,11 @@ def stop_mention_monitoring(user_id: int, account_number: Optional[int] = None) 
         if task and not task.done():
             task.cancel()
         app_state.mention_monitors[user_id].pop(account_number, None)
+
+
+def has_running_monitors(user_id: int) -> bool:
+    monitors = app_state.mention_monitors.get(user_id, {})
+    for task in monitors.values():
+        if task and not task.done():
+            return True
+    return False

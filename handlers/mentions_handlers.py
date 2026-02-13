@@ -8,8 +8,13 @@ from aiogram.fsm.state import State, StatesGroup
 from core.state import app_state
 from database import get_tracked_chats, add_tracked_chat, remove_tracked_chat, get_broadcast_chats
 from services.broadcast_profiles_service import get_active_config_id, get_config_detail
-from services.mention_service import stop_mention_monitoring, start_mention_monitoring as start_mention_monitoring_service
+from services.mention_service import (
+    stop_mention_monitoring,
+    start_mention_monitoring as start_mention_monitoring_service,
+    has_running_monitors,
+)
 from services.mention_utils import normalize_chat_id, delete_message_after_delay
+from services.join_service import is_enabled as joins_is_enabled, get_target_accounts as joins_targets
 from database import get_user_accounts
 
 router = Router()
@@ -35,7 +40,7 @@ async def _start_monitoring(bot, user_id: int):
 
 def _build_tracked_menu(user_id: int) -> tuple[str, InlineKeyboardMarkup]:
     chats = get_tracked_chats(user_id)
-    is_monitoring = user_id in app_state.mention_monitors and any(app_state.mention_monitors[user_id].values())
+    is_monitoring = has_running_monitors(user_id)
     monitoring_status = "🟢 Включено" if is_monitoring else "🔴 Выключено"
 
     info = "🔔 <b>ОТСЛЕЖИВАНИЕ УПОМИНАНИЙ</b>\n"
@@ -106,6 +111,32 @@ async def cmd_tracked(message: Message):
     await cmd_tracked_chats_menu(message)
 
 
+@router.message(Command("mdebug"))
+async def cmd_mentions_debug(message: Message):
+    user_id = message.from_user.id
+    monitors = app_state.mention_monitors.get(user_id, {})
+    running = [acc for acc, task in monitors.items() if task and not task.done()]
+    done = [acc for acc, task in monitors.items() if not task or task.done()]
+    tracked = get_tracked_chats(user_id)
+    broadcast = get_broadcast_chats(user_id)
+
+    joins_on = joins_is_enabled(user_id)
+    targets = joins_targets(user_id)
+    targets_text = "all" if not targets else ", ".join(str(x) for x in sorted(targets))
+
+    text = (
+        "🔎 <b>DEBUG</b>\n\n"
+        f"Мониторы запущены: {len(running)}\n"
+        f"Аккаунты running: {running or '[]'}\n"
+        f"Аккаунты done: {done or '[]'}\n"
+        f"Tracked chats: {len(tracked)}\n"
+        f"Broadcast chats: {len(broadcast)}\n"
+        f"Joins enabled: {'yes' if joins_on else 'no'}\n"
+        f"Joins targets: {targets_text}\n"
+    )
+    await message.answer(text, parse_mode="HTML")
+
+
 @router.callback_query(F.data == "delete_tc_menu")
 async def delete_tc_menu_callback(query: CallbackQuery):
     await query.answer()
@@ -121,7 +152,7 @@ async def tc_toggle_monitoring_callback(query: CallbackQuery):
     user_id = query.from_user.id
 
     try:
-        is_monitoring = user_id in app_state.mention_monitors and any(app_state.mention_monitors[user_id].values())
+        is_monitoring = has_running_monitors(user_id)
 
         if is_monitoring:
             stop_mention_monitoring(user_id)
