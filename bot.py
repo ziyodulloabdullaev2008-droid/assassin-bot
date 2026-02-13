@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 
 import asyncio
 
@@ -24,9 +24,13 @@ from telethon.errors import SessionPasswordNeededError, PhoneCodeInvalidError
 
 from core.state import app_state
 
-from core.config import TOKEN, ADMIN_ID, API_ID, API_HASH
+from core.config import TOKEN, ADMIN_ID, API_ID, API_HASH, DEV_LOG_CHAT_ID
 
-from core.logging import setup_logging
+from core.logging import (
+    setup_logging,
+    start_telegram_log_forwarding,
+    stop_telegram_log_forwarding,
+)
 
 from services.session_service import recover_sessions_from_files, load_saved_sessions
 from services.user_paths import session_base_path, temp_session_base_path, user_sessions_dir
@@ -302,6 +306,24 @@ from aiogram.types import Update
 from aiogram.dispatcher.middlewares.base import BaseMiddleware
 
 
+class PrivateOnlyMiddleware(BaseMiddleware):
+
+    """Блокирует обработку апдейтов вне личных чатов."""
+
+    async def __call__(self, handler, event: Update, data: dict):
+        if event.message:
+            chat = event.message.chat
+            if chat and getattr(chat, "type", None) != "private":
+                return
+        elif event.callback_query:
+            msg = event.callback_query.message
+            if not msg:
+                return
+            chat = msg.chat
+            if chat and getattr(chat, "type", None) != "private":
+                return
+        return await handler(event, data)
+
 
 class VIPCheckMiddleware(BaseMiddleware):
 
@@ -485,6 +507,7 @@ class VIPCheckMiddleware(BaseMiddleware):
 
                                                               
 
+dp.update.outer_middleware(PrivateOnlyMiddleware())
 dp.update.outer_middleware(VIPCheckMiddleware())
 
 
@@ -2121,6 +2144,7 @@ async def cmd_logout(message: Message):
 async def main():
 
     setup_logging()
+    await start_telegram_log_forwarding(bot, DEV_LOG_CHAT_ID)
 
     print("🚀 Запуск бота...")
 
@@ -2165,7 +2189,10 @@ async def main():
 
     print("✅ Бот готов к работе!")
 
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await stop_telegram_log_forwarding()
 
 
 
@@ -2193,6 +2220,8 @@ dp.include_router(basic_router)
 if __name__ == "__main__":
 
     asyncio.run(main())
+
+
 
 
 

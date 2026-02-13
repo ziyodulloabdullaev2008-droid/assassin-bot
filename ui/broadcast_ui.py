@@ -73,13 +73,15 @@ def build_broadcast_menu_text(
     info += f"💬 <b>Текстов:</b> {len(config.get('texts', []))} ({mode_text})\n"
     info += f"🔢 <b>Кол-во:</b> {config.get('count', 0)}\n"
     info += f"⏱️ <b>Интервал:</b> {config.get('interval', 0)} мин\n"
-    info += f"⏸️ <b>Пауза между чатами:</b> {config.get('chat_pause', '1-3')} сек\n"
+    info += f"⚡ <b>Темп:</b> {config.get('chat_pause', '1-3')} сек\n"
+    info += "   Темп = задержка между чатами во время активной рассылки.\n"
     limit_count = config.get("plan_limit_count", 0)
     limit_rest = config.get("plan_limit_rest", 0)
     if limit_count and limit_rest:
-        info += f"⏳ <b>Лимит планирования:</b> {limit_count} / отдых {limit_rest} мин\n"
+        info += f"⏳ <b>Лимит:</b> {limit_count} сообщ. / отдых {limit_rest} мин\n"
     else:
-        info += "⏳ <b>Лимит планирования:</b> без лимита\n"
+        info += "⏳ <b>Лимит:</b> без лимита\n"
+    info += "   Лимит = сколько сообщений планируется одновременно и отдых между такими пакетами.\n"
     info += f"💭 <b>Чатов:</b> {len(chats)}\n"
 
     if show_active_count:
