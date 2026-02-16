@@ -370,6 +370,7 @@ async def cfg_export_chats(query: CallbackQuery):
     ws["B1"] = "Имя"
 
     ws["C1"] = "ID"
+    ws["D1"] = "Ссылка"
 
 
 
@@ -377,7 +378,7 @@ async def cfg_export_chats(query: CallbackQuery):
 
     header_font = Font(bold=True, color="FFFFFF")
 
-    for cell in ["A1", "B1", "C1"]:
+    for cell in ["A1", "B1", "C1", "D1"]:
 
         ws[cell].fill = header_fill
 
@@ -387,7 +388,17 @@ async def cfg_export_chats(query: CallbackQuery):
 
 
 
-    for idx, (chat_id, chat_name) in enumerate(chats, 1):
+    for idx, item in enumerate(chats, 1):
+        if isinstance(item, dict):
+            chat_id = item.get("chat_id", item.get("id"))
+            chat_name = item.get("chat_name", item.get("name", ""))
+            chat_link = item.get("chat_link", item.get("link", ""))
+        elif isinstance(item, (list, tuple)):
+            chat_id = item[0] if len(item) > 0 else ""
+            chat_name = item[1] if len(item) > 1 else ""
+            chat_link = item[2] if len(item) > 2 else ""
+        else:
+            continue
 
         ws[f"A{idx+1}"] = idx
 
@@ -396,6 +407,7 @@ async def cfg_export_chats(query: CallbackQuery):
         cell = ws[f"C{idx+1}"]
         cell.value = str(chat_id)
         cell.number_format = "@"
+        ws[f"D{idx+1}"] = str(chat_link or "")
 
 
 
@@ -404,6 +416,7 @@ async def cfg_export_chats(query: CallbackQuery):
     ws.column_dimensions["B"].width = 40
 
     ws.column_dimensions["C"].width = 20
+    ws.column_dimensions["D"].width = 40
 
 
 

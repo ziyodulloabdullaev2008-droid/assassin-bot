@@ -75,6 +75,7 @@ user_authenticated = app_state.user_authenticated
 broadcast_update_lock = app_state.broadcast_update_lock
 
 active_broadcasts = app_state.active_broadcasts
+LOGIN_REQUIRED_TEXT = "\u274c \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u043e\u0439\u0434\u0438 \u0447\u0435\u0440\u0435\u0437 /login"
 
 def save_broadcast_config_with_profile(user_id: int, config: dict) -> None:
 
@@ -84,13 +85,36 @@ def save_broadcast_config_with_profile(user_id: int, config: dict) -> None:
 
     sync_active_config_from_db(user_id)
 
-def add_broadcast_chat_with_profile(user_id: int, chat_id: int, chat_name: str) -> None:
+def _detect_chat_link(chat_input: str | None = None, chat_entity=None) -> str | None:
+    if chat_entity is not None:
+        username = getattr(chat_entity, "username", None)
+        if username:
+            return f"https://t.me/{username}"
+
+    value = (chat_input or "").strip()
+    if not value:
+        return None
+
+    if value.startswith("@") and len(value) > 1:
+        return f"https://t.me/{value[1:]}"
+
+    lower = value.lower()
+    if lower.startswith("https://t.me/"):
+        return value
+    if lower.startswith("http://t.me/"):
+        return "https://" + value[len("http://"):]
+
+    return None
+
+
+def add_broadcast_chat_with_profile(user_id: int, chat_id: int, chat_name: str, chat_link: str | None = None) -> bool:
 
     ensure_active_config(user_id)
 
-    add_broadcast_chat(user_id, chat_id, chat_name)
+    added = add_broadcast_chat(user_id, chat_id, chat_name, chat_link=chat_link)
 
     sync_active_config_from_db(user_id)
+    return added
 
 def remove_broadcast_chat_with_profile(user_id: int, chat_id: int) -> None:
 
@@ -287,7 +311,7 @@ async def cmd_broadcast_menu(message: Message):
 
     if user_id not in user_authenticated:
 
-        await message.answer("Ты не залогирован! Используй /login")
+        await message.answer(LOGIN_REQUIRED_TEXT)
 
         return
 
@@ -2247,7 +2271,7 @@ async def start_broadcast_button(message: Message):
 
     if user_id not in user_authenticated or not user_authenticated[user_id]:
 
-        await message.answer("❌ Ты не залогирован!")
+        await message.answer(LOGIN_REQUIRED_TEXT)
 
         return
 
@@ -2307,7 +2331,7 @@ async def start_broadcast_button(message: Message):
 
         if not buttons:
 
-            await message.answer("❌ Нет подключенных аккаунтов!")
+            await message.answer(LOGIN_REQUIRED_TEXT)
 
             return
 
@@ -2465,7 +2489,7 @@ async def process_add_broadcast_chat_with_profile(message: Message, state: FSMCo
 
         if user_id not in user_authenticated or not user_authenticated[user_id]:
 
-            await message.answer("❌ Ты не залогирован!")
+            await message.answer(LOGIN_REQUIRED_TEXT)
 
             await state.clear()
 
@@ -2480,6 +2504,7 @@ async def process_add_broadcast_chat_with_profile(message: Message, state: FSMCo
         chat_id = None
 
         chat_name = None
+        chat_link = None
 
         # Пытаемся получить информацию о чате
 
@@ -2524,6 +2549,7 @@ async def process_add_broadcast_chat_with_profile(message: Message, state: FSMCo
                             title = f"user{chat.id}"
 
                         chat_name = str(title) if title else f"Чат {chat_id}"
+                        chat_link = _detect_chat_link(chat_input, chat)
 
                     else:
 
@@ -2548,6 +2574,7 @@ async def process_add_broadcast_chat_with_profile(message: Message, state: FSMCo
                                 title = f"user{chat.id}"
 
                             chat_name = str(title) if title else f"Чат {chat_id}"
+                            chat_link = _detect_chat_link(chat_input, chat)
 
                         else:
 
@@ -2584,6 +2611,7 @@ async def process_add_broadcast_chat_with_profile(message: Message, state: FSMCo
                             title = f"user{chat.id}"
 
                         chat_name = str(title) if title else f"Чат {chat_id}"
+                        chat_link = _detect_chat_link(chat_input, chat)
 
                     else:
 
@@ -2613,9 +2641,17 @@ async def process_add_broadcast_chat_with_profile(message: Message, state: FSMCo
 
             return
 
+        if not chat_link:
+            chat_link = _detect_chat_link(chat_input, None)
+
         # Добавляем чат в БД
 
-        added = add_broadcast_chat_with_profile(user_id, chat_id, chat_name or f"Чат {chat_id}")
+        added = add_broadcast_chat_with_profile(
+            user_id,
+            chat_id,
+            chat_name or f"Чат {chat_id}",
+            chat_link=chat_link,
+        )
 
         # Отправляем уведомление
 
@@ -2669,7 +2705,7 @@ async def select_chat_callback(query: CallbackQuery, state: FSMContext):
 
         if user_id not in user_authenticated or not user_authenticated[user_id]:
 
-            await query.answer("❌ Ты не залогирован!", show_alert=True)
+            await query.answer(LOGIN_REQUIRED_TEXT, show_alert=True)
 
             return
 
@@ -2688,10 +2724,11 @@ async def select_chat_callback(query: CallbackQuery, state: FSMContext):
                 entity = dialog.entity
 
                 chat_name = entity.title if hasattr(entity, 'title') else (entity.first_name or str(chat_id))
+                chat_link = _detect_chat_link(None, entity)
 
                 # Добавляем чат
 
-                added = add_broadcast_chat_with_profile(user_id, chat_id, chat_name)
+                added = add_broadcast_chat_with_profile(user_id, chat_id, chat_name, chat_link=chat_link)
 
                 state_data = await state.get_data()
 

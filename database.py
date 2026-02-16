@@ -148,11 +148,18 @@ def init_db():
 
             chat_name TEXT,
 
+            chat_link TEXT,
+
             UNIQUE(user_id, chat_id)
 
         )
 
     """)
+
+    cursor.execute("PRAGMA table_info(broadcast_chats)")
+    broadcast_chat_columns = {row[1] for row in cursor.fetchall()}
+    if "chat_link" not in broadcast_chat_columns:
+        cursor.execute("ALTER TABLE broadcast_chats ADD COLUMN chat_link TEXT")
 
     
 
@@ -623,7 +630,26 @@ def is_chat_tracked(user_id: int, chat_id: int) -> bool:
 
 
 
-def add_broadcast_chat(user_id: int, chat_id: int, chat_name: str) -> bool:
+def _normalize_chat_link(chat_link: Optional[str]) -> Optional[str]:
+    """Normalize chat link to https://t.me/... format."""
+    if chat_link is None:
+        return None
+
+    value = str(chat_link).strip()
+    if not value:
+        return None
+
+    lower = value.lower()
+    if value.startswith("@") and len(value) > 1:
+        return f"https://t.me/{value[1:]}"
+    if lower.startswith("https://t.me/"):
+        return value
+    if lower.startswith("http://t.me/"):
+        return "https://" + value[len("http://"):]
+    return value
+
+
+def add_broadcast_chat(user_id: int, chat_id: int, chat_name: str, chat_link: Optional[str] = None) -> bool:
 
     """Добавить чат в рассылку. Возвращает True если успешно, False если чат уже есть"""
 
@@ -635,13 +661,15 @@ def add_broadcast_chat(user_id: int, chat_id: int, chat_name: str) -> bool:
 
     try:
 
+        normalized_link = _normalize_chat_link(chat_link)
+
         cursor.execute("""
 
-            INSERT INTO broadcast_chats (user_id, chat_id, chat_name)
+            INSERT INTO broadcast_chats (user_id, chat_id, chat_name, chat_link)
 
-            VALUES (?, ?, ?)
+            VALUES (?, ?, ?, ?)
 
-        """, (user_id, chat_id, chat_name))
+        """, (user_id, chat_id, chat_name, normalized_link))
 
         conn.commit()
 
@@ -651,6 +679,27 @@ def add_broadcast_chat(user_id: int, chat_id: int, chat_name: str) -> bool:
 
     except sqlite3.IntegrityError:
 
+        normalized_link = _normalize_chat_link(chat_link)
+        if normalized_link:
+            cursor.execute(
+                """
+                UPDATE broadcast_chats
+                SET chat_name = ?, chat_link = ?
+                WHERE user_id = ? AND chat_id = ?
+                """,
+                (chat_name, normalized_link, user_id, chat_id),
+            )
+        else:
+            cursor.execute(
+                """
+                UPDATE broadcast_chats
+                SET chat_name = ?
+                WHERE user_id = ? AND chat_id = ?
+                """,
+                (chat_name, user_id, chat_id),
+            )
+
+        conn.commit()
         conn.close()
 
         return False
@@ -710,6 +759,34 @@ def get_broadcast_chats(user_id: int) -> List[Tuple]:
         return result
 
     
+
+    return _retry_db_operation(_get, max_retries=3, base_delay=0.5)
+
+
+def get_broadcast_chats_with_links(user_id: int) -> List[Tuple]:
+
+    """Return broadcast chats as (chat_id, chat_name, chat_link)."""
+
+    def _get():
+
+        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT chat_id, chat_name, chat_link
+            FROM broadcast_chats
+            WHERE user_id = ?
+            """,
+            (user_id,),
+        )
+
+        result = cursor.fetchall()
+
+        conn.close()
+
+        return result
 
     return _retry_db_operation(_get, max_retries=3, base_delay=0.5)
 

@@ -26,6 +26,7 @@ from services.join_service import (
 
 router = Router()
 mass_join_tasks: dict[int, asyncio.Task] = {}
+LOGIN_REQUIRED_TEXT = "\u274c \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u043e\u0439\u0434\u0438 \u0447\u0435\u0440\u0435\u0437 /login"
 
 CHATS_JOIN_DELAY_MIN = 15
 CHATS_JOIN_DELAY_MAX = 25
@@ -42,6 +43,24 @@ class JoinsSettingsState(StatesGroup):
 class ChatsJoinState(StatesGroup):
     selecting_accounts = State()
     waiting_targets = State()
+
+
+def _has_logged_accounts(user_id: int) -> bool:
+    return bool(app_state.user_authenticated.get(user_id))
+
+
+async def _ensure_logged_message(message: Message) -> bool:
+    if _has_logged_accounts(message.from_user.id):
+        return True
+    await message.answer(LOGIN_REQUIRED_TEXT)
+    return False
+
+
+async def _ensure_logged_query(query: CallbackQuery) -> bool:
+    if _has_logged_accounts(query.from_user.id):
+        return True
+    await query.answer(LOGIN_REQUIRED_TEXT, show_alert=True)
+    return False
 
 
 def _parse_range(text: str) -> tuple[int, int] | None:
@@ -156,7 +175,7 @@ def _get_connected_accounts(user_id: int) -> list[tuple[int, str]]:
 def _build_chats_accounts_text(user_id: int, selected: set[int]) -> str:
     connected = _get_connected_accounts(user_id)
     if not connected:
-        return "❌ Нет подключенных аккаунтов. Сначала войди через /login"
+        return LOGIN_REQUIRED_TEXT
 
     selected_count = len([acc for acc, _ in connected if acc in selected])
     total_targets = len(connected)
@@ -241,12 +260,18 @@ def _extract_invite_hash(link: str) -> str | None:
 
 @router.message(Command("joins"))
 async def joins_menu(message: Message):
+    if not await _ensure_logged_message(message):
+        return
+
     user_id = message.from_user.id
     await message.answer(_build_text(user_id), reply_markup=_build_menu(user_id), parse_mode="HTML")
 
 
 @router.callback_query(F.data == "joins_toggle")
 async def joins_toggle_callback(query: CallbackQuery):
+    if not await _ensure_logged_query(query):
+        return
+
     user_id = query.from_user.id
     set_enabled(user_id, not is_enabled(user_id))
     await query.answer()
@@ -255,6 +280,9 @@ async def joins_toggle_callback(query: CallbackQuery):
 
 @router.callback_query(F.data == "joins_all")
 async def joins_all_callback(query: CallbackQuery):
+    if not await _ensure_logged_query(query):
+        return
+
     user_id = query.from_user.id
     set_target_accounts(user_id, None)
     await query.answer()
@@ -263,6 +291,9 @@ async def joins_all_callback(query: CallbackQuery):
 
 @router.callback_query(F.data.startswith("joins_acc_"))
 async def joins_acc_callback(query: CallbackQuery):
+    if not await _ensure_logged_query(query):
+        return
+
     user_id = query.from_user.id
     acc_num = int(query.data.split("_")[2])
     selected = get_target_accounts(user_id)
@@ -279,6 +310,9 @@ async def joins_acc_callback(query: CallbackQuery):
 
 @router.callback_query(F.data == "joins_settings")
 async def joins_settings_callback(query: CallbackQuery, state: FSMContext):
+    if not await _ensure_logged_query(query):
+        return
+
     await query.answer()
     await state.clear()
     await _show_settings_menu(query, query.from_user.id)
@@ -286,6 +320,9 @@ async def joins_settings_callback(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "joins_set_per_target")
 async def joins_set_per_target_callback(query: CallbackQuery, state: FSMContext):
+    if not await _ensure_logged_query(query):
+        return
+
     user_id = query.from_user.id
     cfg = get_delay_config(user_id)
     await state.set_state(JoinsSettingsState.waiting_per_target_range)
@@ -304,6 +341,9 @@ async def joins_set_per_target_callback(query: CallbackQuery, state: FSMContext)
 
 @router.callback_query(F.data == "joins_set_between_chats")
 async def joins_set_between_chats_callback(query: CallbackQuery, state: FSMContext):
+    if not await _ensure_logged_query(query):
+        return
+
     user_id = query.from_user.id
     cfg = get_delay_config(user_id)
     await state.set_state(JoinsSettingsState.waiting_between_chats_range)
@@ -322,6 +362,9 @@ async def joins_set_between_chats_callback(query: CallbackQuery, state: FSMConte
 
 @router.callback_query(F.data == "joins_settings_back")
 async def joins_settings_back_callback(query: CallbackQuery, state: FSMContext):
+    if not await _ensure_logged_query(query):
+        return
+
     await query.answer()
     await state.clear()
     await _safe_refresh_main(query, query.from_user.id)
@@ -329,6 +372,9 @@ async def joins_settings_back_callback(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "joins_settings_cancel")
 async def joins_settings_cancel_callback(query: CallbackQuery, state: FSMContext):
+    if not await _ensure_logged_query(query):
+        return
+
     await query.answer()
     await state.clear()
     await _show_settings_menu(query, query.from_user.id)
@@ -336,6 +382,10 @@ async def joins_settings_cancel_callback(query: CallbackQuery, state: FSMContext
 
 @router.message(JoinsSettingsState.waiting_per_target_range)
 async def joins_per_target_input(message: Message, state: FSMContext):
+    if not await _ensure_logged_message(message):
+        await state.clear()
+        return
+
     user_id = message.from_user.id
     data = await state.get_data()
     rng = _parse_range(message.text or "")
@@ -373,6 +423,10 @@ async def joins_per_target_input(message: Message, state: FSMContext):
 
 @router.message(JoinsSettingsState.waiting_between_chats_range)
 async def joins_between_chats_input(message: Message, state: FSMContext):
+    if not await _ensure_logged_message(message):
+        await state.clear()
+        return
+
     user_id = message.from_user.id
     data = await state.get_data()
     rng = _parse_range(message.text or "")
@@ -410,11 +464,15 @@ async def joins_between_chats_input(message: Message, state: FSMContext):
 
 @router.message(Command("chats"))
 async def chats_join_command(message: Message, state: FSMContext):
+    if not await _ensure_logged_message(message):
+        await state.clear()
+        return
+
     user_id = message.from_user.id
 
     connected = _get_connected_accounts(user_id)
     if not connected:
-        await message.answer("❌ Нет подключенных аккаунтов. Сначала войди через /login")
+        await message.answer(LOGIN_REQUIRED_TEXT)
         return
 
     task = mass_join_tasks.get(user_id)
@@ -434,6 +492,10 @@ async def chats_join_command(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("jc_"))
 async def chats_join_callbacks(query: CallbackQuery, state: FSMContext):
+    if not await _ensure_logged_query(query):
+        await state.clear()
+        return
+
     await query.answer()
     user_id = query.from_user.id
     action = query.data
@@ -507,6 +569,10 @@ async def chats_join_callbacks(query: CallbackQuery, state: FSMContext):
 
 @router.message(ChatsJoinState.waiting_targets)
 async def chats_join_targets_input(message: Message, state: FSMContext):
+    if not await _ensure_logged_message(message):
+        await state.clear()
+        return
+
     user_id = message.from_user.id
     data = await state.get_data()
     selected = set(data.get("chats_selected") or [])

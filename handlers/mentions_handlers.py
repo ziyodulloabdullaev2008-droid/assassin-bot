@@ -18,11 +18,30 @@ from services.join_service import is_enabled as joins_is_enabled, get_target_acc
 from database import get_user_accounts
 
 router = Router()
+LOGIN_REQUIRED_TEXT = "\u274c \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u043e\u0439\u0434\u0438 \u0447\u0435\u0440\u0435\u0437 /login"
 
 
 class TrackedChatsState(StatesGroup):
     waiting_for_chat_id = State()
     waiting_for_number_to_delete = State()
+
+
+def _has_logged_accounts(user_id: int) -> bool:
+    return bool(app_state.user_authenticated.get(user_id))
+
+
+async def _ensure_logged_message(message: Message) -> bool:
+    if _has_logged_accounts(message.from_user.id):
+        return True
+    await message.answer(LOGIN_REQUIRED_TEXT)
+    return False
+
+
+async def _ensure_logged_query(query: CallbackQuery) -> bool:
+    if _has_logged_accounts(query.from_user.id):
+        return True
+    await query.answer(LOGIN_REQUIRED_TEXT, show_alert=True)
+    return False
 
 
 async def _start_monitoring(bot, user_id: int):
@@ -95,6 +114,9 @@ async def show_tracked_menu(message_or_query, user_id: int, menu_message_id: int
 
 @router.message(F.text.contains("Упоминания"))
 async def cmd_tracked_chats_menu(message: Message):
+    if not await _ensure_logged_message(message):
+        return
+
     user_id = message.from_user.id
 
     try:
@@ -148,6 +170,9 @@ async def delete_tc_menu_callback(query: CallbackQuery):
 
 @router.callback_query(F.data == "tc_toggle_monitoring")
 async def tc_toggle_monitoring_callback(query: CallbackQuery):
+    if not await _ensure_logged_query(query):
+        return
+
     await query.answer()
     user_id = query.from_user.id
 
@@ -170,6 +195,9 @@ async def tc_toggle_monitoring_callback(query: CallbackQuery):
 
 @router.callback_query(F.data == "tc_import_from_broadcast")
 async def tc_import_from_broadcast_callback(query: CallbackQuery):
+    if not await _ensure_logged_query(query):
+        return
+
     await query.answer()
     user_id = query.from_user.id
 
@@ -185,7 +213,19 @@ async def tc_import_from_broadcast_callback(query: CallbackQuery):
         return
 
     added_count = 0
-    for chat_id, chat_name in chats:
+    for item in chats:
+        try:
+            if isinstance(item, dict):
+                chat_id = int(item.get("chat_id", item.get("id")))
+                chat_name = str(item.get("chat_name", item.get("name", f"Чат {chat_id}")))
+            elif isinstance(item, (list, tuple)) and len(item) >= 2:
+                chat_id = int(item[0])
+                chat_name = str(item[1])
+            else:
+                continue
+        except Exception:
+            continue
+
         if add_tracked_chat(user_id, chat_id, chat_name):
             added_count += 1
 
@@ -196,6 +236,9 @@ async def tc_import_from_broadcast_callback(query: CallbackQuery):
 
 @router.callback_query(F.data == "tc_add_chat")
 async def tc_add_chat_callback(query: CallbackQuery, state: FSMContext):
+    if not await _ensure_logged_query(query):
+        return
+
     await query.answer()
     await state.set_state(TrackedChatsState.waiting_for_chat_id)
 
@@ -211,6 +254,10 @@ async def tc_add_chat_callback(query: CallbackQuery, state: FSMContext):
 
 @router.message(TrackedChatsState.waiting_for_chat_id)
 async def process_add_tracked_chat(message: Message, state: FSMContext):
+    if not await _ensure_logged_message(message):
+        await state.clear()
+        return
+
     user_id = message.from_user.id
     raw_input = (message.text or "").strip()
     lines = [line.strip() for line in raw_input.replace(",", "\n").splitlines() if line.strip()]
@@ -270,6 +317,9 @@ async def process_add_tracked_chat(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "tc_delete_chat")
 async def tc_delete_chat_callback(query: CallbackQuery, state: FSMContext):
+    if not await _ensure_logged_query(query):
+        return
+
     await query.answer()
     user_id = query.from_user.id
     chats = get_tracked_chats(user_id)
@@ -298,6 +348,10 @@ async def tc_delete_chat_callback(query: CallbackQuery, state: FSMContext):
 
 @router.message(TrackedChatsState.waiting_for_number_to_delete)
 async def process_delete_tracked_chat(message: Message, state: FSMContext):
+    if not await _ensure_logged_message(message):
+        await state.clear()
+        return
+
     user_id = message.from_user.id
     data = await state.get_data()
     menu_message_id = data.get("menu_message_id")
@@ -340,6 +394,9 @@ async def process_delete_tracked_chat(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "tc_delete_all")
 async def tc_delete_all_callback(query: CallbackQuery, state: FSMContext):
+    if not await _ensure_logged_query(query):
+        return
+
     await query.answer()
     user_id = query.from_user.id
     chats = get_tracked_chats(user_id)

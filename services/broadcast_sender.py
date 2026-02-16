@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 from core.state import app_state
 from services.broadcast_config_service import get_broadcast_config
 from services.broadcast_service import update_progress, set_status, mark_error
-from services.join_service import enqueue_join, should_enqueue_from_error
 
 
 async def schedule_broadcast_send(
@@ -123,8 +122,6 @@ async def schedule_broadcast_send(
                     error_str = str(e).lower()
                     if "floodwait" in error_str or "too many requests" in error_str or "420" in error_str:
                         pass
-                    if should_enqueue_from_error(error_str):
-                        await enqueue_join(user_id, chat_id=chat_id)
                     failed_count += 1
 
                 scheduled_since_rest += 1

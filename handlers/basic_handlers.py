@@ -3,7 +3,8 @@ from aiogram.filters.command import Command
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.fsm.context import FSMContext
 
-from database import add_or_update_user
+from core.state import app_state
+from database import add_or_update_user, add_user_account_with_number
 from ui.main_menu_ui import get_main_menu_keyboard
 
 router = Router()
@@ -30,7 +31,38 @@ async def cmd_start(message: Message):
 @router.message(Command("restart"))
 async def cmd_restart(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer("Главное меню обновлено", reply_markup=get_main_menu_keyboard())
+
+    user_id = message.from_user.id
+    synced = 0
+    total = 0
+
+    user_clients = app_state.user_authenticated.get(user_id, {}) or {}
+    for account_number, client in user_clients.items():
+        total += 1
+        try:
+            if not client.is_connected():
+                await client.connect()
+
+            me = await client.get_me()
+            if me:
+                add_user_account_with_number(
+                    user_id,
+                    account_number,
+                    me.id,
+                    me.username or "",
+                    me.first_name or "User",
+                    me.phone or "",
+                )
+                synced += 1
+        except Exception:
+            continue
+
+    if total > 0:
+        text = f"Главное меню обновлено\nСинхронизировано аккаунтов: {synced}/{total}"
+    else:
+        text = "Главное меню обновлено"
+
+    await message.answer(text, reply_markup=get_main_menu_keyboard())
 
 
 @router.message(Command("help"))

@@ -87,8 +87,16 @@ async def recover_sessions_from_files(api_id: int, api_hash: str) -> bool:
     return recovered > 0
 
 
-async def load_saved_sessions(api_id: int, api_hash: str, on_loaded: Optional[callable] = None) -> None:
-    """Загружает сохраненные сессии при старте."""
+async def load_saved_sessions(
+    api_id: int,
+    api_hash: str,
+    on_loaded: Optional[callable] = None,
+    connect_on_start: bool = True,
+) -> None:
+    """Загружает сохраненные сессии при старте.
+
+    connect_on_start=False: ленивый режим, клиенты создаются без connect().
+    """
     users = get_all_users()
     logger.info("Найдено пользователей в БД: %s", len(users))
 
@@ -105,7 +113,13 @@ async def load_saved_sessions(api_id: int, api_hash: str, on_loaded: Optional[ca
     if accounts_to_load:
         loaded = 0
         for user_id, account_number in accounts_to_load:
-            ok = await _load_single_session(api_id, api_hash, user_id, account_number)
+            ok = await _load_single_session(
+                api_id,
+                api_hash,
+                user_id,
+                account_number,
+                connect_on_start=connect_on_start,
+            )
             if ok:
                 loaded += 1
             await asyncio.sleep(0.15)
@@ -115,7 +129,14 @@ async def load_saved_sessions(api_id: int, api_hash: str, on_loaded: Optional[ca
         await on_loaded()
 
 
-async def _load_single_session(api_id: int, api_hash: str, user_id: int, account_number: int) -> bool:
+async def _load_single_session(
+    api_id: int,
+    api_hash: str,
+    user_id: int,
+    account_number: int,
+    *,
+    connect_on_start: bool = True,
+) -> bool:
     try:
         # Skip duplicates when account is already restored/loaded in memory.
         existing = app_state.user_authenticated.get(user_id, {}).get(account_number)
@@ -139,6 +160,17 @@ async def _load_single_session(api_id: int, api_hash: str, user_id: int, account
             return False
 
         for session_file in candidates:
+            if not connect_on_start:
+                try:
+                    client = TelegramClient(str(session_file), api_id, api_hash)
+                    async with app_state.user_authenticated_lock:
+                        app_state.user_authenticated.setdefault(user_id, {})
+                        app_state.user_authenticated[user_id][account_number] = client
+                    return True
+                except Exception as exc:
+                    logger.warning("Ошибка ленивой загрузки сессии %s_%s: %s", user_id, account_number, exc)
+                    continue
+
             for attempt in range(2):
                 client = TelegramClient(str(session_file), api_id, api_hash)
                 try:

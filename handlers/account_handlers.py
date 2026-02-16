@@ -9,6 +9,7 @@ from core.state import app_state
 from database import get_user_accounts, add_or_update_user
 
 router = Router()
+LOGIN_REQUIRED_TEXT = "\u274c \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u043e\u0439\u0434\u0438 \u0447\u0435\u0440\u0435\u0437 /login"
 
 # user_id -> account_number
 user_current_account = {}
@@ -25,7 +26,7 @@ def _h(text: str) -> str:
 async def show_accounts_menu(message: Message, user_id: int, edit: bool = False):
     accounts = get_user_accounts(user_id)
     if not accounts:
-        text = "\u041d\u0435\u0442 \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432 \u0432 \u0411\u0414. \u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439 /login"
+        text = LOGIN_REQUIRED_TEXT
         if edit:
             await message.edit_text(text)
         else:
@@ -98,7 +99,7 @@ async def view_account(query: CallbackQuery):
                 f"{status} <b>{first_name_safe}</b> • #{account_number}\n"
                 f"🆔 ID: <code>{telegram_id}</code>\n"
                 f"🔗 Username: @{username_safe}\n\n"
-                "⚠️ Аккаунт не подключен. Используй /login для входа."
+                f"{LOGIN_REQUIRED_TEXT}."
             )
             inline_keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -355,9 +356,9 @@ async def refresh_menu_content(
 
     if user_id not in app_state.user_authenticated or not app_state.user_authenticated[user_id]:
         if query:
-            await query.answer("\u0422\u044b \u043d\u0435 \u0437\u0430\u043b\u043e\u0433\u0438\u043d\u0435\u043d. \u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439 /login", show_alert=True)
+            await query.answer(LOGIN_REQUIRED_TEXT, show_alert=True)
         else:
-            await message.answer("\u0422\u044b \u043d\u0435 \u0437\u0430\u043b\u043e\u0433\u0438\u043d\u0435\u043d. \u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439 /login")
+            await message.answer(LOGIN_REQUIRED_TEXT)
         return
 
     if account_number not in app_state.user_authenticated[user_id]:
@@ -377,55 +378,6 @@ async def refresh_menu_content(
             await client.connect()
 
         me = await client.get_me()
-        dialogs = await client.get_dialogs()
-
-        private_chats = []
-        groups = []
-        channels = []
-        bots = []
-        my_groups = []
-        my_channels = []
-
-        from telethon.types import User, Chat, Channel
-
-        for dialog in dialogs:
-            entity = dialog.entity
-            name = dialog.name
-            username = None
-
-            if hasattr(entity, "username") and entity.username:
-                username = entity.username
-
-            try:
-                if isinstance(entity, User):
-                    if entity.bot:
-                        bots.append((name, dialog.id, username))
-                    else:
-                        private_chats.append((name, dialog.id, username))
-                elif isinstance(entity, Channel):
-                    is_mega = getattr(entity, "megagroup", False)
-                    is_group = getattr(entity, "is_group", False)
-                    is_creator = getattr(entity, "is_creator", False)
-
-                    if is_mega or is_group:
-                        if is_creator:
-                            my_groups.append((name, dialog.id, username))
-                        else:
-                            groups.append((name, dialog.id, username))
-                    else:
-                        if is_creator:
-                            my_channels.append((name, dialog.id, username))
-                        else:
-                            channels.append((name, dialog.id, username))
-                elif isinstance(entity, Chat):
-                    if hasattr(entity, "creator_id") and entity.creator_id == me.id:
-                        my_groups.append((name, dialog.id, username))
-                    else:
-                        groups.append((name, dialog.id, username))
-                else:
-                    private_chats.append((name, dialog.id, username))
-            except Exception:
-                private_chats.append((name, dialog.id, username))
 
         info = (
             "👤 <b>МОЙ АККАУНТ</b>\n"
@@ -434,14 +386,7 @@ async def refresh_menu_content(
             f"🆔 ID: <code>{me.id}</code>\n"
             f"🔗 Username: @{_h(me.username) if me.username else 'не указано'}\n"
             f"📱 Номер: <code>{_h(me.phone)}</code>\n\n"
-            "💬 <b>СТАТИСТИКА ЧАТОВ</b>\n"
-            "━━━━━━━━━━━━━━━━\n"
-            f"👥 Личные: <b>{len(private_chats)}</b>\n"
-            f"🫂 Группы: <b>{len(groups)}</b>\n"
-            f"📢 Каналы: <b>{len(channels)}</b>\n"
-            f"🤖 Боты: <b>{len(bots)}</b>\n"
-            f"⭐ Мои группы: <b>{len(my_groups)}</b>\n"
-            f"⭐ Мои каналы: <b>{len(my_channels)}</b>\n"
+            "ℹ️ Для полного списка и статистики используй кнопку «Список чатов»."
         )
 
         inline_keyboard = InlineKeyboardMarkup(
@@ -452,16 +397,11 @@ async def refresh_menu_content(
             ]
         )
 
-        current_chat_ids = {dialog.id for dialog in dialogs}
-        last_chat_ids = app_state.user_last_dialogs.get(user_id, set())
-        new_chat_ids = current_chat_ids - last_chat_ids
-        app_state.user_last_dialogs[user_id] = current_chat_ids
-
         if query:
             try:
                 await message.edit_text(info, reply_markup=inline_keyboard, parse_mode="HTML", disable_web_page_preview=True)
                 if is_refresh:
-                    notification = f"\u041d\u0430\u0439\u0434\u0435\u043d\u043e {len(new_chat_ids)} \u043d\u043e\u0432\u044b\u0445 \u0447\u0430\u0442\u043e\u0432!" if len(new_chat_ids) > 0 else "\u041d\u0435\u0442 \u043d\u043e\u0432\u044b\u0445 \u0447\u0430\u0442\u043e\u0432. \u0421\u043f\u0438\u0441\u043e\u043a \u0430\u043a\u0442\u0443\u0430\u043b\u0435\u043d"
+                    notification = "Профиль обновлен"
                 else:
                     notification = "\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u0432\u044b\u0431\u0440\u0430\u043d"
                 await query.answer(notification, show_alert=False)
@@ -487,8 +427,6 @@ async def refresh_menu_content(
                 await query.answer("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435.", show_alert=False)
         else:
             await message.answer(info, reply_markup=inline_keyboard, parse_mode="HTML", disable_web_page_preview=True)
-            if len(new_chat_ids) > 0:
-                await message.answer(f"\u041d\u0430\u0439\u0434\u0435\u043d\u043e {len(new_chat_ids)} \u043d\u043e\u0432\u044b\u0445 \u0447\u0430\u0442\u043e\u0432!")
     except Exception as e:
         if query:
             await query.answer(f"\u041e\u0448\u0438\u0431\u043a\u0430: {str(e)}", show_alert=True)

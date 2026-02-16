@@ -32,7 +32,7 @@ from core.logging import (
     stop_telegram_log_forwarding,
 )
 
-from services.session_service import recover_sessions_from_files, load_saved_sessions
+from services.session_service import load_saved_sessions
 from services.user_paths import session_base_path, temp_session_base_path, user_sessions_dir
 
 from services.mention_service import start_mention_monitoring as start_mention_monitoring_service, stop_mention_monitoring
@@ -339,7 +339,15 @@ class VIPCheckMiddleware(BaseMiddleware):
 
                                                                              
 
-    VIP_ONLY_COMMANDS = {'/sa', '/se', '/broadcast', '/track', '/mention', '/settings', '/config'}
+    VIP_ONLY_COMMANDS = {
+        '/sa', '/se', '/broadcast', '/track', '/mention', '/settings', '/config',
+        '/tracked', '/joins', '/chats',
+    }
+
+    VIP_ONLY_TEXT_MARKERS = {
+        'рассылка',
+        'упоминания',
+    }
 
     
 
@@ -406,40 +414,27 @@ class VIPCheckMiddleware(BaseMiddleware):
                 if message.text:
 
                     text_lower = message.text.lower()
+                    restricted = any(text_lower.startswith(cmd) for cmd in self.VIP_ONLY_COMMANDS)
+                    if not restricted:
+                        restricted = any(marker in text_lower for marker in self.VIP_ONLY_TEXT_MARKERS)
 
-                                                                
+                    if restricted:
 
-                    for cmd in self.VIP_ONLY_COMMANDS:
+                        now = datetime.now().timestamp()
+                        last_denial = vip_denial_messages.get(user_id, 0)
 
-                        if text_lower.startswith(cmd):
+                        if now - last_denial > 5:
+                            try:
+                                await message.answer(
+                                    "❌ Доступ ограничен.\n\n"
+                                    "Для получения доступа обратитесь к @assassin_admin"
+                                )
+                            except Exception as e:
+                                print(f"⚠️ Ошибка при отправке сообщения об отказе в доступе: {str(e)}")
 
-                                                                                                                                                           
+                            vip_denial_messages[user_id] = now
 
-                            now = datetime.now().timestamp()
-
-                            last_denial = vip_denial_messages.get(user_id, 0)
-
-                            
-
-                            if now - last_denial > 5:                                                                                         
-
-                                try:
-
-                                    await message.answer(
-
-                                        "❌ Доступ ограничен.\n\n"
-
-                                        "Для получения доступа обратитесь к @assassin_admin"
-
-                                    )
-
-                                except Exception as e:
-
-                                    print(f"⚠️ Ошибка при отправке сообщения об отказе в доступе: {str(e)}")
-
-                                vip_denial_messages[user_id] = now
-
-                            return                                 
+                        return
 
                 
 
@@ -814,11 +809,6 @@ async def toggle_account(query: CallbackQuery):
                     
 
                                                                                                                      
-
-                    await start_mention_monitoring(bot_user_id)
-
-
-                    
 
                     await query.answer("🟢 Аккаунт включен", show_alert=False)
 
@@ -1865,10 +1855,6 @@ async def process_password(message: Message, state: FSMContext):
 
                                                                           
 
-            await start_mention_monitoring(user_id)
-
-            
-
             await message.answer("✅ Отлично! Ты успешно вошел в аккаунт!", reply_markup=get_main_menu_keyboard())
 
             set_user_logged_in(user_id, True)
@@ -2059,10 +2045,6 @@ async def process_password(message: Message, state: FSMContext):
 
                                                                       
 
-        await start_mention_monitoring(user_id)
-
-        
-
         await message.answer("✅ Успешно! Ты вошел в свой аккаунт Telegram!", reply_markup=get_main_menu_keyboard())
 
         set_user_logged_in(user_id, True)
@@ -2152,23 +2134,7 @@ async def main():
 
 
 
-    async def _start_monitors_for_loaded():
-
-        for user_id in list(user_authenticated.keys()):
-
-            await start_mention_monitoring(user_id)
-
-
-
-                                                                 
-
-    await recover_sessions_from_files(API_ID, API_HASH)
-
-
-
-                                             
-
-    await load_saved_sessions(API_ID, API_HASH, on_loaded=_start_monitors_for_loaded)
+    await load_saved_sessions(API_ID, API_HASH, connect_on_start=False)
 
     
 

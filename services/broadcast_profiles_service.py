@@ -13,6 +13,7 @@ from core.state import app_state
 from database import (
 
     get_broadcast_chats,
+    get_broadcast_chats_with_links,
 
     add_broadcast_chat,
 
@@ -66,6 +67,30 @@ def _save_user_store(user_id: int, store: dict) -> None:
         json.dump(store, f, ensure_ascii=False, indent=2)
 
 
+def _normalize_chat_item(item) -> tuple[int, str, str | None] | None:
+    if isinstance(item, dict):
+        chat_id_raw = item.get("chat_id", item.get("id"))
+        chat_name_raw = item.get("chat_name", item.get("name"))
+        chat_link_raw = item.get("chat_link", item.get("link"))
+    elif isinstance(item, (list, tuple)) and len(item) >= 2:
+        chat_id_raw = item[0]
+        chat_name_raw = item[1]
+        chat_link_raw = item[2] if len(item) >= 3 else None
+    else:
+        return None
+
+    try:
+        chat_id = int(chat_id_raw)
+    except (TypeError, ValueError):
+        return None
+
+    chat_name = str(chat_name_raw or f"Чат {chat_id}").strip() or f"Чат {chat_id}"
+    chat_link = str(chat_link_raw).strip() if chat_link_raw else None
+    if not chat_link:
+        chat_link = None
+    return chat_id, chat_name, chat_link
+
+
 def list_configs(user_id: int) -> list[tuple[int, str, bool]]:
 
     store = _load_user_store(user_id)
@@ -102,7 +127,7 @@ def _snapshot_current(user_id: int) -> dict:
 
     config = get_broadcast_config(user_id)
 
-    chats = get_broadcast_chats(user_id)
+    chats = get_broadcast_chats_with_links(user_id)
 
     return {"config": config, "chats": chats}
 
@@ -122,9 +147,14 @@ def _apply_snapshot(user_id: int, config: dict, chats: list[tuple]) -> None:
 
         remove_broadcast_chat(user_id, chat_id)
 
-    for chat_id, chat_name in chats:
+    for item in chats:
 
-        add_broadcast_chat(user_id, chat_id, chat_name)
+        normalized = _normalize_chat_item(item)
+        if not normalized:
+            continue
+
+        chat_id, chat_name, chat_link = normalized
+        add_broadcast_chat(user_id, chat_id, chat_name, chat_link=chat_link)
 
 
 
@@ -378,23 +408,10 @@ def import_config_payload(user_id: int, payload: dict) -> int | None:
 
         for item in chats_raw:
 
-            if not isinstance(item, (list, tuple)) or len(item) < 2:
-
+            normalized = _normalize_chat_item(item)
+            if not normalized:
                 continue
-
-            chat_id_raw, chat_name_raw = item[0], item[1]
-
-            try:
-
-                chat_id = int(chat_id_raw)
-
-            except (TypeError, ValueError):
-
-                continue
-
-            chat_name = str(chat_name_raw)
-
-            chats.append((chat_id, chat_name))
+            chats.append(normalized)
 
 
 

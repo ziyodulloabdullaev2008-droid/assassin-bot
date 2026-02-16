@@ -14,13 +14,16 @@ def setup_logging(level: int = logging.INFO) -> None:
     logging.basicConfig(
         level=level,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        force=True,
     )
     # Reduce noisy Telethon informational chatter in all outputs.
     logging.getLogger("telethon.network.mtprotosender").setLevel(logging.WARNING)
     logging.getLogger("telethon.client.updates").setLevel(logging.WARNING)
+    logging.getLogger("telethon").setLevel(logging.WARNING)
     # Keep aiogram only on warnings/errors to avoid per-update spam.
     logging.getLogger("aiogram.event").setLevel(logging.WARNING)
     logging.getLogger("aiogram.dispatcher").setLevel(logging.WARNING)
+    logging.getLogger("aiogram").setLevel(logging.WARNING)
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -29,9 +32,13 @@ def get_logger(name: str) -> logging.Logger:
 
 def _should_skip_record(record: logging.LogRecord) -> bool:
     name = (record.name or "").lower()
-    if name.startswith("telethon.network.mtprotosender"):
+    if name.startswith("telethon.network.mtprotosender") and record.levelno < logging.WARNING:
         return True
-    if name.startswith("telethon.client.updates"):
+    if name.startswith("telethon.client.updates") and record.levelno < logging.WARNING:
+        return True
+    if name.startswith("aiogram.event") and record.levelno < logging.WARNING:
+        return True
+    if name.startswith("aiogram.dispatcher") and record.levelno < logging.WARNING:
         return True
     return False
 
@@ -67,7 +74,8 @@ def _split_chunks(text: str, max_len: int = 3800) -> list[str]:
 
 class _TelegramQueueLogHandler(logging.Handler):
     def __init__(self, queue: asyncio.Queue):
-        super().__init__(level=logging.INFO)
+        # Developer chat receives only warning/error to avoid spam.
+        super().__init__(level=logging.WARNING)
         self.queue = queue
         self.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
 
