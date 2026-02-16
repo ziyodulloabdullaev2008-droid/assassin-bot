@@ -330,6 +330,16 @@ async def close_bc_menu_callback(query: CallbackQuery):
     except Exception:
         pass
 
+
+@router.callback_query(F.data.in_(["delete_bc_menu", "delete_bs_menu"]))
+async def delete_bc_menu_callback(query: CallbackQuery):
+    """Close broadcast menu message (legacy callbacks supported)."""
+    await query.answer()
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+
 @router.callback_query(F.data == "bc_text")
 
 async def bc_text_callback(query: CallbackQuery, state: FSMContext):

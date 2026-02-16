@@ -1121,6 +1121,12 @@ async def cmd_login(message: Message, state: FSMContext):
 
     )
 
+    guide_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🎥 Видеогайд", url="https://t.me/assassin2026gaides/2")]
+        ]
+    )
+
     
 
     await message.answer(
@@ -1137,6 +1143,11 @@ async def cmd_login(message: Message, state: FSMContext):
 
         reply_markup=keyboard
 
+    )
+
+    await message.answer(
+        "Если нужна помощь по входу, открой видеоинструкцию:",
+        reply_markup=guide_keyboard,
     )
 
 

@@ -4,7 +4,7 @@ import re
 from typing import Optional, Callable
 
 from telethon import events
-from telethon.tl.types import MessageEntityMentionName
+from telethon.tl.types import MessageEntityMentionName, User
 
 from core.logging import get_logger
 from core.state import app_state
@@ -51,6 +51,18 @@ def _format_join_targets(links: list[str], usernames: list[str], limit: int = 6)
     if hidden:
         rows.append(f"• и еще {hidden}")
     return "\n".join(rows) if rows else "• не распознаны"
+
+
+def _build_sender_profile_url(sender, sender_id: Optional[int]) -> Optional[str]:
+    sender_username = str(getattr(sender, "username", "") or "").strip().lstrip("@")
+    if sender_username and re.fullmatch(r"[A-Za-z0-9_]{4,}", sender_username):
+        return f"https://t.me/{sender_username}"
+
+    # Fallback by numeric ID only for actual User entities.
+    if isinstance(sender, User) and isinstance(sender_id, int) and sender_id > 0:
+        return f"tg://user?id={sender_id}"
+
+    return None
 
 
 async def monitor_mentions(
@@ -226,8 +238,11 @@ async def monitor_mentions(
                     sender_id = getattr(sender, "id", None)
                     if not isinstance(sender_id, int):
                         sender_id = event.sender_id
-                    if isinstance(sender_id, int) and sender_id > 0:
-                        buttons[0].append(InlineKeyboardButton(text="👤 Профиль", url=f"tg://user?id={sender_id}"))
+                    sender_profile_url = _build_sender_profile_url(sender, sender_id)
+                    if sender_profile_url:
+                        buttons[0].append(
+                            InlineKeyboardButton(text="👤 Профиль", url=sender_profile_url)
+                        )
 
                     try:
                         kb = InlineKeyboardMarkup(inline_keyboard=buttons)
