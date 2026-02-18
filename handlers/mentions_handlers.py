@@ -1,12 +1,22 @@
-﻿import asyncio
+import asyncio
 from aiogram import Router, F
 from aiogram.filters.command import Command
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from aiogram.types import (
+    Message,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    CallbackQuery,
+)
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from core.state import app_state
-from database import get_tracked_chats, add_tracked_chat, remove_tracked_chat, get_broadcast_chats
+from database import (
+    get_tracked_chats,
+    add_tracked_chat,
+    remove_tracked_chat,
+    get_broadcast_chats,
+)
 from services.broadcast_profiles_service import get_active_config_id, get_config_detail
 from services.mention_service import (
     stop_mention_monitoring,
@@ -14,7 +24,10 @@ from services.mention_service import (
     has_running_monitors,
 )
 from services.mention_utils import normalize_chat_id, delete_message_after_delay
-from services.join_service import is_enabled as joins_is_enabled, get_target_accounts as joins_targets
+from services.join_service import (
+    is_enabled as joins_is_enabled,
+    get_target_accounts as joins_targets,
+)
 from database import get_user_accounts
 
 router = Router()
@@ -76,20 +89,36 @@ def _build_tracked_menu(user_id: int) -> tuple[str, InlineKeyboardMarkup]:
     toggle_text = "⏸️ Выключить" if is_monitoring else "▶️ Включить"
     buttons = []
     if chats:
-        buttons.append([
-            InlineKeyboardButton(text="➕ Добавить", callback_data="tc_add_chat"),
-            InlineKeyboardButton(text="🗑️ Удалить", callback_data="tc_delete_chat"),
-        ])
+        buttons.append(
+            [
+                InlineKeyboardButton(text="➕ Добавить", callback_data="tc_add_chat"),
+                InlineKeyboardButton(text="🗑️ Удалить", callback_data="tc_delete_chat"),
+            ]
+        )
     else:
-        buttons.append([InlineKeyboardButton(text="➕ Добавить", callback_data="tc_add_chat")])
+        buttons.append(
+            [InlineKeyboardButton(text="➕ Добавить", callback_data="tc_add_chat")]
+        )
 
-    buttons.append([InlineKeyboardButton(text="⬇️ Загрузить с рассылки", callback_data="tc_import_from_broadcast")])
-    buttons.append([InlineKeyboardButton(text=toggle_text, callback_data="tc_toggle_monitoring")])
-    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="delete_tc_menu")])
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="⬇️ Загрузить с рассылки", callback_data="tc_import_from_broadcast"
+            )
+        ]
+    )
+    buttons.append(
+        [InlineKeyboardButton(text=toggle_text, callback_data="tc_toggle_monitoring")]
+    )
+    buttons.append(
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="delete_tc_menu")]
+    )
     return info, InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-async def show_tracked_menu(message_or_query, user_id: int, menu_message_id: int | None = None) -> None:
+async def show_tracked_menu(
+    message_or_query, user_id: int, menu_message_id: int | None = None
+) -> None:
     info, kb = _build_tracked_menu(user_id)
 
     if menu_message_id is not None and isinstance(message_or_query, Message):
@@ -105,7 +134,11 @@ async def show_tracked_menu(message_or_query, user_id: int, menu_message_id: int
         except Exception:
             pass
 
-    target = message_or_query.message if hasattr(message_or_query, "message") else message_or_query
+    target = (
+        message_or_query.message
+        if hasattr(message_or_query, "message")
+        else message_or_query
+    )
     try:
         await target.edit_text(info, reply_markup=kb, parse_mode="HTML")
     except Exception:
@@ -188,7 +221,9 @@ async def tc_toggle_monitoring_callback(query: CallbackQuery):
 
         await query.answer(notification, show_alert=True)
 
-        await show_tracked_menu(query, user_id, menu_message_id=query.message.message_id)
+        await show_tracked_menu(
+            query, user_id, menu_message_id=query.message.message_id
+        )
     except Exception:
         await query.answer("❌ Ошибка", show_alert=True)
 
@@ -217,7 +252,9 @@ async def tc_import_from_broadcast_callback(query: CallbackQuery):
         try:
             if isinstance(item, dict):
                 chat_id = int(item.get("chat_id", item.get("id")))
-                chat_name = str(item.get("chat_name", item.get("name", f"Чат {chat_id}")))
+                chat_name = str(
+                    item.get("chat_name", item.get("name", f"Чат {chat_id}"))
+                )
             elif isinstance(item, (list, tuple)) and len(item) >= 2:
                 chat_id = int(item[0])
                 chat_name = str(item[1])
@@ -243,12 +280,13 @@ async def tc_add_chat_callback(query: CallbackQuery, state: FSMContext):
     await state.set_state(TrackedChatsState.waiting_for_chat_id)
 
     await query.message.edit_text(
-        "📝 <b>Добавление чата</b>\n\n"
-        "Отправь ID чата (числом) или @username.",
+        "📝 <b>Добавление чата</b>\n\nОтправь ID чата (числом) или @username.",
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="❌ Отменить", callback_data="tc_cancel")]
-        ]),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="❌ Отменить", callback_data="tc_cancel")]
+            ]
+        ),
     )
 
 
@@ -260,7 +298,11 @@ async def process_add_tracked_chat(message: Message, state: FSMContext):
 
     user_id = message.from_user.id
     raw_input = (message.text or "").strip()
-    lines = [line.strip() for line in raw_input.replace(",", "\n").splitlines() if line.strip()]
+    lines = [
+        line.strip()
+        for line in raw_input.replace(",", "\n").splitlines()
+        if line.strip()
+    ]
 
     if not lines:
         await message.answer("❌ Некорректный ID")
@@ -292,7 +334,9 @@ async def process_add_tracked_chat(message: Message, state: FSMContext):
                 if not chat_id:
                     invalid_count += 1
                     continue
-                title = getattr(entity, "title", None) or getattr(entity, "first_name", None)
+                title = getattr(entity, "title", None) or getattr(
+                    entity, "first_name", None
+                )
                 username = getattr(entity, "username", None)
                 chat_name = str(title or (f"@{username}" if username else chat_input))
 
@@ -315,6 +359,7 @@ async def process_add_tracked_chat(message: Message, state: FSMContext):
     notify_msg = await message.answer(summary)
     asyncio.create_task(delete_message_after_delay(notify_msg, 3))
 
+
 @router.callback_query(F.data == "tc_delete_chat")
 async def tc_delete_chat_callback(query: CallbackQuery, state: FSMContext):
     if not await _ensure_logged_query(query):
@@ -336,10 +381,16 @@ async def tc_delete_chat_callback(query: CallbackQuery, state: FSMContext):
         "Можно несколько через пробел/запятую, например: 1 4"
     )
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🧹 Очистить все", callback_data="tc_delete_all")],
-        [InlineKeyboardButton(text="❌ Отменить", callback_data="tc_cancel")]
-    ])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🧹 Очистить все", callback_data="tc_delete_all"
+                )
+            ],
+            [InlineKeyboardButton(text="❌ Отменить", callback_data="tc_cancel")],
+        ]
+    )
 
     await query.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
     await state.update_data(menu_message_id=query.message.message_id)
@@ -412,4 +463,3 @@ async def tc_cancel_callback(query: CallbackQuery, state: FSMContext):
     await state.clear()
     user_id = query.from_user.id
     await show_tracked_menu(query, user_id, menu_message_id=query.message.message_id)
-

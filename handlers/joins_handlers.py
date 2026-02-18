@@ -8,7 +8,12 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from aiogram.types import (
+    Message,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    CallbackQuery,
+)
 from telethon.errors import FloodWaitError, UserAlreadyParticipantError
 from telethon.tl.functions.channels import JoinChannelRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
@@ -77,7 +82,9 @@ def _parse_range(text: str) -> tuple[int, int] | None:
     return None
 
 
-async def _safe_edit_text(query: CallbackQuery, text: str, kb: InlineKeyboardMarkup) -> None:
+async def _safe_edit_text(
+    query: CallbackQuery, text: str, kb: InlineKeyboardMarkup
+) -> None:
     try:
         await query.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
     except TelegramBadRequest as exc:
@@ -101,15 +108,27 @@ def _build_menu(user_id: int) -> InlineKeyboardMarkup:
 
     buttons = []
     toggle_text = "⏸️ Выключить" if enabled else "▶️ Включить"
-    buttons.append([InlineKeyboardButton(text=toggle_text, callback_data="joins_toggle")])
-    buttons.append([InlineKeyboardButton(text="⚙️ Настройки", callback_data="joins_settings")])
-    buttons.append([InlineKeyboardButton(text="✅ Все аккаунты", callback_data="joins_all")])
+    buttons.append(
+        [InlineKeyboardButton(text=toggle_text, callback_data="joins_toggle")]
+    )
+    buttons.append(
+        [InlineKeyboardButton(text="⚙️ Настройки", callback_data="joins_settings")]
+    )
+    buttons.append(
+        [InlineKeyboardButton(text="✅ Все аккаунты", callback_data="joins_all")]
+    )
 
     for acc_num, _, username, first_name, _ in accounts:
         label = first_name or username or f"Акк {acc_num}"
         is_selected = (not selected) or (acc_num in selected)
         prefix = "✅" if is_selected else "❌"
-        buttons.append([InlineKeyboardButton(text=f"{prefix} {label}", callback_data=f"joins_acc_{acc_num}")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{prefix} {label}", callback_data=f"joins_acc_{acc_num}"
+                )
+            ]
+        )
 
     buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="joins_close")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -146,8 +165,16 @@ def _build_settings_text(user_id: int) -> str:
 def _build_settings_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="✏️ Внутри заявки", callback_data="joins_set_per_target")],
-            [InlineKeyboardButton(text="✏️ Между чатами", callback_data="joins_set_between_chats")],
+            [
+                InlineKeyboardButton(
+                    text="✏️ Внутри заявки", callback_data="joins_set_per_target"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="✏️ Между чатами", callback_data="joins_set_between_chats"
+                )
+            ],
             [InlineKeyboardButton(text="⬅️ Назад", callback_data="joins_settings_back")],
         ]
     )
@@ -155,7 +182,13 @@ def _build_settings_menu() -> InlineKeyboardMarkup:
 
 def _build_input_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="❌ Отмена", callback_data="joins_settings_cancel")]]
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="❌ Отмена", callback_data="joins_settings_cancel"
+                )
+            ]
+        ]
     )
 
 
@@ -192,16 +225,26 @@ def _build_chats_accounts_kb(user_id: int, selected: set[int]) -> InlineKeyboard
     buttons = []
     for acc_num, label in connected:
         mark = "✅" if acc_num in selected else "❌"
-        buttons.append([InlineKeyboardButton(text=f"{mark} {label}", callback_data=f"jc_acc_{acc_num}")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{mark} {label}", callback_data=f"jc_acc_{acc_num}"
+                )
+            ]
+        )
 
-    buttons.append([
-        InlineKeyboardButton(text="✅ Все", callback_data="jc_all"),
-        InlineKeyboardButton(text="⬜ Снять все", callback_data="jc_none"),
-    ])
-    buttons.append([
-        InlineKeyboardButton(text="➡️ Далее", callback_data="jc_next"),
-        InlineKeyboardButton(text="❌ Отмена", callback_data="jc_cancel"),
-    ])
+    buttons.append(
+        [
+            InlineKeyboardButton(text="✅ Все", callback_data="jc_all"),
+            InlineKeyboardButton(text="⬜ Снять все", callback_data="jc_none"),
+        ]
+    )
+    buttons.append(
+        [
+            InlineKeyboardButton(text="➡️ Далее", callback_data="jc_next"),
+            InlineKeyboardButton(text="❌ Отмена", callback_data="jc_cancel"),
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -264,7 +307,9 @@ async def joins_menu(message: Message):
         return
 
     user_id = message.from_user.id
-    await message.answer(_build_text(user_id), reply_markup=_build_menu(user_id), parse_mode="HTML")
+    await message.answer(
+        _build_text(user_id), reply_markup=_build_menu(user_id), parse_mode="HTML"
+    )
 
 
 @router.callback_query(F.data == "joins_toggle")
@@ -326,7 +371,9 @@ async def joins_set_per_target_callback(query: CallbackQuery, state: FSMContext)
     user_id = query.from_user.id
     cfg = get_delay_config(user_id)
     await state.set_state(JoinsSettingsState.waiting_per_target_range)
-    await state.update_data(menu_message_id=query.message.message_id, chat_id=query.message.chat.id)
+    await state.update_data(
+        menu_message_id=query.message.message_id, chat_id=query.message.chat.id
+    )
     await query.answer()
     await _safe_edit_text(
         query,
@@ -347,7 +394,9 @@ async def joins_set_between_chats_callback(query: CallbackQuery, state: FSMConte
     user_id = query.from_user.id
     cfg = get_delay_config(user_id)
     await state.set_state(JoinsSettingsState.waiting_between_chats_range)
-    await state.update_data(menu_message_id=query.message.message_id, chat_id=query.message.chat.id)
+    await state.update_data(
+        menu_message_id=query.message.message_id, chat_id=query.message.chat.id
+    )
     await query.answer()
     await _safe_edit_text(
         query,
@@ -418,7 +467,11 @@ async def joins_per_target_input(message: Message, state: FSMContext):
             return
         except Exception:
             pass
-    await message.answer(_build_settings_text(user_id), reply_markup=_build_settings_menu(), parse_mode="HTML")
+    await message.answer(
+        _build_settings_text(user_id),
+        reply_markup=_build_settings_menu(),
+        parse_mode="HTML",
+    )
 
 
 @router.message(JoinsSettingsState.waiting_between_chats_range)
@@ -459,7 +512,11 @@ async def joins_between_chats_input(message: Message, state: FSMContext):
             return
         except Exception:
             pass
-    await message.answer(_build_settings_text(user_id), reply_markup=_build_settings_menu(), parse_mode="HTML")
+    await message.answer(
+        _build_settings_text(user_id),
+        reply_markup=_build_settings_menu(),
+        parse_mode="HTML",
+    )
 
 
 @router.message(Command("chats"))
@@ -535,7 +592,9 @@ async def chats_join_callbacks(query: CallbackQuery, state: FSMContext):
             await query.answer("Выбери хотя бы один аккаунт", show_alert=True)
             return
         await state.set_state(ChatsJoinState.waiting_targets)
-        await state.update_data(chats_selected=sorted(selected), chats_menu_msg=query.message.message_id)
+        await state.update_data(
+            chats_selected=sorted(selected), chats_menu_msg=query.message.message_id
+        )
         try:
             await query.message.edit_text(
                 "📥 <b>/chats</b>\n\n"
@@ -546,7 +605,13 @@ async def chats_join_callbacks(query: CallbackQuery, state: FSMContext):
                 "Можно много строк сразу.",
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup(
-                    inline_keyboard=[[InlineKeyboardButton(text="❌ Отмена", callback_data="jc_wait_cancel")]]
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text="❌ Отмена", callback_data="jc_wait_cancel"
+                            )
+                        ]
+                    ]
                 ),
             )
         except Exception:
@@ -601,7 +666,7 @@ async def chats_join_targets_input(message: Message, state: FSMContext):
     status_msg = await message.answer(
         "🚀 Запускаю массовое вступление...\n"
         f"Аккаунтов: {len(selected)} | Целей: {len(links) + len(usernames)}\n"
-        f"Интервал: {CHATS_JOIN_DELAY_MIN}-{CHATS_JOIN_DELAY_MAX} сек, отдых {CHATS_JOIN_REST_MIN//60}-{CHATS_JOIN_REST_MAX//60} мин"
+        f"Интервал: {CHATS_JOIN_DELAY_MIN}-{CHATS_JOIN_DELAY_MAX} сек, отдых {CHATS_JOIN_REST_MIN // 60}-{CHATS_JOIN_REST_MAX // 60} мин"
     )
 
     existing_task = mass_join_tasks.get(user_id)
@@ -622,7 +687,9 @@ async def chats_join_targets_input(message: Message, state: FSMContext):
 
 async def _safe_edit_progress(bot, chat_id: int, message_id: int, text: str) -> None:
     try:
-        await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, parse_mode="HTML")
+        await bot.edit_message_text(
+            chat_id=chat_id, message_id=message_id, text=text, parse_mode="HTML"
+        )
     except TelegramBadRequest as exc:
         if "message is not modified" in str(exc).lower():
             return
@@ -630,7 +697,9 @@ async def _safe_edit_progress(bot, chat_id: int, message_id: int, text: str) -> 
         return
 
 
-async def _join_target_once(client, *, link: str | None = None, username: str | None = None) -> tuple[str, str]:
+async def _join_target_once(
+    client, *, link: str | None = None, username: str | None = None
+) -> tuple[str, str]:
     try:
         if link:
             invite_hash = _extract_invite_hash(link)
@@ -665,9 +734,14 @@ async def _run_mass_join(
     status_message_id: int,
     status_chat_id: int,
 ) -> None:
-    targets: list[tuple[str, str]] = [("link", x) for x in links] + [("username", x) for x in usernames]
+    targets: list[tuple[str, str]] = [("link", x) for x in links] + [
+        ("username", x) for x in usernames
+    ]
     total_targets = len(targets)
-    account_titles = {acc_num: (name or f"Акк {acc_num}") for acc_num, name in _get_connected_accounts(user_id)}
+    account_titles = {
+        acc_num: (name or f"Акк {acc_num}")
+        for acc_num, name in _get_connected_accounts(user_id)
+    }
 
     overall_joined = 0
     overall_already = 0
@@ -717,10 +791,14 @@ async def _run_mass_join(
                 f"Успех: {joined} | Уже был: {already} | Ошибки: {failed}\n\n"
                 f"Общий итог: ✅ {overall_joined} | ☑️ {overall_already} | ❌ {overall_failed}"
             )
-            await _safe_edit_progress(bot, status_chat_id, status_message_id, progress_text)
+            await _safe_edit_progress(
+                bot, status_chat_id, status_message_id, progress_text
+            )
 
             if t_i < total_targets:
-                await asyncio.sleep(random.uniform(CHATS_JOIN_DELAY_MIN, CHATS_JOIN_DELAY_MAX))
+                await asyncio.sleep(
+                    random.uniform(CHATS_JOIN_DELAY_MIN, CHATS_JOIN_DELAY_MAX)
+                )
 
             if t_i % CHATS_JOIN_REST_EVERY == 0 and t_i < total_targets:
                 rest_s = random.uniform(CHATS_JOIN_REST_MIN, CHATS_JOIN_REST_MAX)
@@ -730,7 +808,9 @@ async def _run_mass_join(
                     f"Отдых: {int(rest_s)} сек\n"
                     f"Прогресс: {t_i}/{total_targets}"
                 )
-                await _safe_edit_progress(bot, status_chat_id, status_message_id, rest_text)
+                await _safe_edit_progress(
+                    bot, status_chat_id, status_message_id, rest_text
+                )
                 await asyncio.sleep(rest_s)
 
         summary_lines.append(f"• {acc_label}: ✅ {joined} | ☑️ {already} | ❌ {failed}")

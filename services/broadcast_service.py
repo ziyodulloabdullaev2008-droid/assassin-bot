@@ -1,6 +1,5 @@
-import asyncio
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, Tuple
 
 from core.state import app_state
 
@@ -22,10 +21,20 @@ def get_broadcast(bid: int) -> Optional[Dict[str, Any]]:
     return app_state.active_broadcasts.get(bid)
 
 
-def list_user_broadcasts(user_id: int, statuses: Optional[Tuple[str, ...]] = None) -> Dict[int, Dict[str, Any]]:
+def list_user_broadcasts(
+    user_id: int, statuses: Optional[Tuple[str, ...]] = None
+) -> Dict[int, Dict[str, Any]]:
     if statuses:
-        return {bid: b for bid, b in app_state.active_broadcasts.items() if b["user_id"] == user_id and b["status"] in statuses}
-    return {bid: b for bid, b in app_state.active_broadcasts.items() if b["user_id"] == user_id}
+        return {
+            bid: b
+            for bid, b in app_state.active_broadcasts.items()
+            if b["user_id"] == user_id and b["status"] in statuses
+        }
+    return {
+        bid: b
+        for bid, b in app_state.active_broadcasts.items()
+        if b["user_id"] == user_id
+    }
 
 
 async def set_status(bid: int, status: str) -> None:
@@ -34,7 +43,9 @@ async def set_status(bid: int, status: str) -> None:
             app_state.active_broadcasts[bid]["status"] = status
 
 
-async def update_progress(bid: int, sent_chats: int, planned_count: Optional[int] = None) -> None:
+async def update_progress(
+    bid: int, sent_chats: int, planned_count: Optional[int] = None
+) -> None:
     async with app_state.broadcast_update_lock:
         if bid in app_state.active_broadcasts:
             app_state.active_broadcasts[bid]["sent_chats"] = sent_chats
@@ -42,7 +53,9 @@ async def update_progress(bid: int, sent_chats: int, planned_count: Optional[int
                 app_state.active_broadcasts[bid]["planned_count"] = planned_count
 
 
-async def mark_error(bid: int, error_message: str, error_type: str = "send_failed") -> None:
+async def mark_error(
+    bid: int, error_message: str, error_type: str = "send_failed"
+) -> None:
     async with app_state.broadcast_update_lock:
         if bid in app_state.active_broadcasts:
             b = app_state.active_broadcasts[bid]

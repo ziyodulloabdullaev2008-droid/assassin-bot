@@ -84,7 +84,9 @@ async def monitor_mentions(
         return
 
     client = app_state.user_authenticated[user_id][account_number]
-    logger.info("Запуск мониторинга упоминаний: user=%s account=%s", user_id, account_number)
+    logger.info(
+        "Запуск мониторинга упоминаний: user=%s account=%s", user_id, account_number
+    )
     last_chat_filters = []
     my_id = 0
     my_username = ""
@@ -93,7 +95,9 @@ async def monitor_mentions(
     async def handler(event):
         nonlocal last_chat_filters, my_id, my_username
         try:
-            active_client = app_state.user_authenticated.get(user_id, {}).get(account_number)
+            active_client = app_state.user_authenticated.get(user_id, {}).get(
+                account_number
+            )
             if active_client is not client:
                 return
             if event.sender_id == my_id:
@@ -103,7 +107,9 @@ async def monitor_mentions(
             try:
                 tracked_chats = get_tracked_chats(user_id) or []
                 if get_broadcast_chats:
-                    tracked_chats = list(tracked_chats) + list(get_broadcast_chats(user_id) or [])
+                    tracked_chats = list(tracked_chats) + list(
+                        get_broadcast_chats(user_id) or []
+                    )
                 if tracked_chats:
                     last_chat_filters = tracked_chats
             except Exception as exc:
@@ -141,7 +147,9 @@ async def monitor_mentions(
                 if tracked_usernames:
                     try:
                         chat = await event.get_chat()
-                        username = str(getattr(chat, "username", "") or "").lower().strip()
+                        username = (
+                            str(getattr(chat, "username", "") or "").lower().strip()
+                        )
                         if not username or username not in tracked_usernames:
                             return
                     except Exception:
@@ -155,14 +163,16 @@ async def monitor_mentions(
             is_mentioned = bool(getattr(message, "mentioned", False))
             if message.reply_to_msg_id:
                 try:
-                    replied_to = await client.get_messages(event.chat_id, ids=message.reply_to_msg_id)
+                    replied_to = await client.get_messages(
+                        event.chat_id, ids=message.reply_to_msg_id
+                    )
                     if replied_to and replied_to.sender_id == my_id:
                         is_mentioned = True
                 except Exception:
                     pass
 
             if not is_mentioned:
-                for ent in (getattr(message, "entities", None) or []):
+                for ent in getattr(message, "entities", None) or []:
                     if isinstance(ent, MessageEntityMentionName):
                         if getattr(ent, "user_id", None) == my_id:
                             is_mentioned = True
@@ -180,21 +190,31 @@ async def monitor_mentions(
             if is_mentioned:
                 try:
                     chat = await event.get_chat()
-                    title = getattr(chat, "title", None) if hasattr(chat, "title") else None
+                    title = (
+                        getattr(chat, "title", None) if hasattr(chat, "title") else None
+                    )
                     chat_name = str(title) if title else "Личный чат"
                     username = getattr(chat, "username", None)
 
                     if username:
                         msg_url = f"https://t.me/{username}/{message.id}"
                     else:
-                        msg_url = f"https://t.me/c/{abs(int(event.chat_id))}/{message.id}"
+                        msg_url = (
+                            f"https://t.me/c/{abs(int(event.chat_id))}/{message.id}"
+                        )
 
-                    msg_time = message.date.strftime("%H:%M:%S") if message.date else "??:??:??"
+                    msg_time = (
+                        message.date.strftime("%H:%M:%S")
+                        if message.date
+                        else "??:??:??"
+                    )
                     sender_name = f"{getattr(sender, 'first_name', '')} {getattr(sender, 'last_name', '') or ''}".strip()
                     if not sender_name:
                         sender_name = "Неизвестно"
 
-                    links, usernames = extract_join_links(text_body) if text_body else ([], [])
+                    links, usernames = (
+                        extract_join_links(text_body) if text_body else ([], [])
+                    )
                     button_links = []
                     try:
                         if message.buttons:
@@ -208,19 +228,31 @@ async def monitor_mentions(
 
                     links = _dedupe_keep_order(list(links) + button_links)
                     usernames = _dedupe_keep_order(list(usernames))
-                    has_join_keywords = bool(text_body and message_has_keywords(text_body))
+                    has_join_keywords = bool(
+                        text_body and message_has_keywords(text_body)
+                    )
                     is_join_request = has_join_keywords and bool(links or usernames)
 
                     account_info = get_user_accounts(user_id)
                     account_name = "Неизвестно"
-                    for acc_num, telegram_id, username_acc, first_name, is_active in account_info:
+                    for (
+                        acc_num,
+                        telegram_id,
+                        username_acc,
+                        first_name,
+                        is_active,
+                    ) in account_info:
                         if acc_num == account_number:
-                            account_name = first_name or username_acc or f"Акк {account_number}"
+                            account_name = (
+                                first_name or username_acc or f"Акк {account_number}"
+                            )
                             break
 
                     if is_join_request:
                         notification = "🚪 <b>ЗАПРОС НА ВСТУПЛЕНИЕ</b>\n\n"
-                        notification += f"👤 <b>Аккаунт:</b> {html.escape(account_name)}\n"
+                        notification += (
+                            f"👤 <b>Аккаунт:</b> {html.escape(account_name)}\n"
+                        )
                         notification += f"💬 <b>Чат:</b> {html.escape(chat_name)} | <code>{event.chat_id}</code>\n"
                         notification += f"👤 <b>От:</b> {html.escape(sender_name)}\n"
                         notification += f"⏰ <b>Время:</b> {msg_time}\n"
@@ -228,7 +260,9 @@ async def monitor_mentions(
                         notification += f"{_format_join_targets(links, usernames)}\n"
                     else:
                         notification = "🔔 <b>УПОМИНАНИЕ В ЧАТЕ</b>\n\n"
-                        notification += f"👤 <b>Упомянут аккаунт:</b> {html.escape(account_name)}\n"
+                        notification += (
+                            f"👤 <b>Упомянут аккаунт:</b> {html.escape(account_name)}\n"
+                        )
                         notification += f"💬 <b>Чат:</b> {html.escape(chat_name)} | <code>{event.chat_id}</code>\n"
                         notification += f"👤 <b>От:</b> {html.escape(sender_name)}\n"
                         notification += f"⏰ <b>Время:</b> {msg_time}\n"
@@ -241,7 +275,9 @@ async def monitor_mentions(
                     sender_profile_url = _build_sender_profile_url(sender, sender_id)
                     if sender_profile_url:
                         buttons[0].append(
-                            InlineKeyboardButton(text="👤 Профиль", url=sender_profile_url)
+                            InlineKeyboardButton(
+                                text="👤 Профиль", url=sender_profile_url
+                            )
                         )
 
                     try:
@@ -263,7 +299,13 @@ async def monitor_mentions(
                         )
                         try:
                             fallback_kb = InlineKeyboardMarkup(
-                                inline_keyboard=[[InlineKeyboardButton(text="📬 Сообщение", url=msg_url)]]
+                                inline_keyboard=[
+                                    [
+                                        InlineKeyboardButton(
+                                            text="📬 Сообщение", url=msg_url
+                                        )
+                                    ]
+                                ]
                             )
                             await bot.send_message(
                                 user_id,
@@ -283,9 +325,16 @@ async def monitor_mentions(
                             usernames=usernames,
                         )
                 except Exception as exc:
-                    logger.warning("Ошибка обработки упоминания user=%s acc=%s: %s", user_id, account_number, exc)
+                    logger.warning(
+                        "Ошибка обработки упоминания user=%s acc=%s: %s",
+                        user_id,
+                        account_number,
+                        exc,
+                    )
         except Exception as exc:
-            logger.warning("mention handler error user=%s acc=%s: %s", user_id, account_number, exc)
+            logger.warning(
+                "mention handler error user=%s acc=%s: %s", user_id, account_number, exc
+            )
 
     try:
         await asyncio.sleep(2)
@@ -333,7 +382,11 @@ async def monitor_mentions(
                     handler_registered = True
 
                 await client.run_until_disconnected()
-                logger.warning("Монитор отключен user=%s acc=%s, пробую переподключить", user_id, account_number)
+                logger.warning(
+                    "Монитор отключен user=%s acc=%s, пробую переподключить",
+                    user_id,
+                    account_number,
+                )
                 await asyncio.sleep(1.5)
             except asyncio.CancelledError:
                 raise

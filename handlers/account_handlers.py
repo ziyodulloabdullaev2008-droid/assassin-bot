@@ -1,12 +1,18 @@
 from aiogram import Router, F
 from aiogram.filters.command import Command
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, BufferedInputFile
+from aiogram.types import (
+    Message,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    CallbackQuery,
+    BufferedInputFile,
+)
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 import io
 
 from core.state import app_state
-from database import get_user_accounts, add_or_update_user
+from database import get_user_accounts
 
 router = Router()
 LOGIN_REQUIRED_TEXT = "\u274c \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u043e\u0439\u0434\u0438 \u0447\u0435\u0440\u0435\u0437 /login"
@@ -16,7 +22,7 @@ user_current_account = {}
 
 
 def _status_text(is_active: bool) -> str:
-    return "\U0001F7E2" if is_active else "\U0001F534"
+    return "\U0001f7e2" if is_active else "\U0001f534"
 
 
 def _h(text: str) -> str:
@@ -42,16 +48,20 @@ async def show_accounts_menu(message: Message, user_id: int, edit: bool = False)
         status = _status_text(is_active)
         first_name_safe = _h(first_name or "")
         info += f"{status} <b>{first_name_safe}</b> • #{account_number}\n"
-        buttons.append([
-            InlineKeyboardButton(
-                text=f"{status} {first_name or ''} (#{account_number})",
-                callback_data=f"view_account_{account_number}",
-            )
-        ])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{status} {first_name or ''} (#{account_number})",
+                    callback_data=f"view_account_{account_number}",
+                )
+            ]
+        )
 
     info += "\n━━━━━━━━━━━━━━━━"
 
-    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="close_accounts_menu")])
+    buttons.append(
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="close_accounts_menu")]
+    )
     inline_keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
 
     if edit:
@@ -60,7 +70,9 @@ async def show_accounts_menu(message: Message, user_id: int, edit: bool = False)
         await message.answer(info, reply_markup=inline_keyboard, parse_mode="HTML")
 
 
-@router.message(F.text.contains("\u041c\u043e\u0439 \u0430\u043a\u043a\u0430\u0443\u043d\u0442"))
+@router.message(
+    F.text.contains("\u041c\u043e\u0439 \u0430\u043a\u043a\u0430\u0443\u043d\u0442")
+)
 async def account_button(message: Message):
     user_id = message.from_user.id
     try:
@@ -84,15 +96,23 @@ async def view_account(query: CallbackQuery):
     await query.answer()
     user_current_account[user_id] = account_number
 
-    if user_id not in app_state.user_authenticated or account_number not in app_state.user_authenticated[user_id]:
+    if (
+        user_id not in app_state.user_authenticated
+        or account_number not in app_state.user_authenticated[user_id]
+    ):
         accounts = get_user_accounts(user_id)
         account_info = next((acc for acc in accounts if acc[0] == account_number), None)
 
         if account_info:
             _, telegram_id, username, first_name, is_active = account_info
             status = _status_text(is_active)
-            first_name_safe = _h(first_name or "\u041d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u043e")
-            username_safe = _h(username or "\u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d")
+            first_name_safe = _h(
+                first_name
+                or "\u041d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u043e"
+            )
+            username_safe = _h(
+                username or "\u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d"
+            )
             info = (
                 "🧾 <b>ИНФОРМАЦИЯ ОБ АККАУНТЕ</b>\n"
                 "━━━━━━━━━━━━━━━━\n\n"
@@ -103,28 +123,65 @@ async def view_account(query: CallbackQuery):
             )
             inline_keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_account_menu")]
+                    [
+                        InlineKeyboardButton(
+                            text="⬅️ Назад", callback_data="back_to_account_menu"
+                        )
+                    ]
                 ]
             )
-            await query.message.edit_text(info, reply_markup=inline_keyboard, parse_mode="HTML")
+            await query.message.edit_text(
+                info, reply_markup=inline_keyboard, parse_mode="HTML"
+            )
         else:
-            await query.message.edit_text("\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439 /login \u0434\u043b\u044f \u0432\u0445\u043e\u0434\u0430.")
+            await query.message.edit_text(
+                "\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439 /login \u0434\u043b\u044f \u0432\u0445\u043e\u0434\u0430."
+            )
         return
 
-    await refresh_menu_content(query.message, query, user_id, account_number, is_refresh=False)
+    await refresh_menu_content(
+        query.message, query, user_id, account_number, is_refresh=False
+    )
 
 
 @router.callback_query(F.data == "get_chats_list")
 async def show_chats_list_selection(query: CallbackQuery):
     await query.answer()
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="\u041b\u0438\u0447\u043d\u044b\u0435 \u0447\u0430\u0442\u044b", callback_data="export_private_chats")],
-        [InlineKeyboardButton(text="\u0413\u0440\u0443\u043f\u043f\u044b", callback_data="export_groups")],
-        [InlineKeyboardButton(text="\u041a\u0430\u043d\u0430\u043b\u044b", callback_data="export_channels")],
-        [InlineKeyboardButton(text="\u0412\u0441\u0435 \u0441\u0440\u0430\u0437\u0443", callback_data="export_all_chats")],
-        [InlineKeyboardButton(text="\u2b05\ufe0f \u041d\u0430\u0437\u0430\u0434", callback_data="back_to_account_menu")],
-    ])
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="\u041b\u0438\u0447\u043d\u044b\u0435 \u0447\u0430\u0442\u044b",
+                    callback_data="export_private_chats",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="\u0413\u0440\u0443\u043f\u043f\u044b",
+                    callback_data="export_groups",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="\u041a\u0430\u043d\u0430\u043b\u044b",
+                    callback_data="export_channels",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="\u0412\u0441\u0435 \u0441\u0440\u0430\u0437\u0443",
+                    callback_data="export_all_chats",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="\u2b05\ufe0f \u041d\u0430\u0437\u0430\u0434",
+                    callback_data="back_to_account_menu",
+                )
+            ],
+        ]
+    )
 
     await query.message.edit_text(
         "<b>\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435, \u0447\u0442\u043e \u044d\u043a\u0441\u043f\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432 Excel:</b>\n\n"
@@ -138,17 +195,29 @@ async def show_chats_list_selection(query: CallbackQuery):
 
 
 async def export_chats_by_type(query: CallbackQuery, chat_types: list):
-    await query.answer("\u041f\u043e\u043b\u043d\u044b\u0439 \u0441\u043a\u0430\u043d \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430, \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u0434\u043e\u043b\u0433\u043e...", show_alert=False)
+    await query.answer(
+        "\u041f\u043e\u043b\u043d\u044b\u0439 \u0441\u043a\u0430\u043d \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430, \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u0434\u043e\u043b\u0433\u043e...",
+        show_alert=False,
+    )
     user_id = query.from_user.id
 
     try:
         account_number = user_current_account.get(user_id)
         if not account_number:
-            await query.answer("\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u0432\u044b\u0431\u0440\u0430\u043d", show_alert=True)
+            await query.answer(
+                "\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u0432\u044b\u0431\u0440\u0430\u043d",
+                show_alert=True,
+            )
             return
 
-        if user_id not in app_state.user_authenticated or account_number not in app_state.user_authenticated[user_id]:
-            await query.answer("\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d", show_alert=True)
+        if (
+            user_id not in app_state.user_authenticated
+            or account_number not in app_state.user_authenticated[user_id]
+        ):
+            await query.answer(
+                "\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d",
+                show_alert=True,
+            )
             return
 
         client = app_state.user_authenticated[user_id][account_number]
@@ -200,14 +269,20 @@ async def export_chats_by_type(query: CallbackQuery, chat_types: list):
 
                     if is_mega or is_group:
                         if is_creator:
-                            my_groups.append((name, dialog.id, username, owner_name or ""))
+                            my_groups.append(
+                                (name, dialog.id, username, owner_name or "")
+                            )
                         else:
                             groups.append((name, dialog.id, username, owner_name or ""))
                     else:
                         if is_creator:
-                            my_channels.append((name, dialog.id, username, owner_name or ""))
+                            my_channels.append(
+                                (name, dialog.id, username, owner_name or "")
+                            )
                         else:
-                            channels.append((name, dialog.id, username, owner_name or ""))
+                            channels.append(
+                                (name, dialog.id, username, owner_name or "")
+                            )
                 elif isinstance(entity, Chat):
                     creator_owner = ""
                     if hasattr(entity, "creator_id") and entity.creator_id == me.id:
@@ -223,29 +298,49 @@ async def export_chats_by_type(query: CallbackQuery, chat_types: list):
         wb = Workbook()
         wb.remove(wb.active)
 
-        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_fill = PatternFill(
+            start_color="4472C4", end_color="4472C4", fill_type="solid"
+        )
         header_font = Font(bold=True, color="FFFFFF")
 
         if "all" in chat_types:
             sheets_data = [
-                ("\u041b\u0438\u0447\u043d\u044b\u0435 \u0447\u0430\u0442\u044b", private_chats),
+                (
+                    "\u041b\u0438\u0447\u043d\u044b\u0435 \u0447\u0430\u0442\u044b",
+                    private_chats,
+                ),
                 ("\u0413\u0440\u0443\u043f\u043f\u044b", groups),
                 ("\u041a\u0430\u043d\u0430\u043b\u044b", channels),
                 ("\u0411\u043e\u0442\u044b", bots),
                 ("\u041c\u043e\u0438 \u0433\u0440\u0443\u043f\u043f\u044b", my_groups),
-                ("\u041c\u043e\u0438 \u043a\u0430\u043d\u0430\u043b\u044b", my_channels),
+                (
+                    "\u041c\u043e\u0438 \u043a\u0430\u043d\u0430\u043b\u044b",
+                    my_channels,
+                ),
             ]
         else:
             sheets_data = []
             if "private" in chat_types:
-                sheets_data.append(("\u041b\u0438\u0447\u043d\u044b\u0435 \u0447\u0430\u0442\u044b", private_chats))
+                sheets_data.append(
+                    (
+                        "\u041b\u0438\u0447\u043d\u044b\u0435 \u0447\u0430\u0442\u044b",
+                        private_chats,
+                    )
+                )
                 sheets_data.append(("\u0411\u043e\u0442\u044b", bots))
             if "groups" in chat_types:
                 sheets_data.append(("\u0413\u0440\u0443\u043f\u043f\u044b", groups))
-                sheets_data.append(("\u041c\u043e\u0438 \u0433\u0440\u043f\u043f\u044b", my_groups))
+                sheets_data.append(
+                    ("\u041c\u043e\u0438 \u0433\u0440\u043f\u043f\u044b", my_groups)
+                )
             if "channels" in chat_types:
                 sheets_data.append(("\u041a\u0430\u043d\u0430\u043b\u044b", channels))
-                sheets_data.append(("\u041c\u043e\u0438 \u043a\u0430\u043d\u0430\u043b\u044b", my_channels))
+                sheets_data.append(
+                    (
+                        "\u041c\u043e\u0438 \u043a\u0430\u043d\u0430\u043b\u044b",
+                        my_channels,
+                    )
+                )
 
         for sheet_name, chats_list in sheets_data:
             if not chats_list:
@@ -255,7 +350,9 @@ async def export_chats_by_type(query: CallbackQuery, chat_types: list):
             ws["B1"] = "\u0418\u043c\u044f"
             ws["C1"] = "ID"
             ws["D1"] = "Username"
-            ws["E1"] = "\u0412\u043b\u0430\u0434\u0435\u043b\u0435\u0446/\u0422\u0438\u043f"
+            ws["E1"] = (
+                "\u0412\u043b\u0430\u0434\u0435\u043b\u0435\u0446/\u0422\u0438\u043f"
+            )
 
             for cell in ["A1", "B1", "C1", "D1", "E1"]:
                 ws[cell].fill = header_fill
@@ -263,11 +360,11 @@ async def export_chats_by_type(query: CallbackQuery, chat_types: list):
                 ws[cell].alignment = Alignment(horizontal="center")
 
             for idx, (name, chat_id, username, owner_name) in enumerate(chats_list, 1):
-                ws[f"A{idx+1}"] = idx
-                ws[f"B{idx+1}"] = name
-                ws[f"C{idx+1}"] = chat_id
-                ws[f"D{idx+1}"] = username or ""
-                ws[f"E{idx+1}"] = owner_name or ""
+                ws[f"A{idx + 1}"] = idx
+                ws[f"B{idx + 1}"] = name
+                ws[f"C{idx + 1}"] = chat_id
+                ws[f"D{idx + 1}"] = username or ""
+                ws[f"E{idx + 1}"] = owner_name or ""
 
             ws.column_dimensions["A"].width = 5
             ws.column_dimensions["B"].width = 30
@@ -284,7 +381,9 @@ async def export_chats_by_type(query: CallbackQuery, chat_types: list):
             caption="\u042d\u043a\u0441\u043f\u043e\u0440\u0442 \u0447\u0430\u0442\u043e\u0432",
         )
     except Exception as e:
-        await query.answer(f"\u041e\u0448\u0438\u0431\u043a\u0430: {str(e)}", show_alert=True)
+        await query.answer(
+            f"\u041e\u0448\u0438\u0431\u043a\u0430: {str(e)}", show_alert=True
+        )
 
 
 @router.callback_query(F.data == "export_private_chats")
@@ -320,10 +419,15 @@ async def refresh_menu(query: CallbackQuery):
     account_number = user_current_account.get(user_id)
 
     if not account_number:
-        await query.answer("\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u0432\u044b\u0431\u0440\u0430\u043d", show_alert=True)
+        await query.answer(
+            "\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u0432\u044b\u0431\u0440\u0430\u043d",
+            show_alert=True,
+        )
         return
 
-    await refresh_menu_content(query.message, query, user_id, account_number, is_refresh=True)
+    await refresh_menu_content(
+        query.message, query, user_id, account_number, is_refresh=True
+    )
 
 
 @router.callback_query(F.data == "close_accounts_menu")
@@ -349,12 +453,20 @@ async def refresh_menu_content(
     acc_info = next((acc for acc in accounts if acc[0] == account_number), None)
     if acc_info is not None and not acc_info[4]:
         if query:
-            await query.answer("\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d", show_alert=True)
+            await query.answer(
+                "\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d",
+                show_alert=True,
+            )
         else:
-            await message.answer("\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d")
+            await message.answer(
+                "\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d"
+            )
         return
 
-    if user_id not in app_state.user_authenticated or not app_state.user_authenticated[user_id]:
+    if (
+        user_id not in app_state.user_authenticated
+        or not app_state.user_authenticated[user_id]
+    ):
         if query:
             await query.answer(LOGIN_REQUIRED_TEXT, show_alert=True)
         else:
@@ -363,9 +475,14 @@ async def refresh_menu_content(
 
     if account_number not in app_state.user_authenticated[user_id]:
         if query:
-            await query.answer("\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d", show_alert=True)
+            await query.answer(
+                "\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d",
+                show_alert=True,
+            )
         else:
-            await message.answer("\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d")
+            await message.answer(
+                "\u0410\u043a\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d"
+            )
         return
 
     try:
@@ -391,15 +508,30 @@ async def refresh_menu_content(
 
         inline_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="📋 Список чатов", callback_data="get_chats_list"),
-                 InlineKeyboardButton(text="🔄 Обновить", callback_data="refresh_menu")],
-                [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_account_menu")],
+                [
+                    InlineKeyboardButton(
+                        text="📋 Список чатов", callback_data="get_chats_list"
+                    ),
+                    InlineKeyboardButton(
+                        text="🔄 Обновить", callback_data="refresh_menu"
+                    ),
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="⬅️ Назад", callback_data="back_to_account_menu"
+                    )
+                ],
             ]
         )
 
         if query:
             try:
-                await message.edit_text(info, reply_markup=inline_keyboard, parse_mode="HTML", disable_web_page_preview=True)
+                await message.edit_text(
+                    info,
+                    reply_markup=inline_keyboard,
+                    parse_mode="HTML",
+                    disable_web_page_preview=True,
+                )
                 if is_refresh:
                     notification = "Профиль обновлен"
                 else:
@@ -408,27 +540,61 @@ async def refresh_menu_content(
             except Exception as e:
                 err = str(e).lower()
                 if "not modified" in err:
-                    await query.answer("\u0418\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f \u043d\u0435 \u0438\u0437\u043c\u0435\u043d\u0438\u043b\u0430\u0441\u044c", show_alert=False)
+                    await query.answer(
+                        "\u0418\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f \u043d\u0435 \u0438\u0437\u043c\u0435\u043d\u0438\u043b\u0430\u0441\u044c",
+                        show_alert=False,
+                    )
                     return
                 if "can't parse entities" in err:
                     try:
-                        await message.edit_text(info, reply_markup=inline_keyboard, parse_mode=None, disable_web_page_preview=True)
-                        await query.answer("\u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u043e \u0431\u0435\u0437 \u0444\u043e\u0440\u043c\u0430\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f", show_alert=False)
+                        await message.edit_text(
+                            info,
+                            reply_markup=inline_keyboard,
+                            parse_mode=None,
+                            disable_web_page_preview=True,
+                        )
+                        await query.answer(
+                            "\u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u043e \u0431\u0435\u0437 \u0444\u043e\u0440\u043c\u0430\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f",
+                            show_alert=False,
+                        )
                         return
                     except Exception:
                         pass
-                if "message to edit not found" in err or "message can't be edited" in err:
+                if (
+                    "message to edit not found" in err
+                    or "message can't be edited" in err
+                ):
                     try:
-                        await message.answer(info, reply_markup=inline_keyboard, parse_mode="HTML", disable_web_page_preview=True)
+                        await message.answer(
+                            info,
+                            reply_markup=inline_keyboard,
+                            parse_mode="HTML",
+                            disable_web_page_preview=True,
+                        )
                     except Exception:
                         pass
-                    await query.answer("\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u043b \u043d\u043e\u0432\u043e\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435.", show_alert=False)
+                    await query.answer(
+                        "\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u043b \u043d\u043e\u0432\u043e\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435.",
+                        show_alert=False,
+                    )
                     return
-                await query.answer("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435.", show_alert=False)
+                await query.answer(
+                    "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435.",
+                    show_alert=False,
+                )
         else:
-            await message.answer(info, reply_markup=inline_keyboard, parse_mode="HTML", disable_web_page_preview=True)
+            await message.answer(
+                info,
+                reply_markup=inline_keyboard,
+                parse_mode="HTML",
+                disable_web_page_preview=True,
+            )
     except Exception as e:
         if query:
-            await query.answer(f"\u041e\u0448\u0438\u0431\u043a\u0430: {str(e)}", show_alert=True)
+            await query.answer(
+                f"\u041e\u0448\u0438\u0431\u043a\u0430: {str(e)}", show_alert=True
+            )
         else:
-            await message.answer(f"\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u0440\u0438 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0435 \u043c\u0435\u043d\u044e: {str(e)}")
+            await message.answer(
+                f"\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u0440\u0438 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0435 \u043c\u0435\u043d\u044e: {str(e)}"
+            )

@@ -2,7 +2,13 @@ from aiogram import Router, F
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, BufferedInputFile
+from aiogram.types import (
+    Message,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    CallbackQuery,
+    BufferedInputFile,
+)
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 import io
@@ -21,6 +27,7 @@ from services.vip_service import vip_users_cache
 
 def get_vip_cache_size() -> int:
     return len(vip_users_cache)
+
 
 router = Router()
 
@@ -91,10 +98,12 @@ async def cmd_show_vips(message: Message):
     for idx, user_id in enumerate(vip_list, 1):
         text += f"{idx}. <code>{user_id}</code>\n"
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ Добавить", callback_data="vip_add_menu")],
-        [InlineKeyboardButton(text="❌ Удалить", callback_data="vip_delete_menu")]
-    ])
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="➕ Добавить", callback_data="vip_add_menu")],
+            [InlineKeyboardButton(text="❌ Удалить", callback_data="vip_delete_menu")],
+        ]
+    )
 
     await message.answer(text, parse_mode="HTML", reply_markup=keyboard)
 
@@ -109,8 +118,7 @@ async def vip_add_menu(query: CallbackQuery, state: FSMContext):
     await query.answer()
     await state.set_state(VIPAddState.waiting_for_user_id)
     await query.message.edit_text(
-        "📝 <b>Введите ID пользователя для добавления:</b>\n"
-        "(отправьте число)",
+        "📝 <b>Введите ID пользователя для добавления:</b>\n(отправьте число)",
         parse_mode="HTML",
     )
 
@@ -127,10 +135,13 @@ async def vip_delete_menu(query: CallbackQuery):
         await query.answer("VIP список пуст", show_alert=True)
         return
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"❌ {uid}", callback_data=f"vip_remove_{uid}")]
-        for uid in vip_list
-    ] + [[InlineKeyboardButton(text="⬅️ Назад", callback_data="vip_back")]])
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"❌ {uid}", callback_data=f"vip_remove_{uid}")]
+            for uid in vip_list
+        ]
+        + [[InlineKeyboardButton(text="⬅️ Назад", callback_data="vip_back")]]
+    )
 
     await query.answer()
     await query.message.edit_text(
@@ -172,10 +183,12 @@ async def vip_back(query: CallbackQuery):
     for idx, user_id in enumerate(vip_list, 1):
         text += f"{idx}. <code>{user_id}</code>\n"
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ Добавить", callback_data="vip_add_menu")],
-        [InlineKeyboardButton(text="❌ Удалить", callback_data="vip_delete_menu")]
-    ])
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="➕ Добавить", callback_data="vip_add_menu")],
+            [InlineKeyboardButton(text="❌ Удалить", callback_data="vip_delete_menu")],
+        ]
+    )
 
     await query.answer()
     await query.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
@@ -206,9 +219,15 @@ async def cmd_show_users_stats(message: Message):
 
     stats_text += f"🔐 <b>Всего аккаунтов:</b> {total_accounts}\n\n"
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📥 Скачать список юзеров", callback_data="export_users_excel")]
-    ])
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📥 Скачать список юзеров", callback_data="export_users_excel"
+                )
+            ]
+        ]
+    )
 
     await message.answer(stats_text, parse_mode="HTML", reply_markup=keyboard)
 
@@ -225,7 +244,9 @@ async def export_users_excel(query: CallbackQuery):
         wb.remove(wb.active)
         ws = wb.create_sheet("Юзеры")
 
-        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_fill = PatternFill(
+            start_color="4472C4", end_color="4472C4", fill_type="solid"
+        )
         header_font = Font(bold=True, color="FFFFFF")
 
         headers = ["№", "User ID", "Username", "Имя", "VIP", "Статус", "Аккаунтов"]
@@ -236,7 +257,9 @@ async def export_users_excel(query: CallbackQuery):
             cell.font = header_font
             cell.alignment = Alignment(horizontal="center")
 
-        for row_num, (user_id, username, first_name, is_logged_in) in enumerate(users, 2):
+        for row_num, (user_id, username, first_name, is_logged_in) in enumerate(
+            users, 2
+        ):
             vip_status = "✅ VIP" if is_vip_user(user_id) else "❌"
             login_status = "✅ Вход выполнен" if is_logged_in else "❌ Не вошел"
             accounts = get_user_accounts(user_id)

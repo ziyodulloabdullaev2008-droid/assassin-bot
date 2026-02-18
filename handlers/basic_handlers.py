@@ -1,4 +1,4 @@
-﻿from aiogram import Router, F
+from aiogram import Router, F
 from aiogram.filters.command import Command
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.fsm.context import FSMContext
@@ -21,7 +21,9 @@ async def cmd_start(message: Message):
     )
 
     channel_kb = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="Наш канал", url="https://t.me/assassin2026")]]
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Наш канал", url="https://t.me/assassin2026")]
+        ]
     )
 
     await message.answer(welcome_text, reply_markup=channel_kb)
@@ -92,7 +94,9 @@ async def cmd_help(message: Message):
         "Команды разработчика в справке не показываются."
     )
 
-    await message.answer(help_text, reply_markup=get_main_menu_keyboard(), parse_mode="HTML")
+    await message.answer(
+        help_text, reply_markup=get_main_menu_keyboard(), parse_mode="HTML"
+    )
 
 
 @router.message(F.from_user.id == 777000)

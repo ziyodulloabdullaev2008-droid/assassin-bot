@@ -32,7 +32,10 @@ def get_logger(name: str) -> logging.Logger:
 
 def _should_skip_record(record: logging.LogRecord) -> bool:
     name = (record.name or "").lower()
-    if name.startswith("telethon.network.mtprotosender") and record.levelno < logging.WARNING:
+    if (
+        name.startswith("telethon.network.mtprotosender")
+        and record.levelno < logging.WARNING
+    ):
         return True
     if name.startswith("telethon.client.updates") and record.levelno < logging.WARNING:
         return True
@@ -77,7 +80,9 @@ class _TelegramQueueLogHandler(logging.Handler):
         # Developer chat receives only warning/error to avoid spam.
         super().__init__(level=logging.WARNING)
         self.queue = queue
-        self.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+        self.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+        )
 
     def emit(self, record: logging.LogRecord) -> None:
         if _should_skip_record(record):
@@ -115,7 +120,9 @@ async def start_telegram_log_forwarding(bot, chat_id: Optional[int]) -> None:
     _TELEGRAM_LOG_QUEUE = asyncio.Queue(maxsize=800)
     _TELEGRAM_LOG_HANDLER = _TelegramQueueLogHandler(_TELEGRAM_LOG_QUEUE)
     logging.getLogger().addHandler(_TELEGRAM_LOG_HANDLER)
-    _TELEGRAM_LOG_TASK = asyncio.create_task(_telegram_log_worker(bot, chat_id, _TELEGRAM_LOG_QUEUE))
+    _TELEGRAM_LOG_TASK = asyncio.create_task(
+        _telegram_log_worker(bot, chat_id, _TELEGRAM_LOG_QUEUE)
+    )
 
 
 async def stop_telegram_log_forwarding() -> None:

@@ -13,7 +13,11 @@ from core.state import app_state
 from services.user_paths import BASE_DIR, joins_settings_path
 
 
-_KEYWORDS = ["\u043f\u043e\u0434\u043f\u0438\u0441\u0430\u0442\u044c\u0441\u044f", "\u0432\u0441\u0442\u0443\u043f\u0438\u0442\u044c", "\u043d\u0435\u043e\u0431\u0445\u043e\u0434\u0438\u043c\u043e"]
+_KEYWORDS = [
+    "\u043f\u043e\u0434\u043f\u0438\u0441\u0430\u0442\u044c\u0441\u044f",
+    "\u0432\u0441\u0442\u0443\u043f\u0438\u0442\u044c",
+    "\u043d\u0435\u043e\u0431\u0445\u043e\u0434\u0438\u043c\u043e",
+]
 DEFAULT_PER_TARGET_DELAY_MIN = 7
 DEFAULT_PER_TARGET_DELAY_MAX = 15
 DEFAULT_BETWEEN_CHATS_DELAY_MIN = 20
@@ -61,7 +65,9 @@ def get_target_accounts(user_id: int) -> Optional[set]:
     return app_state.joins_target_accounts.get(user_id, set())
 
 
-def _normalize_range(min_value: int, max_value: int, default_min: int, default_max: int) -> tuple[int, int]:
+def _normalize_range(
+    min_value: int, max_value: int, default_min: int, default_max: int
+) -> tuple[int, int]:
     try:
         min_value = int(min_value)
         max_value = int(max_value)
@@ -144,7 +150,9 @@ def _save_settings(user_id: int) -> None:
     delay_cfg = get_delay_config(user_id)
     payload = {
         "enabled": bool(app_state.joins_enabled.get(user_id, False)),
-        "target_accounts": sorted(list(app_state.joins_target_accounts.get(user_id, set()))),
+        "target_accounts": sorted(
+            list(app_state.joins_target_accounts.get(user_id, set()))
+        ),
         "delay": delay_cfg,
     }
     try:
@@ -224,7 +232,9 @@ def extract_join_links(text: str) -> Tuple[List[str], List[str]]:
         return links, usernames
     for match in re.findall(r"(https?://t\.me/\+[-_\w]+)", text, flags=re.IGNORECASE):
         links.append(match)
-    for match in re.findall(r"(https?://t\.me/joinchat/[-_\w]+)", text, flags=re.IGNORECASE):
+    for match in re.findall(
+        r"(https?://t\.me/joinchat/[-_\w]+)", text, flags=re.IGNORECASE
+    ):
         links.append(match)
     for match in re.findall(r"@([a-zA-Z0-9_]{4,})", text):
         usernames.append(match)
@@ -275,11 +285,13 @@ async def enqueue_join(
         if key in seen:
             return
         seen.add(key)
-        queue.append({
-            "chat_id": chat_id,
-            "links": links,
-            "usernames": usernames,
-        })
+        queue.append(
+            {
+                "chat_id": chat_id,
+                "links": links,
+                "usernames": usernames,
+            }
+        )
 
     _ensure_worker(user_id)
 
@@ -319,7 +331,9 @@ async def _join_worker(user_id: int) -> None:
         # Requests from different chats are processed strictly one-by-one
         # with long cooldown to reduce spam blocks.
         cfg = get_delay_config(user_id)
-        await asyncio.sleep(random.uniform(cfg["between_chats_min"], cfg["between_chats_max"]))
+        await asyncio.sleep(
+            random.uniform(cfg["between_chats_min"], cfg["between_chats_max"])
+        )
 
 
 async def _handle_join_request(client, req: dict, user_id: int) -> None:

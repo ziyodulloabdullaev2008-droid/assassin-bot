@@ -9,20 +9,27 @@ def build_broadcast_keyboard(
 ) -> InlineKeyboardMarkup:
     """Построить стандартную клавиатуру для меню рассылки."""
     buttons = [
-        [InlineKeyboardButton(text="Текст", callback_data="bc_text"),
-         InlineKeyboardButton(text="Кол-во", callback_data="bc_quantity"),
-         InlineKeyboardButton(text="Интервал", callback_data="bc_interval")],
-        [InlineKeyboardButton(text="Темп", callback_data="bc_batch_pause"),
-         InlineKeyboardButton(text="Чаты", callback_data="bc_chats"),
-         InlineKeyboardButton(text="Активные", callback_data="bc_active")],
+        [
+            InlineKeyboardButton(text="Текст", callback_data="bc_text"),
+            InlineKeyboardButton(text="Кол-во", callback_data="bc_quantity"),
+            InlineKeyboardButton(text="Интервал", callback_data="bc_interval"),
+        ],
+        [
+            InlineKeyboardButton(text="Темп", callback_data="bc_batch_pause"),
+            InlineKeyboardButton(text="Чаты", callback_data="bc_chats"),
+            InlineKeyboardButton(text="Активные", callback_data="bc_active"),
+        ],
         [InlineKeyboardButton(text="Лимит", callback_data="bc_plan_limit")],
-        [InlineKeyboardButton(text="Запустить", callback_data="bc_launch"),
-         InlineKeyboardButton(text="Назад", callback_data=back_callback)],
+        [
+            InlineKeyboardButton(text="Запустить", callback_data="bc_launch"),
+            InlineKeyboardButton(text="Назад", callback_data=back_callback),
+        ],
     ]
 
     if include_active and user_id and active_broadcasts:
         user_broadcasts = {
-            bid: b for bid, b in active_broadcasts.items()
+            bid: b
+            for bid, b in active_broadcasts.items()
             if b["user_id"] == user_id and b["status"] in ("running", "paused")
         }
         if user_broadcasts:
@@ -43,18 +50,31 @@ def build_broadcast_keyboard(
                     status_icon = "⏸️"
                 else:
                     status_icon = "✅"
-                buttons.append([
-                    InlineKeyboardButton(
-                        text=f"{status_icon} Группа #{gid} ({len(items)})",
-                        callback_data=f"view_group_{gid}",
-                    )
-                ])
+                buttons.append(
+                    [
+                        InlineKeyboardButton(
+                            text=f"{status_icon} Группа #{gid} ({len(items)})",
+                            callback_data=f"view_group_{gid}",
+                        )
+                    ]
+                )
 
             for bid, broadcast in sorted(singles):
-                status = "▶️" if broadcast["status"] == "running" else "⏸️" if broadcast["status"] == "paused" else "✅"
-                buttons.append([
-                    InlineKeyboardButton(text=f"{status} Рассылка #{bid}", callback_data=f"view_bc_{bid}")
-                ])
+                status = (
+                    "▶️"
+                    if broadcast["status"] == "running"
+                    else "⏸️"
+                    if broadcast["status"] == "paused"
+                    else "✅"
+                )
+                buttons.append(
+                    [
+                        InlineKeyboardButton(
+                            text=f"{status} Рассылка #{bid}",
+                            callback_data=f"view_bc_{bid}",
+                        )
+                    ]
+                )
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -84,7 +104,8 @@ def build_broadcast_menu_text(
 
     if show_active_count:
         user_broadcasts = {
-            bid: b for bid, b in active_broadcasts.items()
+            bid: b
+            for bid, b in active_broadcasts.items()
             if b["user_id"] == user_id and b["status"] in ("running", "paused")
         }
         info += f"\n\nАктивных рассылок: {len(user_broadcasts)}"

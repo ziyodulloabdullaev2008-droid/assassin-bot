@@ -1,4 +1,4 @@
-﻿from aiogram import Router, F
+from aiogram import Router, F
 
 from aiogram.filters.command import Command
 
@@ -6,7 +6,13 @@ from aiogram.fsm.context import FSMContext
 
 from aiogram.fsm.state import State, StatesGroup
 
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, BufferedInputFile
+from aiogram.types import (
+    Message,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    CallbackQuery,
+    BufferedInputFile,
+)
 
 from openpyxl import Workbook
 
@@ -15,9 +21,6 @@ from openpyxl.styles import Font, PatternFill, Alignment
 import io
 
 import json
-import asyncio
-
-
 
 from core.state import app_state
 
@@ -34,27 +37,15 @@ from services.broadcast_profiles_service import (
     import_config_payload,
 )
 
-
 router = Router()
 
 
-
-
-
 class ConfigRenameState(StatesGroup):
-
     waiting_name = State()
-
-            
-
 
 
 class ConfigUploadState(StatesGroup):
-
     waiting_file = State()
-
-
-
 
 
 async def show_config_list(message_or_query, user_id: int, edit: bool = False):
@@ -63,40 +54,29 @@ async def show_config_list(message_or_query, user_id: int, edit: bool = False):
 
     text = "⚙️ <b>КОНФИГИ РАССЫЛКИ</b>\n\nВыберите конфиг:"
 
-
-
     buttons = []
 
     for cfg_id, name, is_active in configs:
-
         title = f"✅ {name}" if is_active else name
 
-        buttons.append([InlineKeyboardButton(text=title, callback_data=f"cfg_view_{cfg_id}")])
+        buttons.append(
+            [InlineKeyboardButton(text=title, callback_data=f"cfg_view_{cfg_id}")]
+        )
 
-
-
-    buttons.append([
-
-        InlineKeyboardButton(text="⬆️ Загрузить", callback_data="cfg_upload"),
-
-        InlineKeyboardButton(text="⬅️ Назад", callback_data="cfg_close"),
-
-    ])
-
-
+    buttons.append(
+        [
+            InlineKeyboardButton(text="⬆️ Загрузить", callback_data="cfg_upload"),
+            InlineKeyboardButton(text="⬅️ Назад", callback_data="cfg_close"),
+        ]
+    )
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
     if edit:
-
         await message_or_query.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
     else:
-
         await message_or_query.answer(text, reply_markup=kb, parse_mode="HTML")
-
-
-
 
 
 def _sanitize_filename(name: str) -> str:
@@ -108,9 +88,6 @@ def _sanitize_filename(name: str) -> str:
     return safe
 
 
-
-
-
 async def show_config_detail(query: CallbackQuery, config_id: int):
 
     user_id = query.from_user.id
@@ -118,12 +95,9 @@ async def show_config_detail(query: CallbackQuery, config_id: int):
     detail = get_config_detail(user_id, config_id)
 
     if not detail:
-
         await query.answer("❌ Конфиг не найден", show_alert=True)
 
         return
-
-
 
     active_id = get_active_config_id(user_id)
 
@@ -132,8 +106,6 @@ async def show_config_detail(query: CallbackQuery, config_id: int):
     config = detail.get("config", {})
 
     chats = detail.get("chats", [])
-
-
 
     info = f"⚙️ <b>{name}</b>\n\n"
 
@@ -146,80 +118,82 @@ async def show_config_detail(query: CallbackQuery, config_id: int):
         show_active_count=False,
     )
 
-
-
     buttons = []
 
     if config_id != active_id:
-
-        buttons.append([InlineKeyboardButton(text="Выбрать конфиг", callback_data=f"cfg_select_{config_id}")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="Выбрать конфиг", callback_data=f"cfg_select_{config_id}"
+                )
+            ]
+        )
 
     else:
-
-        buttons.append([InlineKeyboardButton(text="✅ Текущий", callback_data="cfg_noop")])
-
-
-
-    if config_id != 0:
-
-        buttons.append([InlineKeyboardButton(text="Переименовать", callback_data=f"cfg_rename_{config_id}")])
-
-
-
-    buttons.append([InlineKeyboardButton(text="Выгрузить чаты", callback_data=f"cfg_export_chats_{config_id}")])
-
-    buttons.append([InlineKeyboardButton(text="Выгрузить конфиг", callback_data=f"cfg_export_{config_id}")])
-
-
+        buttons.append(
+            [InlineKeyboardButton(text="✅ Текущий", callback_data="cfg_noop")]
+        )
 
     if config_id != 0:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="Переименовать", callback_data=f"cfg_rename_{config_id}"
+                )
+            ]
+        )
 
-        buttons.append([InlineKeyboardButton(text="Удалить конфиг", callback_data=f"cfg_delete_{config_id}")])
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="Выгрузить чаты", callback_data=f"cfg_export_chats_{config_id}"
+            )
+        ]
+    )
 
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="Выгрузить конфиг", callback_data=f"cfg_export_{config_id}"
+            )
+        ]
+    )
 
+    if config_id != 0:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="Удалить конфиг", callback_data=f"cfg_delete_{config_id}"
+                )
+            ]
+        )
 
     buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="cfg_back")])
-
-
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
     await query.message.edit_text(info, reply_markup=kb, parse_mode="HTML")
 
 
-
-
-
 @router.message(Command("config"))
-
 async def cmd_config(message: Message):
 
     await show_config_list(message, message.from_user.id, edit=False)
 
 
-
-
-
 @router.callback_query(F.data == "cfg_close")
-
 async def cfg_close(query: CallbackQuery):
 
     await query.answer()
 
     try:
-
         await query.message.delete()
 
     except Exception:
-
         pass
 
 
-
-
-
 @router.callback_query(F.data == "cfg_back")
-
 async def cfg_back(query: CallbackQuery):
 
     await query.answer()
@@ -227,11 +201,7 @@ async def cfg_back(query: CallbackQuery):
     await show_config_list(query.message, query.from_user.id, edit=True)
 
 
-
-
-
 @router.callback_query(F.data.startswith("cfg_view_"))
-
 async def cfg_view(query: CallbackQuery):
 
     await query.answer()
@@ -239,7 +209,6 @@ async def cfg_view(query: CallbackQuery):
     config_id = int(query.data.split("_")[2])
 
     if config_id == 0:
-
         set_active_config(query.from_user.id, 0)
 
         await show_config_list(query.message, query.from_user.id, edit=True)
@@ -247,9 +216,6 @@ async def cfg_view(query: CallbackQuery):
         return
 
     await show_config_detail(query, config_id)
-
-
-
 
 
 @router.callback_query(F.data.startswith("cfg_select_"))
@@ -261,17 +227,13 @@ async def cfg_select(query: CallbackQuery):
     await show_config_detail(query, config_id)
 
 
-
-
 @router.callback_query(F.data == "cfg_noop")
-
 async def cfg_noop(query: CallbackQuery):
 
     await query.answer("Уже выбран", show_alert=False)
 
 
 @router.callback_query(F.data.startswith("cfg_rename_"))
-
 async def cfg_rename(query: CallbackQuery, state: FSMContext):
 
     await query.answer()
@@ -285,11 +247,7 @@ async def cfg_rename(query: CallbackQuery, state: FSMContext):
     await query.message.edit_text("Введите новое название конфига:")
 
 
-
-
-
 @router.message(ConfigRenameState.waiting_name)
-
 async def cfg_rename_process(message: Message, state: FSMContext):
 
     data = await state.get_data()
@@ -299,7 +257,6 @@ async def cfg_rename_process(message: Message, state: FSMContext):
     new_name = (message.text or "").strip()
 
     if not new_name:
-
         await message.answer("❌ Название не может быть пустым")
 
         return
@@ -313,17 +270,12 @@ async def cfg_rename_process(message: Message, state: FSMContext):
     # т.к. редактировать уже нечего.
 
     try:
-
         await message.delete()
 
     except Exception:
-
         pass
 
     await show_config_list(message, message.from_user.id, edit=False)
-
-
-
 
 
 @router.callback_query(F.data.startswith("cfg_delete_"))
@@ -334,11 +286,7 @@ async def cfg_delete(query: CallbackQuery):
     await show_config_list(query.message, query.from_user.id, edit=True)
 
 
-
-
-
 @router.callback_query(F.data.startswith("cfg_export_chats_"))
-
 async def cfg_export_chats(query: CallbackQuery):
 
     await query.answer()
@@ -348,22 +296,17 @@ async def cfg_export_chats(query: CallbackQuery):
     detail = get_config_detail(query.from_user.id, config_id)
 
     if not detail:
-
         await query.answer("❌ Конфиг не найден", show_alert=True)
 
         return
 
     chats = detail.get("chats", [])
 
-
-
     wb = Workbook()
 
     ws = wb.active
 
     ws.title = "Чаты"
-
-
 
     ws["A1"] = "№"
 
@@ -372,21 +315,18 @@ async def cfg_export_chats(query: CallbackQuery):
     ws["C1"] = "ID"
     ws["D1"] = "Ссылка"
 
-
-
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_fill = PatternFill(
+        start_color="4472C4", end_color="4472C4", fill_type="solid"
+    )
 
     header_font = Font(bold=True, color="FFFFFF")
 
     for cell in ["A1", "B1", "C1", "D1"]:
-
         ws[cell].fill = header_fill
 
         ws[cell].font = header_font
 
         ws[cell].alignment = Alignment(horizontal="center")
-
-
 
     for idx, item in enumerate(chats, 1):
         if isinstance(item, dict):
@@ -400,16 +340,14 @@ async def cfg_export_chats(query: CallbackQuery):
         else:
             continue
 
-        ws[f"A{idx+1}"] = idx
+        ws[f"A{idx + 1}"] = idx
 
-        ws[f"B{idx+1}"] = chat_name
+        ws[f"B{idx + 1}"] = chat_name
 
-        cell = ws[f"C{idx+1}"]
+        cell = ws[f"C{idx + 1}"]
         cell.value = str(chat_id)
         cell.number_format = "@"
-        ws[f"D{idx+1}"] = str(chat_link or "")
-
-
+        ws[f"D{idx + 1}"] = str(chat_link or "")
 
     ws.column_dimensions["A"].width = 5
 
@@ -418,26 +356,16 @@ async def cfg_export_chats(query: CallbackQuery):
     ws.column_dimensions["C"].width = 20
     ws.column_dimensions["D"].width = 40
 
-
-
     excel_file = io.BytesIO()
 
     wb.save(excel_file)
 
     excel_bytes = excel_file.getvalue()
 
-
-
     await query.message.answer_document(
-
         BufferedInputFile(excel_bytes, filename="broadcast_chats.xlsx"),
-
         caption="📋 База чатов",
-
     )
-
-
-
 
 
 @router.callback_query(F.data.regexp(r"^cfg_export_\d+$"))
@@ -447,21 +375,20 @@ async def cfg_export(query: CallbackQuery):
     config_id_str = query.data.split("_")[2]
 
     if not config_id_str.isdigit():
-
         return
 
     config_id = int(config_id_str)
 
-
-
     buttons = [
-
-        [InlineKeyboardButton(text="С чатами", callback_data=f"cfg_export_with_{config_id}"),
-
-         InlineKeyboardButton(text="Без чатов", callback_data=f"cfg_export_without_{config_id}")],
-
+        [
+            InlineKeyboardButton(
+                text="С чатами", callback_data=f"cfg_export_with_{config_id}"
+            ),
+            InlineKeyboardButton(
+                text="Без чатов", callback_data=f"cfg_export_without_{config_id}"
+            ),
+        ],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"cfg_view_{config_id}")],
-
     ]
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -469,15 +396,11 @@ async def cfg_export(query: CallbackQuery):
     await query.message.edit_text("Выберите вариант выгрузки:", reply_markup=kb)
 
 
-
-
-
 async def _send_config_file(query: CallbackQuery, config_id: int, include_chats: bool):
 
     payload = export_config_payload(query.from_user.id, config_id, include_chats)
 
     if not payload:
-
         await query.answer("❌ Конфиг не найден", show_alert=True)
 
         return
@@ -489,19 +412,12 @@ async def _send_config_file(query: CallbackQuery, config_id: int, include_chats:
     data = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
 
     await query.message.answer_document(
-
         BufferedInputFile(data, filename=filename),
-
         caption="📦 Конфиг выгружен",
-
     )
 
 
-
-
-
 @router.callback_query(F.data.startswith("cfg_export_with_"))
-
 async def cfg_export_with(query: CallbackQuery):
 
     await query.answer()
@@ -511,11 +427,7 @@ async def cfg_export_with(query: CallbackQuery):
     await _send_config_file(query, config_id, include_chats=True)
 
 
-
-
-
 @router.callback_query(F.data.startswith("cfg_export_without_"))
-
 async def cfg_export_without(query: CallbackQuery):
 
     await query.answer()
@@ -525,11 +437,7 @@ async def cfg_export_without(query: CallbackQuery):
     await _send_config_file(query, config_id, include_chats=False)
 
 
-
-
-
 @router.callback_query(F.data == "cfg_upload")
-
 async def cfg_upload(query: CallbackQuery, state: FSMContext):
 
     await query.answer()
@@ -539,23 +447,15 @@ async def cfg_upload(query: CallbackQuery, state: FSMContext):
     await query.message.edit_text("Отправь файл конфига (.json)")
 
 
-
-
-
 @router.message(ConfigUploadState.waiting_file)
-
 async def cfg_upload_process(message: Message, state: FSMContext):
 
     if not message.document:
-
         await message.answer("❌ Отправь .json файл")
 
         return
 
-
-
     try:
-
         file = await message.bot.get_file(message.document.file_id)
 
         file_bytes = await message.bot.download_file(file.file_path)
@@ -563,12 +463,9 @@ async def cfg_upload_process(message: Message, state: FSMContext):
         payload = json.loads(file_bytes.read().decode("utf-8"))
 
     except Exception:
-
         await message.answer("❌ Не удалось прочитать файл")
 
         return
-
-
 
     new_id = import_config_payload(message.from_user.id, payload)
     await state.clear()
@@ -580,5 +477,3 @@ async def cfg_upload_process(message: Message, state: FSMContext):
     set_active_config(message.from_user.id, new_id)
     await message.answer("✅ Конфиг загружен и применен")
     await show_config_list(message, message.from_user.id, edit=False)
-
-

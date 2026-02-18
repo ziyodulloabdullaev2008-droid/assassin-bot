@@ -33,7 +33,9 @@ async def schedule_broadcast_send(
 
         if not client:
             if broadcast_id is not None and broadcast_id in app_state.active_broadcasts:
-                await mark_error(broadcast_id, "Account disconnected", "account_disconnected")
+                await mark_error(
+                    broadcast_id, "Account disconnected", "account_disconnected"
+                )
             return
 
         try:
@@ -41,9 +43,6 @@ async def schedule_broadcast_send(
             current_time = datetime.now(timezone.utc)
         except Exception:
             current_time = datetime.now()
-
-        total_chats = len(chat_ids)
-        total_messages = total_chats * count
 
         config = get_broadcast_config(user_id)
         interval_config = config.get("interval", interval_minutes)
@@ -63,7 +62,9 @@ async def schedule_broadcast_send(
         chat_pause_config = config.get("chat_pause", "1-3")
         if "-" in str(chat_pause_config):
             try:
-                base_min_pause, base_max_pause = map(float, str(chat_pause_config).split("-"))
+                base_min_pause, base_max_pause = map(
+                    float, str(chat_pause_config).split("-")
+                )
             except Exception:
                 base_min_pause = base_max_pause = 2.0
         else:
@@ -78,7 +79,9 @@ async def schedule_broadcast_send(
         chat_next = {}
         for chat_id in chat_ids:
             chat_next[chat_id] = base_cursor
-            base_cursor += timedelta(seconds=random.uniform(base_min_pause, base_max_pause))
+            base_cursor += timedelta(
+                seconds=random.uniform(base_min_pause, base_max_pause)
+            )
 
         # Fixed random interval per chat (minutes between messages in that chat)
         chat_interval = {}
@@ -94,7 +97,10 @@ async def schedule_broadcast_send(
                 break
 
             for chat_id in chat_ids:
-                if broadcast_id is not None and broadcast_id in app_state.active_broadcasts:
+                if (
+                    broadcast_id is not None
+                    and broadcast_id in app_state.active_broadcasts
+                ):
                     status = app_state.active_broadcasts[broadcast_id]["status"]
                     if status == "cancelled":
                         cancelled_by_user = True
@@ -116,21 +122,34 @@ async def schedule_broadcast_send(
                         parse_mode=parse_mode,
                     )
                     sent_count += 1
-                    if broadcast_id is not None and broadcast_id in app_state.active_broadcasts:
+                    if (
+                        broadcast_id is not None
+                        and broadcast_id in app_state.active_broadcasts
+                    ):
                         await update_progress(broadcast_id, sent_count, sent_count)
                 except Exception as e:
                     error_str = str(e).lower()
-                    if "floodwait" in error_str or "too many requests" in error_str or "420" in error_str:
+                    if (
+                        "floodwait" in error_str
+                        or "too many requests" in error_str
+                        or "420" in error_str
+                    ):
                         pass
                     failed_count += 1
 
                 scheduled_since_rest += 1
-                if limit_count > 0 and limit_rest > 0 and scheduled_since_rest >= limit_count:
+                if (
+                    limit_count > 0
+                    and limit_rest > 0
+                    and scheduled_since_rest >= limit_count
+                ):
                     await asyncio.sleep(limit_rest * 60)
                     scheduled_since_rest = 0
 
                 # Advance next schedule time for this chat by its own interval
-                chat_next[chat_id] = chat_next[chat_id] + timedelta(minutes=chat_interval[chat_id])
+                chat_next[chat_id] = chat_next[chat_id] + timedelta(
+                    minutes=chat_interval[chat_id]
+                )
 
         if broadcast_id is not None and broadcast_id in app_state.active_broadcasts:
             if cancelled_by_user:

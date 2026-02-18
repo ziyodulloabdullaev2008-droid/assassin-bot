@@ -1,5 +1,4 @@
-﻿from __future__ import annotations
-
+from __future__ import annotations
 
 
 import json
@@ -7,24 +6,17 @@ import json
 from pathlib import Path
 
 
-
 from core.state import app_state
 
 from database import (
-
     get_broadcast_chats,
     get_broadcast_chats_with_links,
-
     add_broadcast_chat,
-
     remove_broadcast_chat,
-
     save_broadcast_config,
-
 )
 
 from services.broadcast_config_service import get_broadcast_config
-
 
 
 from services.user_paths import broadcast_profiles_path, user_broadcast_dir
@@ -99,8 +91,9 @@ def list_configs(user_id: int) -> list[tuple[int, str, bool]]:
 
     items = [(0, "По умолчанию", active_id == 0)]
 
-    for cid_str, cfg in sorted(store.get("configs", {}).items(), key=lambda x: int(x[0])):
-
+    for cid_str, cfg in sorted(
+        store.get("configs", {}).items(), key=lambda x: int(x[0])
+    ):
         cid = int(cid_str)
 
         name = cfg.get("name", f"Конфиг {cid}")
@@ -110,17 +103,11 @@ def list_configs(user_id: int) -> list[tuple[int, str, bool]]:
     return items
 
 
-
-
-
 def get_active_config_id(user_id: int) -> int:
 
     store = _load_user_store(user_id)
 
     return int(store.get("active_id", 0))
-
-
-
 
 
 def _snapshot_current(user_id: int) -> dict:
@@ -132,9 +119,6 @@ def _snapshot_current(user_id: int) -> dict:
     return {"config": config, "chats": chats}
 
 
-
-
-
 def _apply_snapshot(user_id: int, config: dict, chats: list[tuple]) -> None:
 
     save_broadcast_config(user_id, config)
@@ -144,20 +128,15 @@ def _apply_snapshot(user_id: int, config: dict, chats: list[tuple]) -> None:
     existing = get_broadcast_chats(user_id)
 
     for chat_id, _ in existing:
-
         remove_broadcast_chat(user_id, chat_id)
 
     for item in chats:
-
         normalized = _normalize_chat_item(item)
         if not normalized:
             continue
 
         chat_id, chat_name, chat_link = normalized
         add_broadcast_chat(user_id, chat_id, chat_name, chat_link=chat_link)
-
-
-
 
 
 def ensure_active_config(user_id: int) -> int:
@@ -167,10 +146,7 @@ def ensure_active_config(user_id: int) -> int:
     active_id = int(store.get("active_id", 0))
 
     if active_id != 0:
-
         return active_id
-
-
 
     snap = _snapshot_current(user_id)
 
@@ -179,13 +155,9 @@ def ensure_active_config(user_id: int) -> int:
     name = f"Конфиг {next_id}"
 
     store["configs"][str(next_id)] = {
-
         "name": name,
-
         "config": snap["config"],
-
         "chats": snap["chats"],
-
     }
 
     store["active_id"] = next_id
@@ -197,9 +169,6 @@ def ensure_active_config(user_id: int) -> int:
     return next_id
 
 
-
-
-
 def sync_active_config_from_db(user_id: int) -> None:
 
     store = _load_user_store(user_id)
@@ -207,7 +176,6 @@ def sync_active_config_from_db(user_id: int) -> None:
     active_id = int(store.get("active_id", 0))
 
     if active_id == 0:
-
         return
 
     snap = _snapshot_current(user_id)
@@ -215,7 +183,6 @@ def sync_active_config_from_db(user_id: int) -> None:
     cfg = store.get("configs", {}).get(str(active_id))
 
     if cfg is None:
-
         return
 
     cfg["config"] = snap["config"]
@@ -227,31 +194,19 @@ def sync_active_config_from_db(user_id: int) -> None:
     _save_user_store(user_id, store)
 
 
-
-
-
 def set_active_config(user_id: int, config_id: int) -> None:
 
     store = _load_user_store(user_id)
 
     if config_id == 0:
-
         default_config = {
-
             "texts": [],
-
             "text_mode": "random",
-
             "text_index": 0,
-
             "count": 1,
-
             "interval": 1,
-
             "parse_mode": "HTML",
-
             "chat_pause": "1-3",
-
         }
 
         _apply_snapshot(user_id, default_config, [])
@@ -262,12 +217,9 @@ def set_active_config(user_id: int, config_id: int) -> None:
 
         return
 
-
-
     cfg = store.get("configs", {}).get(str(config_id))
 
     if not cfg:
-
         return
 
     _apply_snapshot(user_id, cfg.get("config", {}), cfg.get("chats", []))
@@ -277,9 +229,6 @@ def set_active_config(user_id: int, config_id: int) -> None:
     _save_user_store(user_id, store)
 
 
-
-
-
 def rename_config(user_id: int, config_id: int, new_name: str) -> bool:
 
     store = _load_user_store(user_id)
@@ -287,7 +236,6 @@ def rename_config(user_id: int, config_id: int, new_name: str) -> bool:
     cfg = store.get("configs", {}).get(str(config_id))
 
     if not cfg:
-
         return False
 
     cfg["name"] = new_name
@@ -299,21 +247,16 @@ def rename_config(user_id: int, config_id: int, new_name: str) -> bool:
     return True
 
 
-
-
-
 def delete_config(user_id: int, config_id: int) -> bool:
 
     store = _load_user_store(user_id)
 
     if str(config_id) not in store.get("configs", {}):
-
         return False
 
     del store["configs"][str(config_id)]
 
     if int(store.get("active_id", 0)) == config_id:
-
         store["active_id"] = 0
 
     _save_user_store(user_id, store)
@@ -321,31 +264,19 @@ def delete_config(user_id: int, config_id: int) -> bool:
     return True
 
 
-
-
-
 def get_config_detail(user_id: int, config_id: int) -> dict | None:
 
     store = _load_user_store(user_id)
 
     if config_id == 0:
-
         default_config = {
-
             "texts": [],
-
             "text_mode": "random",
-
             "text_index": 0,
-
             "count": 1,
-
             "interval": 1,
-
             "parse_mode": "HTML",
-
             "chat_pause": "1-3",
-
         }
 
         return {"name": "По умолчанию", "config": default_config, "chats": []}
@@ -353,43 +284,31 @@ def get_config_detail(user_id: int, config_id: int) -> dict | None:
     return store.get("configs", {}).get(str(config_id))
 
 
-
-
-
-def export_config_payload(user_id: int, config_id: int, include_chats: bool) -> dict | None:
+def export_config_payload(
+    user_id: int, config_id: int, include_chats: bool
+) -> dict | None:
 
     cfg = get_config_detail(user_id, config_id)
 
     if not cfg:
-
         return None
 
     payload = {
-
         "version": 1,
-
         "name": cfg.get("name", "Конфиг"),
-
         "config": cfg.get("config", {}),
-
         "include_chats": include_chats,
-
     }
 
     if include_chats:
-
         payload["chats"] = cfg.get("chats", [])
 
     return payload
 
 
-
-
-
 def import_config_payload(user_id: int, payload: dict) -> int | None:
 
     if not isinstance(payload, dict):
-
         return None
 
     name = payload.get("name") or "Конфиг"
@@ -397,7 +316,6 @@ def import_config_payload(user_id: int, payload: dict) -> int | None:
     config = payload.get("config")
 
     if not isinstance(config, dict):
-
         return None
 
     chats_raw = payload.get("chats", [])
@@ -405,28 +323,20 @@ def import_config_payload(user_id: int, payload: dict) -> int | None:
     chats = []
 
     if isinstance(chats_raw, list):
-
         for item in chats_raw:
-
             normalized = _normalize_chat_item(item)
             if not normalized:
                 continue
             chats.append(normalized)
-
-
 
     store = _load_user_store(user_id)
 
     next_id = int(store.get("next_id", 1))
 
     store["configs"][str(next_id)] = {
-
         "name": name,
-
         "config": config,
-
         "chats": chats,
-
     }
 
     store["next_id"] = next_id + 1
@@ -434,6 +344,3 @@ def import_config_payload(user_id: int, payload: dict) -> int | None:
     _save_user_store(user_id, store)
 
     return next_id
-
-
-

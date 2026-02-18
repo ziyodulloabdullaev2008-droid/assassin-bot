@@ -14,7 +14,7 @@ from database import (
     get_all_users,
     get_user_accounts,
 )
-from services.user_paths import BASE_DIR, session_base_path, user_sessions_dir
+from services.user_paths import BASE_DIR, session_base_path
 
 logger = get_logger("session_service")
 
@@ -26,11 +26,16 @@ async def recover_sessions_from_files(api_id: int, api_hash: str) -> bool:
     if users:
         # Normal startup path: accounts are loaded from DB.
         # Recovery from raw session files is only for empty DB/bootstrap case.
-        logger.info("Пропускаю восстановление из файлов: БД уже содержит пользователей (%s)", len(users))
+        logger.info(
+            "Пропускаю восстановление из файлов: БД уже содержит пользователей (%s)",
+            len(users),
+        )
         return False
 
     session_files = list(BASE_DIR.glob("*/sessions/session_*.session"))
-    session_files.extend(list(Path(__file__).resolve().parent.parent.glob("session_*.session")))
+    session_files.extend(
+        list(Path(__file__).resolve().parent.parent.glob("session_*.session"))
+    )
     if not session_files:
         return False
 
@@ -58,7 +63,9 @@ async def recover_sessions_from_files(api_id: int, api_hash: str) -> bool:
                 await asyncio.wait_for(client.connect(), timeout=5.0)
                 if await client.is_user_authorized():
                     me = await client.get_me()
-                    add_or_update_user(user_id, me.username or "unknown", me.first_name or "User")
+                    add_or_update_user(
+                        user_id, me.username or "unknown", me.first_name or "User"
+                    )
                     add_user_account_with_number(
                         user_id,
                         account_number,
@@ -77,7 +84,9 @@ async def recover_sessions_from_files(api_id: int, api_hash: str) -> bool:
             except asyncio.TimeoutError:
                 await _safe_disconnect(client)
             except Exception as exc:
-                logger.warning("Ошибка восстановления сессии %s: %s", session_path.name, exc)
+                logger.warning(
+                    "Ошибка восстановления сессии %s: %s", session_path.name, exc
+                )
                 await _safe_disconnect(client)
         except Exception as exc:
             logger.warning("Ошибка обработки файла %s: %s", session_path.name, exc)
@@ -168,7 +177,12 @@ async def _load_single_session(
                         app_state.user_authenticated[user_id][account_number] = client
                     return True
                 except Exception as exc:
-                    logger.warning("Ошибка ленивой загрузки сессии %s_%s: %s", user_id, account_number, exc)
+                    logger.warning(
+                        "Ошибка ленивой загрузки сессии %s_%s: %s",
+                        user_id,
+                        account_number,
+                        exc,
+                    )
                     continue
 
             for attempt in range(2):
@@ -178,7 +192,9 @@ async def _load_single_session(
                     if await client.is_user_authorized():
                         async with app_state.user_authenticated_lock:
                             app_state.user_authenticated.setdefault(user_id, {})
-                            app_state.user_authenticated[user_id][account_number] = client
+                            app_state.user_authenticated[user_id][account_number] = (
+                                client
+                            )
                         return True
                     await client.disconnect()
                     if attempt == 1:
@@ -194,7 +210,9 @@ async def _load_single_session(
                     if attempt < 1:
                         await asyncio.sleep(0.6)
                         continue
-                    logger.warning("Таймаут загрузки сессии %s_%s", user_id, account_number)
+                    logger.warning(
+                        "Таймаут загрузки сессии %s_%s", user_id, account_number
+                    )
                     break
                 except Exception as exc:
                     exc_str = str(exc).lower()
@@ -219,7 +237,9 @@ async def _load_single_session(
                             account_number,
                         )
                         break
-                    logger.warning("Ошибка загрузки сессии %s_%s: %s", user_id, account_number, exc)
+                    logger.warning(
+                        "Ошибка загрузки сессии %s_%s: %s", user_id, account_number, exc
+                    )
                     break
     except Exception as exc:
         if "database is locked" not in str(exc).lower():
@@ -243,14 +263,20 @@ def _build_session_candidates(user_id: int, account_number: int) -> list[Path]:
     add_base(session_base_path(user_id, account_number))
 
     # legacy location in project root
-    add_base(Path(__file__).resolve().parent.parent / f"session_{user_id}_{account_number}")
+    add_base(
+        Path(__file__).resolve().parent.parent / f"session_{user_id}_{account_number}"
+    )
 
     # fallback: any session for this user in users/<id>/sessions
-    for p in (BASE_DIR / str(user_id) / "sessions").glob(f"session_{user_id}_*.session"):
+    for p in (BASE_DIR / str(user_id) / "sessions").glob(
+        f"session_{user_id}_*.session"
+    ):
         add_base(p.with_suffix(""))
 
     # fallback: any legacy session for this user in project root
-    for p in Path(__file__).resolve().parent.parent.glob(f"session_{user_id}_*.session"):
+    for p in (
+        Path(__file__).resolve().parent.parent.glob(f"session_{user_id}_*.session")
+    ):
         add_base(p.with_suffix(""))
 
     return candidates
