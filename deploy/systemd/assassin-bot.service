@@ -1,0 +1,14 @@
+[Unit]
+Description=Assassin Bot
+After=network.target
+
+[Service]
+Type=simple
+User=replace-me
+WorkingDirectory=/opt/assassin-bot
+ExecStart=/usr/bin/python3 /opt/assassin-bot/start.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
