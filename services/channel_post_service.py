@@ -1,4 +1,6 @@
 from typing import Any
+from telethon.utils import get_peer_id
+from services.mention_utils import normalize_chat_id
 
 
 def normalize_channel_reference(value: str | None) -> str | None:
@@ -25,6 +27,72 @@ def normalize_channel_reference(value: str | None) -> str | None:
             return f"@{tail.split('/', 1)[0]}"
 
     return raw
+
+
+def parse_numeric_reference(value: str | int | None) -> int | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.lstrip("-").isdigit():
+        return int(text)
+    return None
+
+
+def _entity_reference_candidates(entity) -> set[int]:
+    candidates: set[int] = set()
+    entity_id = getattr(entity, "id", None)
+    if entity_id is None:
+        return candidates
+
+    entity_id = int(entity_id)
+    candidates.add(entity_id)
+    candidates.add(normalize_chat_id(entity_id))
+    try:
+        full_peer_id = int(get_peer_id(entity))
+        candidates.add(full_peer_id)
+        candidates.add(normalize_chat_id(full_peer_id))
+    except Exception:
+        pass
+
+    if entity_id > 0:
+        candidates.add(-entity_id)
+        candidates.add(int(f"-100{entity_id}"))
+
+    return candidates
+
+
+async def resolve_entity_reference(client, reference: str | int):
+    normalized_ref = (
+        normalize_channel_reference(reference)
+        if isinstance(reference, str)
+        else reference
+    )
+
+    try:
+        return await client.get_entity(normalized_ref)
+    except Exception:
+        pass
+
+    numeric_ref = parse_numeric_reference(normalized_ref)
+    if numeric_ref is None:
+        raise ValueError(f"Chat or channel not found for reference: {reference}")
+
+    target_candidates = {
+        int(numeric_ref),
+        normalize_chat_id(numeric_ref),
+    }
+
+    async for dialog in client.iter_dialogs():
+        entity = getattr(dialog, "entity", None)
+        if entity is None:
+            continue
+        entity_candidates = _entity_reference_candidates(entity)
+        if entity_candidates & target_candidates:
+            return entity
+
+    raise ValueError(f"Chat or channel not found for reference: {reference}")
 
 
 def build_source_posts(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -100,7 +168,7 @@ async def fetch_channel_posts(client, channel_ref: str) -> dict[str, Any]:
     if not normalized_ref:
         raise ValueError("Источник канала не указан")
 
-    entity = await client.get_entity(normalized_ref)
+    entity = await resolve_entity_reference(client, normalized_ref)
     title = getattr(entity, "title", None) or getattr(entity, "username", None) or normalized_ref
     resolved_ref = f"@{entity.username}" if getattr(entity, "username", None) else normalized_ref
 

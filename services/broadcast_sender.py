@@ -6,6 +6,7 @@ from telethon.errors import FloodWaitError
 
 from core.config import API_HASH, API_ID
 from core.state import app_state
+from services.channel_post_service import resolve_entity_reference
 from services.broadcast_service import (
     discard_broadcast_task,
     get_broadcast,
@@ -251,11 +252,19 @@ async def schedule_broadcast_send(
 
             try:
                 if current_item.get("kind") == "forward":
-                    await client.forward_messages(
-                        chat_id,
-                        int(current_item["message_id"]),
+                    source_entity = await resolve_entity_reference(
+                        client,
                         current_item["source_ref"],
                     )
+                    source_message = await client.get_messages(
+                        source_entity,
+                        ids=int(current_item["message_id"]),
+                    )
+                    if not source_message:
+                        raise ValueError("Source channel message not found")
+                    # Resend the source post as a fresh message so Telegram
+                    # does not show the original channel in the recipient chat.
+                    await client.send_message(chat_id, source_message)
                 else:
                     await client.send_message(
                         chat_id,

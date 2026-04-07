@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.filters.command import Command
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 
 from core.state import app_state
@@ -22,13 +22,7 @@ async def cmd_start(message: Message):
         "Помощь по боту по команде /help"
     )
 
-    channel_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Наш канал", url="https://t.me/assassin2026")]
-        ]
-    )
-
-    await message.answer(welcome_text, reply_markup=channel_kb)
+    await message.answer(welcome_text)
     await message.answer("Главное меню:", reply_markup=get_main_menu_keyboard())
 
 

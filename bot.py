@@ -224,6 +224,64 @@ class DeleteChatState(StatesGroup):
 
 
 vip_denial_messages = {}
+REQUIRED_CHANNELS = [
+    {
+        "chat_id": "@stryxxss",
+        "title": "stryxxss",
+        "url": "https://t.me/stryxxss",
+    },
+    {
+        "chat_id": "@stryxxs",
+        "title": "stryxxs",
+        "url": "https://t.me/stryxxs",
+    },
+]
+
+
+def build_required_subscription_keyboard() -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=f"📢 {channel['title']}",
+                url=channel["url"],
+            )
+        ]
+        for channel in REQUIRED_CHANNELS
+    ]
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="✅ Проверить подписку",
+                callback_data="check_required_subscription",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def build_required_subscription_text(missing_titles: list[str] | None = None) -> str:
+    text = (
+        "🔒 <b>Для работы с ботом нужна подписка</b>\n\n"
+        "Подпишись на оба канала и нажми кнопку проверки."
+    )
+    if missing_titles:
+        text += "\n\nНе хватает подписки на:\n" + "\n".join(
+            f"• {title}" for title in missing_titles
+        )
+    return text
+
+
+async def get_missing_required_channels(bot: Bot, user_id: int) -> list[dict]:
+    missing = []
+    for channel in REQUIRED_CHANNELS:
+        try:
+            member = await bot.get_chat_member(channel["chat_id"], user_id)
+            status = getattr(member, "status", "")
+            if status in {"left", "kicked"}:
+                missing.append(channel)
+        except Exception:
+            missing.append(channel)
+    return missing
 
 
 class PrivateOnlyMiddleware(BaseMiddleware):
@@ -263,6 +321,7 @@ class VIPCheckMiddleware(BaseMiddleware):
     }
 
     PUBLIC_CALLBACKS = {
+        "check_required_subscription",
         "bc_launch",
         "bc_pause",
         "bc_resume",
@@ -361,8 +420,88 @@ class VIPCheckMiddleware(BaseMiddleware):
         return await handler(event, data)
 
 
+class SubscriptionRequiredMiddleware(BaseMiddleware):
+    """Blocks bot usage until the user is subscribed to both required channels."""
+
+    PUBLIC_CALLBACKS = {"check_required_subscription"}
+
+    async def __call__(self, handler, event: Update, data: dict):
+        user_id = None
+        message = None
+        callback_query = None
+
+        if event.message:
+            message = event.message
+            user_id = message.from_user.id
+        elif event.callback_query:
+            callback_query = event.callback_query
+            user_id = callback_query.from_user.id
+            if callback_query.data and any(
+                callback_query.data.startswith(cb) for cb in self.PUBLIC_CALLBACKS
+            ):
+                return await handler(event, data)
+        else:
+            return await handler(event, data)
+
+        if user_id in {ADMIN_ID, 777000}:
+            return await handler(event, data)
+
+        missing_channels = await get_missing_required_channels(bot, user_id)
+        if not missing_channels:
+            return await handler(event, data)
+
+        missing_titles = [channel["title"] for channel in missing_channels]
+        text = build_required_subscription_text(missing_titles)
+        kb = build_required_subscription_keyboard()
+
+        if message:
+            await message.answer(text, reply_markup=kb, parse_mode="HTML")
+            return
+
+        if callback_query:
+            await callback_query.answer(
+                "Сначала подпишись на оба канала",
+                show_alert=True,
+            )
+            try:
+                await callback_query.message.answer(text, reply_markup=kb, parse_mode="HTML")
+            except Exception:
+                pass
+            return
+
+        return await handler(event, data)
+
+
 dp.update.outer_middleware(PrivateOnlyMiddleware())
 dp.update.outer_middleware(VIPCheckMiddleware())
+dp.update.outer_middleware(SubscriptionRequiredMiddleware())
+
+
+@dp.callback_query(F.data == "check_required_subscription")
+async def check_required_subscription_callback(query: CallbackQuery):
+    missing_channels = await get_missing_required_channels(bot, query.from_user.id)
+    if missing_channels:
+        titles = [channel["title"] for channel in missing_channels]
+        await query.answer("Подписка еще не подтверждена", show_alert=True)
+        try:
+            await query.message.edit_text(
+                build_required_subscription_text(titles),
+                reply_markup=build_required_subscription_keyboard(),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        return
+
+    await query.answer("Подписка подтверждена ✅", show_alert=True)
+    try:
+        await query.message.edit_text(
+            "✅ <b>Подписка подтверждена</b>\n\nТеперь бот доступен.",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+    await query.message.answer("Главное меню:", reply_markup=get_main_menu_keyboard())
 
 
 @dp.message(Command("se"))

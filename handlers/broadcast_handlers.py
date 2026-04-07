@@ -19,6 +19,7 @@ import asyncio
 import html
 
 from datetime import datetime, timezone
+from telethon.utils import get_peer_id
 
 from core.state import app_state
 
@@ -55,7 +56,9 @@ from services.channel_post_service import (
     fetch_channel_posts,
     format_source_channel_link,
     normalize_channel_reference,
+    parse_numeric_reference,
     post_preview_text,
+    resolve_entity_reference,
     source_channel_title,
 )
 from services.session_service import ensure_connected_client
@@ -167,6 +170,43 @@ async def _load_channel_source_for_user(
             continue
 
     raise RuntimeError("Не удалось загрузить посты канала ни с одного подключенного аккаунта")
+
+
+def _iter_connected_account_numbers(user_id: int) -> list[int]:
+    connected = list((user_authenticated.get(user_id) or {}).keys())
+    connected.sort()
+    return connected
+
+
+async def _resolve_chat_for_user(
+    user_id: int,
+    chat_reference: str,
+) -> tuple[object, int]:
+    account_numbers = _iter_connected_account_numbers(user_id)
+    if not account_numbers:
+        raise RuntimeError("Нет подключенных аккаунтов")
+
+    last_error = None
+    for account_number in account_numbers:
+        client = await ensure_connected_client(
+            user_id,
+            account_number,
+            api_id=API_ID,
+            api_hash=API_HASH,
+        )
+        if not client:
+            continue
+
+        try:
+            entity = await resolve_entity_reference(client, chat_reference)
+            return entity, account_number
+        except Exception as exc:
+            last_error = exc
+            continue
+
+    if last_error:
+        raise last_error
+    raise RuntimeError("Не удалось получить доступ к чату")
 
 
 def _build_manual_content_items(config: dict) -> list[dict]:
@@ -2931,130 +2971,30 @@ async def process_add_broadcast_chat_with_profile(message: Message, state: FSMCo
 
             return
 
-        # Р вЂР ВµРЎР‚РЎвЂР С Р СџР вЂўР В Р вЂ™Р В«Р в„ў Р С—Р С•Р Т‘Р С”Р В»РЎР‹РЎвЂЎР ВµР Р…Р Р…РЎвЂ№Р в„– Р В°Р С”Р С”Р В°РЎС“Р Р…РЎвЂљ Р Т‘Р В»РЎРЏ Р С—Р С•Р В»РЎС“РЎвЂЎР ВµР Р…Р С‘РЎРЏ Р С‘Р Р…РЎвЂћР С•РЎР‚Р СР В°РЎвЂ Р С‘Р С‘ Р С• РЎвЂЎР В°РЎвЂљР Вµ
-
-        account_number = next(iter(user_authenticated[user_id].keys()))
-
-        client = user_authenticated[user_id][account_number]
-
         chat_id = None
 
         chat_name = None
         chat_link = None
-
-        # Р СџРЎвЂ№РЎвЂљР В°Р ВµР СРЎРѓРЎРЏ Р С—Р С•Р В»РЎС“РЎвЂЎР С‘РЎвЂљРЎРЉ Р С‘Р Р…РЎвЂћР С•РЎР‚Р СР В°РЎвЂ Р С‘РЎР‹ Р С• РЎвЂЎР В°РЎвЂљР Вµ
-
-        chat = None
-
-        # Р СџРЎвЂ№РЎвЂљР В°Р ВµР СРЎРѓРЎРЏ Р С—Р В°РЎР‚РЎРѓР С‘РЎвЂљРЎРЉ Р С”Р В°Р С” РЎвЂЎР С‘РЎРѓР В»Р С• (ID РЎвЂЎР В°РЎвЂљР В°)
-
         try:
-            # Р вЂўРЎРѓР В»Р С‘ РЎРЊРЎвЂљР С• РЎвЂЎР С‘РЎРѓР В»Р С• - Р С—РЎвЂ№РЎвЂљР В°Р ВµР СРЎРѓРЎРЏ Р С‘РЎРѓР С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљРЎРЉ Р С”Р В°Р С” chat_id Р Р…Р В°Р С—РЎР‚РЎРЏР СРЎС“РЎР‹
+            chat = None
+            chat_reference = parse_numeric_reference(chat_input)
+            if chat_reference is None:
+                chat_reference = chat_input
 
-            if chat_input.lstrip("-").isdigit():
-                chat_id = int(chat_input)
+            chat, resolved_account = await _resolve_chat_for_user(user_id, chat_reference)
+            _ = resolved_account  # kept for future diagnostics
 
-                # Р СџРЎвЂ№РЎвЂљР В°Р ВµР СРЎРѓРЎРЏ Р С—Р С•Р В»РЎС“РЎвЂЎР С‘РЎвЂљРЎРЉ Р С‘Р Р…РЎвЂћР С•РЎР‚Р СР В°РЎвЂ Р С‘РЎР‹ Р С• РЎвЂЎР В°РЎвЂљР Вµ РЎвЂЎР ВµРЎР‚Р ВµР В· ID
+            try:
+                chat_id = int(get_peer_id(chat))
+            except Exception:
+                chat_id = int(getattr(chat, "id"))
 
-                try:
-                    # Р вЂќР В»РЎРЏ РЎРѓРЎС“Р С—Р ВµРЎР‚Р С–РЎР‚РЎС“Р С—Р С— ID Р Р†РЎвЂ№Р С–Р В»РЎРЏР Т‘Р С‘РЎвЂљ Р С”Р В°Р С” -1001234567890
+            title = getattr(chat, "title", None) or getattr(chat, "first_name", None)
+            if not title and hasattr(chat, "id"):
+                title = f"user{chat.id}"
 
-                    # Telethon РЎвЂљРЎР‚Р ВµР В±РЎС“Р ВµРЎвЂљ Р С—РЎР‚Р ВµР С•Р В±РЎР‚Р В°Р В·Р С•Р Р†Р В°Р Р…Р С‘Р Вµ: -1001234567890 -> 1234567890 (РЎС“Р В±Р С‘РЎР‚Р В°Р ВµР С -100)
-
-                    if chat_id < 0 and str(chat_id).startswith("-100"):
-                        # Р В­РЎвЂљР С• РЎРѓРЎС“Р С—Р ВµРЎР‚Р С–РЎР‚РЎС“Р С—Р С—Р В°, Р С—РЎР‚Р ВµР С•Р В±РЎР‚Р В°Р В·РЎС“Р ВµР С ID
-
-                        actual_id = chat_id
-
-                    else:
-                        actual_id = chat_id
-
-                    chat = await client.get_entity(actual_id)
-
-                    if chat:
-                        title = getattr(chat, "title", None) or getattr(
-                            chat, "first_name", None
-                        )
-
-                        if not title and hasattr(chat, "id"):
-                            title = f"user{chat.id}"
-
-                        chat_name = str(title) if title else f"\u0427\u0430\u0442 {chat_id}"
-                        chat_link = _detect_chat_link(chat_input, chat)
-
-                    else:
-                        chat_name = f"\u0427\u0430\u0442 {chat_id}"
-
-                except Exception:
-                    # Р вЂўРЎРѓР В»Р С‘ Р Р…Р Вµ Р С—Р С•Р В»РЎС“РЎвЂЎР С‘Р В»Р С•РЎРѓРЎРЉ Р Р…Р В°Р С—РЎР‚РЎРЏР СРЎС“РЎР‹, Р С—РЎвЂ№РЎвЂљР В°Р ВµР СРЎРѓРЎРЏ Р С”Р В°Р С” Р С•Р В±РЎвЂ№РЎвЂЎР Р…РЎвЂ№Р в„– entity
-
-                    try:
-                        chat = await client.get_entity(chat_input)
-
-                        if chat:
-                            chat_id = chat.id
-
-                            title = getattr(chat, "title", None) or getattr(
-                                chat, "first_name", None
-                            )
-
-                            if not title and hasattr(chat, "id"):
-                                title = f"user{chat.id}"
-
-                            chat_name = str(title) if title else f"\u0427\u0430\u0442 {chat_id}"
-                            chat_link = _detect_chat_link(chat_input, chat)
-
-                        else:
-                            chat_id = int(chat_input)
-
-                            chat_name = f"\u0427\u0430\u0442 {chat_id}"
-
-                    except Exception:
-                        # Р вЂўРЎРѓР В»Р С‘ Р Р†РЎРѓРЎвЂ РЎР‚Р В°Р Р†Р Р…Р С• Р Р…Р Вµ Р С—Р С•Р В»РЎС“РЎвЂЎР С‘Р В»Р С•РЎРѓРЎРЉ, Р С—РЎР‚Р С•РЎРѓРЎвЂљР С• Р С‘РЎРѓР С—Р С•Р В»РЎРЉР В·РЎС“Р ВµР С ID Р С”Р В°Р С” Р ВµРЎРѓРЎвЂљРЎРЉ
-
-                        chat_id = int(chat_input)
-
-                        chat_name = f"\u0427\u0430\u0442 {chat_id}"
-
-                        chat = None
-
-            else:
-                # Р В­РЎвЂљР С• РЎР‹Р В·Р ВµРЎР‚Р Р…Р ВµР в„–Р С Р С‘Р В»Р С‘ Р Т‘РЎР‚РЎС“Р С–Р С•Р в„– Р С‘Р Т‘Р ВµР Р…РЎвЂљР С‘РЎвЂћР С‘Р С”Р В°РЎвЂљР С•РЎР‚
-
-                try:
-                    chat = await client.get_entity(chat_input)
-
-                    if chat:
-                        chat_id = chat.id
-
-                        title = getattr(chat, "title", None) or getattr(
-                            chat, "first_name", None
-                        )
-
-                        if not title and hasattr(chat, "id"):
-                            title = f"user{chat.id}"
-
-                        chat_name = str(title) if title else f"\u0427\u0430\u0442 {chat_id}"
-                        chat_link = _detect_chat_link(chat_input, chat)
-
-                    else:
-                        await message.answer(
-                            "\u274c \u0427\u0430\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d"
-                        )
-
-                        return
-
-                except Exception as e:
-                    print(
-                        f"РІС™В РїС‘РЏ  Р СњР Вµ РЎРѓР СР С•Р С– Р С—Р С•Р В»РЎС“РЎвЂЎР С‘РЎвЂљРЎРЉ РЎвЂЎР В°РЎвЂљ Р С—Р С• {chat_input}: {str(e)}"
-                    )
-
-                    await message.answer(
-                        "\u274c \u0427\u0430\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0423\u0431\u0435\u0434\u0438\u0441\u044c, \u0447\u0442\u043e \u0442\u0432\u043e\u0439 \u0430\u043a\u043a\u0430\u0443\u043d\u0442 \u0432\u0438\u0434\u0438\u0442 \u044d\u0442\u043e\u0442 \u0447\u0430\u0442.\n\n"
-                        "\U0001f4a1 \u041c\u043e\u0436\u0435\u0448\u044c \u043f\u0440\u043e\u0441\u0442\u043e \u0432\u0432\u0435\u0441\u0442\u0438 ID, \u043d\u0430\u043f\u0440\u0438\u043c\u0435\u0440: <code>-1003880811528</code>"
-                    )
-
-                    return
+            chat_name = str(title) if title else f"\u0427\u0430\u0442 {chat_id}"
+            chat_link = _detect_chat_link(chat_input, chat)
 
         except Exception as e:
             print(
@@ -3062,9 +3002,10 @@ async def process_add_broadcast_chat_with_profile(message: Message, state: FSMCo
             )
 
             await message.answer(
-                "\u274c \u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u0444\u043e\u0440\u043c\u0430\u0442. \u0412\u0432\u0435\u0434\u0438 ID \u0447\u0430\u0442\u0430 "
-                "(<code>-1003880811528</code>) \u0438\u043b\u0438 \u044e\u0437\u0435\u0440\u043d\u0435\u0439\u043c "
-                "(<code>@mychannel</code>)",
+                "\u274c \u0427\u0430\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0412\u0432\u0435\u0434\u0438 ID \u0447\u0430\u0442\u0430 "
+                "(<code>-1003880811528</code>), \u0441\u0441\u044b\u043b\u043a\u0443 \u0438\u043b\u0438 \u044e\u0437\u0435\u0440\u043d\u0435\u0439\u043c "
+                "(<code>@mychannel</code>). \u0410\u043a\u043a\u0430\u0443\u043d\u0442, \u0447\u0435\u0440\u0435\u0437 \u043a\u043e\u0442\u043e\u0440\u044b\u0439 "
+                "\u0438\u0434\u0435\u0442 \u043f\u043e\u0438\u0441\u043a, \u0434\u043e\u043b\u0436\u0435\u043d \u0432\u0438\u0434\u0435\u0442\u044c \u044d\u0442\u043e\u0442 \u0447\u0430\u0442.",
                 parse_mode="HTML",
             )
 
