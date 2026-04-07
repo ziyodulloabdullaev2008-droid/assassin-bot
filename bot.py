@@ -305,9 +305,11 @@ class PrivateOnlyMiddleware(BaseMiddleware):
 class VIPCheckMiddleware(BaseMiddleware):
     """Middleware для проверки VIP статуса пользователя"""
 
-    PUBLIC_COMMANDS = {"/start", "/help", "/restart", "/login", "/logout"}
+    PUBLIC_COMMANDS = {"/start", "/help", "/restart", "/logout"}
 
     VIP_ONLY_COMMANDS = {
+        "/login",
+        "/menu",
         "/sa",
         "/se",
         "/broadcast",
@@ -318,6 +320,7 @@ class VIPCheckMiddleware(BaseMiddleware):
 
     VIP_ONLY_TEXT_MARKERS = {
         "рассылка",
+        "мой аккаунт",
     }
 
     PUBLIC_CALLBACKS = {
@@ -330,15 +333,6 @@ class VIPCheckMiddleware(BaseMiddleware):
         "monitor_start",
         "monitor_stop",
         "monitor_toggle",
-        "view_account_",
-        "get_chats_list",
-        "export_private_chats",
-        "export_groups",
-        "export_channels",
-        "export_all_chats",
-        "back_to_account_menu",
-        "refresh_menu",
-        "close_accounts_menu",
     }
 
     async def __call__(self, handler, event: Update, data: dict):
