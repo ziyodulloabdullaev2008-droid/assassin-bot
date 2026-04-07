@@ -378,7 +378,7 @@ class VIPCheckMiddleware(BaseMiddleware):
                             try:
                                 await message.answer(
                                     "❌ Доступ ограничен.\n\n"
-                                    "Для получения доступа обратитесь к @assassin_admin"
+                                    "Для получения доступа обратитесь к @stryyx"
                                 )
                             except Exception as e:
                                 print(
@@ -408,7 +408,7 @@ class VIPCheckMiddleware(BaseMiddleware):
                 if not is_public:
                     try:
                         await event.callback_query.answer(
-                            "❌ Доступ ограничен. Для получения доступа обратитесь к @assassin_admin",
+                            "❌ Доступ ограничен. Для получения доступа обратитесь к @stryyx",
                             show_alert=True,
                         )
 
