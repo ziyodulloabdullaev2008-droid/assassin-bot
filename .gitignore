@@ -1,0 +1,6 @@
+users/
+config.local.json
+dist/
+__pycache__/
+*.pyc
+.venv/
