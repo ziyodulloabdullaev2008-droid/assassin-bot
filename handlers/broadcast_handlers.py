@@ -334,6 +334,25 @@ def _format_chat_error_line(chat_item: dict) -> str:
     return trimmed
 
 
+def _format_chat_error_log(chat_item: dict) -> str:
+    number = int(chat_item.get("order", 0) or 0) + 1
+    name = _broadcast_chat_short_name(chat_item)
+    chat_id = chat_item.get("chat_id")
+    error_text = str(chat_item.get("last_error") or "").strip() or "-"
+    error_time = float(chat_item.get("last_error_at", 0.0) or 0.0)
+    if error_time > 0:
+        timestamp = datetime.fromtimestamp(error_time, tz=timezone.utc).astimezone()
+        timestamp_text = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        timestamp_text = "-"
+    return (
+        f"[{number}] {name}\n"
+        f"id: {chat_id}\n"
+        f"time: {timestamp_text}\n"
+        f"error: {error_text}"
+    )
+
+
 def _find_chat_runtime_item(broadcast: dict, order: int) -> dict | None:
     for item in _broadcast_chat_runtime_items(broadcast):
         if int(item.get("order", -1) or -1) == order:
@@ -442,24 +461,65 @@ async def show_broadcast_menu(message_or_query, user_id: int, is_edit: bool = Fa
     )
 
     if is_edit:
-        try:
-            await message_or_query.message.edit_text(
-                text=info, reply_markup=kb, parse_mode="HTML"
-            )
-
-        except Exception as e:
-            print(f"Р С›РЎв‚¬Р С‘Р В±Р С”Р В° Р С—РЎР‚Р С‘ edit_text: {e}")
-
+        if isinstance(message_or_query, CallbackQuery):
+            await _edit_or_notice(message_or_query, info, kb)
+        else:
             try:
+                await message_or_query.message.edit_text(
+                    text=info, reply_markup=kb, parse_mode="HTML"
+                )
+            except Exception:
                 await message_or_query.message.answer(
                     info, reply_markup=kb, parse_mode="HTML"
                 )
 
-            except Exception as e2:
-                print(f"Р С›РЎв‚¬Р С‘Р В±Р С”Р В° Р С—РЎР‚Р С‘ answer: {e2}")
-
     else:
         await message_or_query.answer(info, reply_markup=kb, parse_mode="HTML")
+
+
+async def _edit_or_notice(
+    query: CallbackQuery,
+    text: str,
+    reply_markup: InlineKeyboardMarkup | None = None,
+    *,
+    parse_mode: str = "HTML",
+    fallback_to_answer: bool = False,
+) -> bool:
+    try:
+        await query.message.edit_text(
+            text,
+            reply_markup=reply_markup,
+            parse_mode=parse_mode,
+        )
+        return True
+    except Exception as exc:
+        error_text = str(exc).lower()
+        if "not modified" in error_text:
+            try:
+                await query.answer("\u0423\u0436\u0435 \u0430\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u043e", show_alert=False)
+            except Exception:
+                pass
+            return False
+
+        if fallback_to_answer:
+            try:
+                await query.message.answer(
+                    text,
+                    reply_markup=reply_markup,
+                    parse_mode=parse_mode,
+                )
+                return True
+            except Exception:
+                pass
+
+        try:
+            await query.answer(
+                "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u044d\u043a\u0440\u0430\u043d",
+                show_alert=False,
+            )
+        except Exception:
+            pass
+        return False
 
 
 def _build_broadcast_chats_view(user_id: int) -> tuple[str, InlineKeyboardMarkup]:
@@ -1168,12 +1228,7 @@ async def bc_active_callback(query: CallbackQuery):
             ]
         )
 
-        try:
-            await query.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
-
-        except Exception:
-            await query.message.answer(text, reply_markup=kb, parse_mode="HTML")
-
+        await _edit_or_notice(query, text, kb)
         return
 
     groups = {}
@@ -1189,7 +1244,13 @@ async def bc_active_callback(query: CallbackQuery):
         else:
             groups.setdefault(gid, []).append((bid, b))
 
-    info = "\U0001f4e4 <b>\u0410\u041a\u0422\u0418\u0412\u041d\u042b\u0415 \u0420\u0410\u0421\u0421\u042b\u041b\u041a\u0418</b>\n\n"
+    total_running = sum(1 for _, b in user_broadcasts.items() if b["status"] == "running")
+    total_paused = sum(1 for _, b in user_broadcasts.items() if b["status"] == "paused")
+    info = (
+        "\U0001f4e4 <b>\u0410\u041a\u0422\u0418\u0412\u041d\u042b\u0415 \u0420\u0410\u0421\u0421\u042b\u041b\u041a\u0418</b>\n\n"
+        f"\u0412\u0441\u0435\u0433\u043e: {len(user_broadcasts)} | "
+        f"\u25b6\ufe0f {total_running} | \u23f8\ufe0f {total_paused}\n\n"
+    )
 
     buttons = []
 
@@ -1200,12 +1261,18 @@ async def bc_active_callback(query: CallbackQuery):
             else "\u23f8\ufe0f \u041f\u0430\u0443\u0437\u0430"
         )
 
-        info += f"\u0413\u0440\u0443\u043f\u043f\u0430 #{gid} {status} | \u0410\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432: {len(items)}\n"
+        sent = sum(int(b.get("sent_chats", 0) or 0) for _, b in items)
+        plan = sum(int(b.get("planned_count", 0) or 0) for _, b in items)
+        info += (
+            f"{status} <b>\u0413\u0440\u0443\u043f\u043f\u0430 #{gid}</b>\n"
+            f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432: {len(items)} | "
+            f"\u041f\u0440\u043e\u0433\u0440\u0435\u0441\u0441: {sent}/{plan}\n\n"
+        )
 
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=f"\u0413\u0440\u0443\u043f\u043f\u0430 #{gid}",
+                    text=f"{status.split()[0]} \u0413\u0440\u0443\u043f\u043f\u0430 #{gid}",
                     callback_data=f"view_group_{gid}",
                 )
             ]
@@ -1223,25 +1290,19 @@ async def bc_active_callback(query: CallbackQuery):
             f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442 {b.get('account', '?')}",
         )
 
-        info += f"\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{bid} {status} | {account_name}\n"
+        info += (
+            f"{status} <b>\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{bid}</b>\n"
+            f"{account_name} | {b.get('sent_chats', 0)}/{b.get('planned_count', 0)}\n\n"
+        )
 
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=f"\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{bid}",
+                    text=f"{status.split()[0]} \u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{bid}",
                     callback_data=f"view_bc_{bid}",
                 )
             ]
         )
-
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                text="\U0001f504 \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c",
-                callback_data="bc_active",
-            )
-        ]
-    )
 
     buttons.append(
         [
@@ -1252,19 +1313,11 @@ async def bc_active_callback(query: CallbackQuery):
         ]
     )
 
-    try:
-        await query.message.edit_text(
-            info,
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
-            parse_mode="HTML",
-        )
-
-    except Exception:
-        await query.message.answer(
-            info,
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
-            parse_mode="HTML",
-        )
+    await _edit_or_notice(
+        query,
+        info.strip(),
+        InlineKeyboardMarkup(inline_keyboard=buttons),
+    )
 
 
 async def _render_group_detail(query: CallbackQuery, user_id: int, gid: int) -> None:
@@ -1344,19 +1397,11 @@ async def _render_group_detail(query: CallbackQuery, user_id: int, gid: int) -> 
         ],
     ]
 
-    try:
-        await query.message.edit_text(
-            info,
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
-            parse_mode="HTML",
-        )
-
-    except Exception:
-        await query.message.answer(
-            info,
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
-            parse_mode="HTML",
-        )
+    await _edit_or_notice(
+        query,
+        info,
+        InlineKeyboardMarkup(inline_keyboard=buttons),
+    )
 
 
 @router.callback_query(F.data.startswith("view_group_"))
@@ -1496,16 +1541,6 @@ async def view_bc_callback(query: CallbackQuery):
     info += f"\u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b: {b.get('interval_minutes', '?')} \u043c\u0438\u043d \u043d\u0430 \u0447\u0430\u0442\n"
 
     error_items = [item for item in chat_items if item.get("last_error")]
-    if error_items:
-        info += "\n<b>\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u0438\u0435 \u043e\u0448\u0438\u0431\u043a\u0438:</b>\n"
-        for item in error_items[:3]:
-            info += (
-                f"{int(item.get('order', 0) or 0) + 1}. "
-                f"{html.escape(_broadcast_chat_short_name(item))} - "
-                f"{html.escape(_format_chat_error_line(item))}\n"
-            )
-        if len(error_items) > 3:
-            info += f"\u0415\u0449\u0435: {len(error_items) - 3}\n"
 
     buttons = [
         [
@@ -1546,27 +1581,32 @@ async def view_bc_callback(query: CallbackQuery):
                 callback_data=f"view_bc_{bid}",
             )
         ],
+    ]
+
+    if error_items:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"\u26a0\ufe0f \u041e\u0448\u0438\u0431\u043a\u0438 ({len(error_items)})",
+                    callback_data=f"bc_errors_{bid}",
+                )
+            ]
+        )
+
+    buttons.append(
         [
             InlineKeyboardButton(
                 text="\u2b05\ufe0f \u041d\u0430\u0437\u0430\u0434",
                 callback_data="bc_active",
             )
-        ],
-    ]
+        ]
+    )
 
-    try:
-        await query.message.edit_text(
-            info,
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
-            parse_mode="HTML",
-        )
-
-    except Exception:
-        await query.message.answer(
-            info,
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
-            parse_mode="HTML",
-        )
+    await _edit_or_notice(
+        query,
+        info,
+        InlineKeyboardMarkup(inline_keyboard=buttons),
+    )
 
 
 @router.callback_query(F.data.startswith("pause_bc_"))
@@ -1613,6 +1653,70 @@ async def cancel_bc_callback(query: CallbackQuery):
         await set_broadcast_status(bid, "cancelled")
 
     await bc_active_callback(query)
+
+
+async def _render_broadcast_error_log(query: CallbackQuery, bid: int) -> None:
+    user_id = query.from_user.id
+    broadcast = active_broadcasts.get(bid)
+    if not broadcast or broadcast.get("user_id") != user_id:
+        await query.answer(
+            "\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430",
+            show_alert=True,
+        )
+        return
+
+    error_items = [
+        item
+        for item in _broadcast_chat_runtime_items(broadcast)
+        if str(item.get("last_error") or "").strip()
+    ]
+    error_items.sort(
+        key=lambda item: float(item.get("last_error_at", 0.0) or 0.0),
+        reverse=True,
+    )
+
+    info = [f"\u26a0\ufe0f <b>\u041e\u0448\u0438\u0431\u043a\u0438 \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0438 #{bid}</b>", ""]
+    if not error_items:
+        info.append("\u0421\u0435\u0439\u0447\u0430\u0441 \u043e\u0448\u0438\u0431\u043e\u043a \u043d\u0435\u0442.")
+    else:
+        for item in error_items[:15]:
+            info.append(f"<pre>{html.escape(_format_chat_error_log(item))}</pre>")
+
+    buttons = []
+    if error_items:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="\U0001f504 \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c",
+                    callback_data=f"bc_errors_{bid}",
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="\u2b05\ufe0f \u041a \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0435",
+                callback_data=f"view_bc_{bid}",
+            )
+        ]
+    )
+
+    await _edit_or_notice(
+        query,
+        "\n".join(info),
+        InlineKeyboardMarkup(inline_keyboard=buttons),
+    )
+
+
+@router.callback_query(F.data.startswith("bc_errors_"))
+async def bc_errors_callback(query: CallbackQuery):
+    await query.answer()
+    try:
+        bid = int(query.data.split("_")[2])
+    except Exception:
+        await query.answer("\u041e\u0448\u0438\u0431\u043a\u0430", show_alert=True)
+        return
+    await _render_broadcast_error_log(query, bid)
 
 
 async def _render_broadcast_chat_list(query: CallbackQuery, bid: int) -> None:
@@ -1670,10 +1774,7 @@ async def _render_broadcast_chat_list(query: CallbackQuery, bid: int) -> None:
 
     text = "\n".join(lines)
     markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-    try:
-        await query.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
-    except Exception:
-        await query.message.answer(text, reply_markup=markup, parse_mode="HTML")
+    await _edit_or_notice(query, text, markup)
 
 
 async def _render_broadcast_chat_detail(query: CallbackQuery, bid: int, order: int) -> None:
@@ -1750,10 +1851,7 @@ async def _render_broadcast_chat_detail(query: CallbackQuery, bid: int, order: i
 
     text = "\n".join(info)
     markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-    try:
-        await query.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
-    except Exception:
-        await query.message.answer(text, reply_markup=markup, parse_mode="HTML")
+    await _edit_or_notice(query, text, markup)
 
 
 @router.callback_query(F.data.startswith("bc_chat_list_"))
