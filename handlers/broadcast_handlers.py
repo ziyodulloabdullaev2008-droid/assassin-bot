@@ -1552,12 +1552,10 @@ async def view_bc_callback(query: CallbackQuery):
                 text="\u25b6\ufe0f \u041f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u0442\u044c",
                 callback_data=f"resume_bc_{bid}",
             ),
-        ],
-        [
             InlineKeyboardButton(
-                text="\u26d4 \u041e\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u044c",
+                text="\u26d4 \u0421\u0442\u043e\u043f",
                 callback_data=f"cancel_bc_{bid}",
-            )
+            ),
         ],
         [
             InlineKeyboardButton(
@@ -1569,36 +1567,33 @@ async def view_bc_callback(query: CallbackQuery):
                 callback_data=f"bc_edit_interval_{bid}",
             ),
         ],
-        [
-            InlineKeyboardButton(
-                text="\U0001f4dd \u0427\u0430\u0442\u044b",
-                callback_data=f"bc_chat_list_{bid}",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text="\U0001f504 \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c",
-                callback_data=f"view_bc_{bid}",
-            )
-        ],
     ]
 
-    if error_items:
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text=f"\u26a0\ufe0f \u041e\u0448\u0438\u0431\u043a\u0438 ({len(error_items)})",
-                    callback_data=f"bc_errors_{bid}",
-                )
-            ]
+    action_row = [
+        InlineKeyboardButton(
+            text="\U0001f4dd \u0427\u0430\u0442\u044b",
+            callback_data=f"bc_chat_list_{bid}",
         )
+    ]
+    if error_items:
+        action_row.append(
+            InlineKeyboardButton(
+                text=f"\u26a0\ufe0f \u041e\u0448\u0438\u0431\u043a\u0438 ({len(error_items)})",
+                callback_data=f"bc_errors_{bid}",
+            )
+        )
+    buttons.append(action_row)
 
     buttons.append(
         [
             InlineKeyboardButton(
                 text="\u2b05\ufe0f \u041d\u0430\u0437\u0430\u0434",
                 callback_data="bc_active",
-            )
+            ),
+            InlineKeyboardButton(
+                text="\U0001f504 \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c",
+                callback_data=f"view_bc_{bid}",
+            ),
         ]
     )
 
@@ -1682,7 +1677,14 @@ async def _render_broadcast_error_log(query: CallbackQuery, bid: int) -> None:
         for item in error_items[:15]:
             info.append(f"<pre>{html.escape(_format_chat_error_log(item))}</pre>")
 
-    buttons = []
+    buttons = [
+        [
+            InlineKeyboardButton(
+                text="\u2b05\ufe0f \u041a \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0435",
+                callback_data=f"view_bc_{bid}",
+            )
+        ]
+    ]
     if error_items:
         buttons.append(
             [
@@ -1692,14 +1694,6 @@ async def _render_broadcast_error_log(query: CallbackQuery, bid: int) -> None:
                 )
             ]
         )
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                text="\u2b05\ufe0f \u041a \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0435",
-                callback_data=f"view_bc_{bid}",
-            )
-        ]
-    )
 
     await _edit_or_notice(
         query,
@@ -1833,9 +1827,7 @@ async def _render_broadcast_chat_detail(query: CallbackQuery, bid: int, order: i
             InlineKeyboardButton(
                 text="\u26d4 \u0423\u0431\u0440\u0430\u0442\u044c \u0438\u0437 \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0438",
                 callback_data=f"bc_chat_disable_{bid}_{order}",
-            )
-        ],
-        [
+            ),
             InlineKeyboardButton(
                 text="\U0001f504 \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c",
                 callback_data=f"bc_chat_view_{bid}_{order}",
