@@ -305,6 +305,55 @@ def cleanup_old_broadcasts(max_age_minutes: int = 120):
     return deleted
 
 
+def _broadcast_chat_runtime_items(broadcast: dict) -> list[dict]:
+    items = list(broadcast.get("chat_runtime") or [])
+    return sorted(
+        [item for item in items if isinstance(item, dict)],
+        key=lambda item: int(item.get("order", 0) or 0),
+    )
+
+
+def _broadcast_chat_status_label(chat_item: dict) -> str:
+    status = str(chat_item.get("status") or "active")
+    if status == "paused":
+        return "\u23f8\ufe0f \u041f\u0430\u0443\u0437\u0430"
+    if status == "disabled":
+        return "\u26d4 \u041e\u0442\u043a\u043b\u044e\u0447\u0435\u043d"
+    return "\u25b6\ufe0f \u0410\u043a\u0442\u0438\u0432\u0435\u043d"
+
+
+def _broadcast_chat_short_name(chat_item: dict) -> str:
+    return str(chat_item.get("name") or chat_item.get("chat_id") or "?")
+
+
+def _format_chat_error_line(chat_item: dict) -> str:
+    error_text = str(chat_item.get("last_error") or "").strip()
+    if not error_text:
+        return ""
+    trimmed = error_text if len(error_text) <= 120 else f"{error_text[:117]}..."
+    return trimmed
+
+
+def _find_chat_runtime_item(broadcast: dict, order: int) -> dict | None:
+    for item in _broadcast_chat_runtime_items(broadcast):
+        if int(item.get("order", -1) or -1) == order:
+            return item
+    return None
+
+
+def _active_chat_counts(broadcast: dict) -> tuple[int, int, int]:
+    active = paused = disabled = 0
+    for item in _broadcast_chat_runtime_items(broadcast):
+        status = str(item.get("status") or "active")
+        if status == "paused":
+            paused += 1
+        elif status == "disabled":
+            disabled += 1
+        else:
+            active += 1
+    return active, paused, disabled
+
+
 class BroadcastConfigState(StatesGroup):
     waiting_for_count = State()
 
@@ -1188,6 +1237,15 @@ async def bc_active_callback(query: CallbackQuery):
     buttons.append(
         [
             InlineKeyboardButton(
+                text="\U0001f504 \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c",
+                callback_data="bc_active",
+            )
+        ]
+    )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
                 text="\u2b05\ufe0f \u041d\u0430\u0437\u0430\u0434",
                 callback_data="bc_back",
             )
@@ -1270,6 +1328,12 @@ async def _render_group_detail(query: CallbackQuery, user_id: int, gid: int) -> 
             InlineKeyboardButton(
                 text="\u26d4 \u041e\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u044c",
                 callback_data=f"bc_group_cancel_{gid}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="\U0001f504 \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c",
+                callback_data=f"view_group_{gid}",
             )
         ],
         [
@@ -1386,6 +1450,8 @@ async def view_bc_callback(query: CallbackQuery):
         return
 
     b = active_broadcasts[bid]
+    chat_items = _broadcast_chat_runtime_items(b)
+    active_chats, paused_chats, disabled_chats = _active_chat_counts(b)
 
     status = (
         "\u25b6\ufe0f \u0410\u043a\u0442\u0438\u0432\u043d\u0430"
@@ -1413,6 +1479,11 @@ async def view_bc_callback(query: CallbackQuery):
     info += f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442: {account_name}\n"
 
     info += f"\u0427\u0430\u0442\u043e\u0432: {b.get('total_chats', 0)}\n"
+    info += (
+        f"\u0410\u043a\u0442\u0438\u0432\u043d\u044b: {active_chats} | "
+        f"\u041f\u0430\u0443\u0437\u0430: {paused_chats} | "
+        f"\u041e\u0442\u043a\u043b: {disabled_chats}\n"
+    )
 
     info += (
         f"\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e: "
@@ -1423,6 +1494,18 @@ async def view_bc_callback(query: CallbackQuery):
     info += f"\u041a\u043e\u043b-\u0432\u043e: {b.get('count', 0)}\n"
 
     info += f"\u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b: {b.get('interval_minutes', '?')} \u043c\u0438\u043d \u043d\u0430 \u0447\u0430\u0442\n"
+
+    error_items = [item for item in chat_items if item.get("last_error")]
+    if error_items:
+        info += "\n<b>\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u0438\u0435 \u043e\u0448\u0438\u0431\u043a\u0438:</b>\n"
+        for item in error_items[:3]:
+            info += (
+                f"{int(item.get('order', 0) or 0) + 1}. "
+                f"{html.escape(_broadcast_chat_short_name(item))} - "
+                f"{html.escape(_format_chat_error_line(item))}\n"
+            )
+        if len(error_items) > 3:
+            info += f"\u0415\u0449\u0435: {len(error_items) - 3}\n"
 
     buttons = [
         [
@@ -1450,6 +1533,18 @@ async def view_bc_callback(query: CallbackQuery):
                 text="\u23f1\ufe0f \u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b",
                 callback_data=f"bc_edit_interval_{bid}",
             ),
+        ],
+        [
+            InlineKeyboardButton(
+                text="\U0001f4dd \u0427\u0430\u0442\u044b",
+                callback_data=f"bc_chat_list_{bid}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="\U0001f504 \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c",
+                callback_data=f"view_bc_{bid}",
+            )
         ],
         [
             InlineKeyboardButton(
@@ -1518,6 +1613,248 @@ async def cancel_bc_callback(query: CallbackQuery):
         await set_broadcast_status(bid, "cancelled")
 
     await bc_active_callback(query)
+
+
+async def _render_broadcast_chat_list(query: CallbackQuery, bid: int) -> None:
+    user_id = query.from_user.id
+    broadcast = active_broadcasts.get(bid)
+    if not broadcast or broadcast.get("user_id") != user_id:
+        await query.answer(
+            "\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430",
+            show_alert=True,
+        )
+        return
+
+    items = _broadcast_chat_runtime_items(broadcast)
+    lines = [f"\U0001f4dd <b>\u0427\u0430\u0442\u044b \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0438 #{bid}</b>", ""]
+    buttons: list[list[InlineKeyboardButton]] = []
+
+    if not items:
+        lines.append("\u0421\u043f\u0438\u0441\u043e\u043a \u0447\u0430\u0442\u043e\u0432 \u043f\u0443\u0441\u0442.")
+    else:
+        for item in items:
+            order = int(item.get("order", 0) or 0)
+            number = order + 1
+            name = html.escape(_broadcast_chat_short_name(item))
+            sent = int(item.get("sent_count", 0) or 0)
+            failed = int(item.get("failed_count", 0) or 0)
+            lines.append(
+                f"{number}. {_broadcast_chat_status_label(item)} | {name} | \u2705 {sent} | \u274c {failed}"
+            )
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"{number}. {_broadcast_chat_short_name(item)[:24]}",
+                        callback_data=f"bc_chat_view_{bid}_{order}",
+                    )
+                ]
+            )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="\U0001f504 \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c",
+                callback_data=f"bc_chat_list_{bid}",
+            )
+        ]
+    )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="\u2b05\ufe0f \u041d\u0430\u0437\u0430\u0434",
+                callback_data=f"view_bc_{bid}",
+            )
+        ]
+    )
+
+    text = "\n".join(lines)
+    markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+    try:
+        await query.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
+    except Exception:
+        await query.message.answer(text, reply_markup=markup, parse_mode="HTML")
+
+
+async def _render_broadcast_chat_detail(query: CallbackQuery, bid: int, order: int) -> None:
+    user_id = query.from_user.id
+    broadcast = active_broadcasts.get(bid)
+    if not broadcast or broadcast.get("user_id") != user_id:
+        await query.answer(
+            "\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430",
+            show_alert=True,
+        )
+        return
+
+    item = _find_chat_runtime_item(broadcast, order)
+    if not item:
+        await query.answer("\u0427\u0430\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", show_alert=True)
+        return
+
+    number = order + 1
+    info = [
+        f"\U0001f4ac <b>\u0427\u0430\u0442 #{number}</b>",
+        "",
+        f"\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435: {html.escape(_broadcast_chat_short_name(item))}",
+        f"ID: <code>{item.get('chat_id')}</code>",
+        f"\u0421\u0442\u0430\u0442\u0443\u0441: {_broadcast_chat_status_label(item)}",
+        f"\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e: {int(item.get('sent_count', 0) or 0)}",
+        f"\u041e\u0448\u0438\u0431\u043e\u043a: {int(item.get('failed_count', 0) or 0)}",
+    ]
+
+    next_send_at = float(item.get("next_send_at", 0.0) or 0.0)
+    if next_send_at > 0:
+        eta = max(0, int(next_send_at - datetime.now(timezone.utc).timestamp()))
+        info.append(f"\u0421\u043b\u0435\u0434. \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0430: \u0447\u0435\u0440\u0435\u0437 {eta} \u0441\u0435\u043a")
+
+    error_line = _format_chat_error_line(item)
+    if error_line:
+        info.extend(
+            [
+                "",
+                f"<b>\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430</b>",
+                html.escape(error_line),
+            ]
+        )
+
+    buttons = [
+        [
+            InlineKeyboardButton(
+                text="\u23f8\ufe0f \u041f\u0430\u0443\u0437\u0430",
+                callback_data=f"bc_chat_pause_{bid}_{order}",
+            ),
+            InlineKeyboardButton(
+                text="\u25b6\ufe0f \u0412\u043a\u043b\u044e\u0447\u0438\u0442\u044c",
+                callback_data=f"bc_chat_resume_{bid}_{order}",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text="\u26d4 \u0423\u0431\u0440\u0430\u0442\u044c \u0438\u0437 \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0438",
+                callback_data=f"bc_chat_disable_{bid}_{order}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="\U0001f504 \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c",
+                callback_data=f"bc_chat_view_{bid}_{order}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="\u2b05\ufe0f \u041a \u0441\u043f\u0438\u0441\u043a\u0443 \u0447\u0430\u0442\u043e\u0432",
+                callback_data=f"bc_chat_list_{bid}",
+            )
+        ],
+    ]
+
+    text = "\n".join(info)
+    markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+    try:
+        await query.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
+    except Exception:
+        await query.message.answer(text, reply_markup=markup, parse_mode="HTML")
+
+
+@router.callback_query(F.data.startswith("bc_chat_list_"))
+async def bc_chat_list_callback(query: CallbackQuery):
+    await query.answer()
+    try:
+        bid = int(query.data.split("_")[3])
+    except Exception:
+        await query.answer("\u041e\u0448\u0438\u0431\u043a\u0430", show_alert=True)
+        return
+    await _render_broadcast_chat_list(query, bid)
+
+
+@router.callback_query(F.data.startswith("bc_chat_view_"))
+async def bc_chat_view_callback(query: CallbackQuery):
+    await query.answer()
+    try:
+        _, _, _, bid_text, order_text = query.data.split("_")
+        bid = int(bid_text)
+        order = int(order_text)
+    except Exception:
+        await query.answer("\u041e\u0448\u0438\u0431\u043a\u0430", show_alert=True)
+        return
+    await _render_broadcast_chat_detail(query, bid, order)
+
+
+async def _set_broadcast_chat_status(
+    user_id: int,
+    bid: int,
+    order: int,
+    status: str,
+) -> bool:
+    broadcast = active_broadcasts.get(bid)
+    if not broadcast or broadcast.get("user_id") != user_id:
+        return False
+
+    items = _broadcast_chat_runtime_items(broadcast)
+    found = False
+    for item in items:
+        if int(item.get("order", -1) or -1) != order:
+            continue
+        item["status"] = status
+        found = True
+        if status == "active" and float(item.get("next_send_at", 0.0) or 0.0) <= 0:
+            item["next_send_at"] = datetime.now(timezone.utc).timestamp()
+        break
+
+    if not found:
+        return False
+
+    await update_broadcast_fields(bid, chat_runtime=items)
+    return True
+
+
+@router.callback_query(F.data.startswith("bc_chat_pause_"))
+async def bc_chat_pause_callback(query: CallbackQuery):
+    await query.answer()
+    user_id = query.from_user.id
+    try:
+        _, _, _, bid_text, order_text = query.data.split("_")
+        bid = int(bid_text)
+        order = int(order_text)
+    except Exception:
+        await query.answer("\u041e\u0448\u0438\u0431\u043a\u0430", show_alert=True)
+        return
+    await _set_broadcast_chat_status(user_id, bid, order, "paused")
+    await _render_broadcast_chat_detail(query, bid, order)
+
+
+@router.callback_query(F.data.startswith("bc_chat_resume_"))
+async def bc_chat_resume_callback(query: CallbackQuery):
+    await query.answer()
+    user_id = query.from_user.id
+    try:
+        _, _, _, bid_text, order_text = query.data.split("_")
+        bid = int(bid_text)
+        order = int(order_text)
+    except Exception:
+        await query.answer("\u041e\u0448\u0438\u0431\u043a\u0430", show_alert=True)
+        return
+    changed = await _set_broadcast_chat_status(user_id, bid, order, "active")
+    if changed:
+        broadcast = active_broadcasts.get(bid)
+        if broadcast and broadcast.get("status") == "running":
+            _start_or_resume_broadcast_task(bid)
+    await _render_broadcast_chat_detail(query, bid, order)
+
+
+@router.callback_query(F.data.startswith("bc_chat_disable_"))
+async def bc_chat_disable_callback(query: CallbackQuery):
+    await query.answer()
+    user_id = query.from_user.id
+    try:
+        _, _, _, bid_text, order_text = query.data.split("_")
+        bid = int(bid_text)
+        order = int(order_text)
+    except Exception:
+        await query.answer("\u041e\u0448\u0438\u0431\u043a\u0430", show_alert=True)
+        return
+    await _set_broadcast_chat_status(user_id, bid, order, "disabled")
+    await _render_broadcast_chat_detail(query, bid, order)
 
 
 @router.callback_query(F.data == "back_to_broadcast_menu")
@@ -2553,12 +2890,16 @@ async def execute_broadcast(
         "chat_runtime": [
             {
                 "chat_id": chat_id,
+                "name": chat_name,
                 "next_send_at": 0,
                 "sent_count": 0,
                 "failed_count": 0,
+                "status": "active",
+                "last_error": "",
+                "last_error_at": 0,
                 "order": index,
             }
-            for index, chat_id in enumerate(chat_ids)
+            for index, (chat_id, chat_name) in enumerate(chats)
         ],
         "next_global_send_at": 0,
         "text_index": 0,

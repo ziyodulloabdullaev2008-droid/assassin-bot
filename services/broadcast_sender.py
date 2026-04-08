@@ -113,6 +113,10 @@ def _normalize_chat_runtime(
                 "sent_count": int(raw_item.get("sent_count", 0) or 0),
                 "failed_count": int(raw_item.get("failed_count", 0) or 0),
                 "order": int(raw_item.get("order", index) or index),
+                "name": str(raw_item.get("name") or raw_item.get("chat_name") or chat_id),
+                "status": str(raw_item.get("status") or "active"),
+                "last_error": str(raw_item.get("last_error") or ""),
+                "last_error_at": float(raw_item.get("last_error_at", 0.0) or 0.0),
             }
         )
 
@@ -120,13 +124,18 @@ def _normalize_chat_runtime(
 
 
 def _pick_next_chat_entry(chat_runtime: list[dict]) -> dict | None:
-    if not chat_runtime:
-        return None
-
-    earliest_at = min(float(item.get("next_send_at", 0.0) or 0.0) for item in chat_runtime)
-    ready_items = [
+    active_items = [
         item
         for item in chat_runtime
+        if str(item.get("status") or "active") == "active"
+    ]
+    if not active_items:
+        return None
+
+    earliest_at = min(float(item.get("next_send_at", 0.0) or 0.0) for item in active_items)
+    ready_items = [
+        item
+        for item in active_items
         if abs(float(item.get("next_send_at", 0.0) or 0.0) - earliest_at) < 0.001
     ]
     if len(ready_items) == 1:
@@ -284,7 +293,12 @@ async def schedule_broadcast_send(
 
             chat_entry = _pick_next_chat_entry(chat_runtime)
             if not chat_entry:
-                await mark_error(broadcast_id, "No chats configured for broadcast", "no_chats")
+                if any(str(item.get("status") or "active") == "paused" for item in chat_runtime):
+                    sleep_status = await _sleep_with_controls(broadcast_id, 1)
+                    if sleep_status in {"cancelled", "missing"}:
+                        return
+                    continue
+                await set_status(broadcast_id, "completed")
                 return
 
             wait_until = max(
@@ -333,10 +347,13 @@ async def schedule_broadcast_send(
                 send_succeeded = True
             except FloodWaitError as exc:
                 wait_seconds = max(int(exc.seconds), 1)
+                chat_entry["last_error"] = f"FloodWait {wait_seconds} сек"
+                chat_entry["last_error_at"] = time.time()
                 await update_broadcast_fields(
                     broadcast_id,
                     last_wait_seconds=wait_seconds,
                     last_error="FloodWait",
+                    chat_runtime=chat_runtime,
                 )
                 await _notify_floodwait(user_id, account_name, wait_seconds)
                 sleep_status = await _sleep_with_controls(
@@ -353,9 +370,12 @@ async def schedule_broadcast_send(
                     or "too many requests" in error_text
                     or "420" in error_text
                 ):
+                    chat_entry["last_error"] = str(exc)
+                    chat_entry["last_error_at"] = time.time()
                     await update_broadcast_fields(
                         broadcast_id,
                         last_error=str(exc),
+                        chat_runtime=chat_runtime,
                     )
                     await _notify_floodwait(user_id, account_name, 30)
                     sleep_status = await _sleep_with_controls(broadcast_id, 30)
@@ -367,6 +387,8 @@ async def schedule_broadcast_send(
                 text_index = next_text_index
                 last_error = str(exc)
                 chat_entry["failed_count"] = int(chat_entry.get("failed_count", 0) or 0) + 1
+                chat_entry["last_error"] = last_error
+                chat_entry["last_error_at"] = time.time()
 
             processed_count += 1
             interval_min, interval_max = _parse_int_range(interval_value, 1, 1)
@@ -374,6 +396,8 @@ async def schedule_broadcast_send(
             chat_entry["next_send_at"] = time.time() + (wait_minutes * 60)
             if send_succeeded:
                 chat_entry["sent_count"] = int(chat_entry.get("sent_count", 0) or 0) + 1
+                chat_entry["last_error"] = ""
+                chat_entry["last_error_at"] = 0.0
 
             pause_min, pause_max = _parse_float_range(chat_pause_value, 1.0, 3.0)
             next_global_send_at = time.time() + random.uniform(pause_min, pause_max)
