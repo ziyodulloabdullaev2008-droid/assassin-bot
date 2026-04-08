@@ -1150,7 +1150,27 @@ async def process_phone(message: Message, state: FSMContext):
 
 
 @dp.message(
-    (LoginStates.waiting_phone | LoginStates.waiting_code | LoginStates.waiting_password),
+    LoginStates.waiting_phone,
+    F.text.in_(
+        {
+            "\u21a9\ufe0f \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435",
+            "\u274c \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c",
+            "\u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c",
+        }
+    ),
+)
+@dp.message(
+    LoginStates.waiting_code,
+    F.text.in_(
+        {
+            "\u21a9\ufe0f \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435",
+            "\u274c \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c",
+            "\u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c",
+        }
+    ),
+)
+@dp.message(
+    LoginStates.waiting_password,
     F.text.in_(
         {
             "\u21a9\ufe0f \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435",
