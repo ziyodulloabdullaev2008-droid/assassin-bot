@@ -355,7 +355,8 @@ def _format_chat_error_log(chat_item: dict) -> str:
 
 def _find_chat_runtime_item(broadcast: dict, order: int) -> dict | None:
     for item in _broadcast_chat_runtime_items(broadcast):
-        if int(item.get("order", -1) or -1) == order:
+        item_order = item.get("order", -1)
+        if int(item_order if item_order is not None else -1) == order:
             return item
     return None
 
@@ -1883,7 +1884,8 @@ async def _set_broadcast_chat_status(
     items = _broadcast_chat_runtime_items(broadcast)
     found = False
     for item in items:
-        if int(item.get("order", -1) or -1) != order:
+        item_order = item.get("order", -1)
+        if int(item_order if item_order is not None else -1) != order:
             continue
         item["status"] = status
         found = True
@@ -3102,6 +3104,11 @@ async def start_bc_callback(query: CallbackQuery):
 
         return
 
+    try:
+        await query.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
     if query.data == "start_bc_all":
         accounts = get_user_accounts(user_id)
 
@@ -3126,6 +3133,11 @@ async def start_bc_callback(query: CallbackQuery):
                 query, user_id, acc_num, config, chats, group_id=group_id
             )
 
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+
         await _send_broadcast_notice(
             query,
             f"\u2705 \u0417\u0430\u043f\u0443\u0449\u0435\u043d\u043e \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432: {len(connected_accounts)}",
@@ -3142,6 +3154,10 @@ async def start_bc_callback(query: CallbackQuery):
         return
 
     await execute_broadcast(query, user_id, account_number, config, chats)
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
 
 
 @router.message(

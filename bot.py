@@ -1149,6 +1149,39 @@ async def process_phone(message: Message, state: FSMContext):
         await state.clear()
 
 
+@dp.message(
+    (LoginStates.waiting_phone | LoginStates.waiting_code | LoginStates.waiting_password),
+    F.text.in_(
+        {
+            "\u21a9\ufe0f \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435",
+            "\u274c \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c",
+            "\u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c",
+        }
+    ),
+)
+async def cancel_login_flow(message: Message, state: FSMContext):
+    user_id = message.from_user.id
+
+    try:
+        if user_id in user_clients:
+            try:
+                await user_clients[user_id].disconnect()
+            except Exception:
+                pass
+            del user_clients[user_id]
+    except Exception:
+        pass
+
+    user_code_input.pop(user_id, None)
+    delete_login_session(user_id)
+    await state.clear()
+
+    await message.answer(
+        "\u2705 \u0412\u0445\u043e\u0434 \u043e\u0442\u043c\u0435\u043d\u0435\u043d",
+        reply_markup=get_main_menu_keyboard(),
+    )
+
+
 @dp.callback_query(F.data.startswith("digit_"))
 async def process_digit(query: CallbackQuery, state: FSMContext):
 
