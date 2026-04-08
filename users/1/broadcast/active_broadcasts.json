@@ -1,0 +1,54 @@
+{
+  "999": {
+    "user_id": 1,
+    "account": 1,
+    "account_name": "Test",
+    "chat_ids": [
+      101,
+      202
+    ],
+    "texts": [
+      "a"
+    ],
+    "content_items": [
+      {
+        "kind": "text",
+        "text": "hello"
+      }
+    ],
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "chat_pause": "1-3",
+    "total_chats": 2,
+    "sent_chats": 4,
+    "planned_count": 4,
+    "count": 4,
+    "interval_minutes": "5-10",
+    "interval_value": "5-10",
+    "start_time": "2026-04-08T15:05:17.338461+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 4,
+    "chat_runtime": [
+      {
+        "chat_id": 101,
+        "next_send_at": 1775660717.3403673,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 0
+      },
+      {
+        "chat_id": 202,
+        "next_send_at": 1775660717.3408573,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 1
+      }
+    ],
+    "next_global_send_at": 1775660717.3408582,
+    "text_index": 0,
+    "last_interval_minutes": 0,
+    "current_chat_id": 202,
+    "last_error": null
+  }
+}

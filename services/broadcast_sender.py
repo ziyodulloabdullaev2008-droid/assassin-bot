@@ -86,6 +86,55 @@ def _pick_content_item(items: list[dict], text_mode: str, text_index: int) -> tu
     return current_item, text_index + 1
 
 
+def _normalize_chat_runtime(
+    chat_ids: list,
+    runtime_items: list[dict] | None,
+) -> list[dict]:
+    now = time.time()
+    normalized_items: list[dict] = []
+    existing_by_chat: dict[str, dict] = {}
+
+    for item in runtime_items or []:
+        if not isinstance(item, dict) or "chat_id" not in item:
+            continue
+        existing_by_chat[str(item["chat_id"])] = item
+
+    for index, chat_id in enumerate(chat_ids):
+        raw_item = existing_by_chat.get(str(chat_id), {})
+        try:
+            next_send_at = float(raw_item.get("next_send_at", now))
+        except (TypeError, ValueError):
+            next_send_at = now
+
+        normalized_items.append(
+            {
+                "chat_id": chat_id,
+                "next_send_at": next_send_at,
+                "sent_count": int(raw_item.get("sent_count", 0) or 0),
+                "failed_count": int(raw_item.get("failed_count", 0) or 0),
+                "order": int(raw_item.get("order", index) or index),
+            }
+        )
+
+    return normalized_items
+
+
+def _pick_next_chat_entry(chat_runtime: list[dict]) -> dict | None:
+    if not chat_runtime:
+        return None
+
+    earliest_at = min(float(item.get("next_send_at", 0.0) or 0.0) for item in chat_runtime)
+    ready_items = [
+        item
+        for item in chat_runtime
+        if abs(float(item.get("next_send_at", 0.0) or 0.0) - earliest_at) < 0.001
+    ]
+    if len(ready_items) == 1:
+        return ready_items[0]
+
+    return random.choice(ready_items)
+
+
 async def _wait_while_paused(broadcast_id: int) -> str:
     while True:
         broadcast = get_broadcast(broadcast_id)
@@ -190,9 +239,15 @@ async def schedule_broadcast_send(
 
         sent_count = int(broadcast.get("sent_chats", 0) or 0)
         failed_count = int(broadcast.get("failed_count", 0) or 0)
+        processed_count = int(
+            broadcast.get("processed_count", sent_count + failed_count) or 0
+        )
         text_index = int(broadcast.get("text_index", 0) or 0)
-        current_round = int(broadcast.get("current_round", 0) or 0)
-        current_chat_index = int(broadcast.get("current_chat_index", 0) or 0)
+        next_global_send_at = float(broadcast.get("next_global_send_at", 0.0) or 0.0)
+        chat_runtime = _normalize_chat_runtime(
+            chat_ids,
+            broadcast.get("chat_runtime"),
+        )
         if not chat_ids:
             await mark_error(broadcast_id, "No chats configured for broadcast", "no_chats")
             return
@@ -215,40 +270,42 @@ async def schedule_broadcast_send(
             count = int(broadcast.get("count", count) or count or 1)
             interval_value = broadcast.get("interval_value", broadcast.get("interval_minutes", interval_minutes))
             chat_pause_value = broadcast.get("chat_pause", "1-3")
-            if current_round >= count:
+            chat_runtime = _normalize_chat_runtime(
+                chat_ids,
+                broadcast.get("chat_runtime") or chat_runtime,
+            )
+            next_global_send_at = float(
+                broadcast.get("next_global_send_at", next_global_send_at) or 0.0
+            )
+
+            if processed_count >= count:
                 await set_status(broadcast_id, "completed")
                 return
 
-            if current_chat_index >= len(chat_ids):
-                current_round += 1
-                current_chat_index = 0
-                await update_broadcast_fields(
-                    broadcast_id,
-                    current_round=current_round,
-                    current_chat_index=current_chat_index,
-                    planned_count=len(chat_ids) * count,
-                )
+            chat_entry = _pick_next_chat_entry(chat_runtime)
+            if not chat_entry:
+                await mark_error(broadcast_id, "No chats configured for broadcast", "no_chats")
+                return
 
-                if current_round >= count:
-                    await set_status(broadcast_id, "completed")
-                    return
-
-                interval_min, interval_max = _parse_int_range(interval_value, 1, 1)
-                wait_minutes = random.randint(interval_min, interval_max)
-                sleep_status = await _sleep_with_controls(
-                    broadcast_id,
-                    wait_minutes * 60,
-                )
+            wait_until = max(
+                float(chat_entry.get("next_send_at", 0.0) or 0.0),
+                next_global_send_at,
+            )
+            wait_seconds = max(0.0, wait_until - time.time())
+            if wait_seconds > 0:
+                sleep_status = await _sleep_with_controls(broadcast_id, wait_seconds)
                 if sleep_status in {"cancelled", "missing"}:
                     return
                 continue
 
-            chat_id = chat_ids[current_chat_index]
+            chat_id = chat_entry["chat_id"]
             current_item, next_text_index = _pick_content_item(
                 content_items,
                 text_mode,
                 text_index,
             )
+            last_error = None
+            send_succeeded = False
 
             try:
                 if current_item.get("kind") == "forward":
@@ -273,6 +330,7 @@ async def schedule_broadcast_send(
                     )
                 sent_count += 1
                 text_index = next_text_index
+                send_succeeded = True
             except FloodWaitError as exc:
                 wait_seconds = max(int(exc.seconds), 1)
                 await update_broadcast_fields(
@@ -307,29 +365,32 @@ async def schedule_broadcast_send(
 
                 failed_count += 1
                 text_index = next_text_index
-                await update_broadcast_fields(
-                    broadcast_id,
-                    last_error=str(exc),
-                    failed_count=failed_count,
-                )
+                last_error = str(exc)
+                chat_entry["failed_count"] = int(chat_entry.get("failed_count", 0) or 0) + 1
 
-            current_chat_index += 1
+            processed_count += 1
+            interval_min, interval_max = _parse_int_range(interval_value, 1, 1)
+            wait_minutes = random.randint(interval_min, interval_max)
+            chat_entry["next_send_at"] = time.time() + (wait_minutes * 60)
+            if send_succeeded:
+                chat_entry["sent_count"] = int(chat_entry.get("sent_count", 0) or 0) + 1
+
+            pause_min, pause_max = _parse_float_range(chat_pause_value, 1.0, 3.0)
+            next_global_send_at = time.time() + random.uniform(pause_min, pause_max)
+
             await update_broadcast_fields(
                 broadcast_id,
                 sent_chats=sent_count,
-                planned_count=len(chat_ids) * count,
+                planned_count=count,
                 failed_count=failed_count,
+                processed_count=processed_count,
                 text_index=text_index,
-                current_round=current_round,
-                current_chat_index=current_chat_index,
+                chat_runtime=chat_runtime,
+                next_global_send_at=next_global_send_at,
+                last_interval_minutes=wait_minutes,
+                current_chat_id=chat_id,
+                last_error=last_error,
             )
-
-            if current_chat_index < len(chat_ids):
-                pause_min, pause_max = _parse_float_range(chat_pause_value, 1.0, 3.0)
-                chat_delay = random.uniform(pause_min, pause_max)
-                sleep_status = await _sleep_with_controls(broadcast_id, chat_delay)
-                if sleep_status in {"cancelled", "missing"}:
-                    return
 
     except Exception as exc:
         await mark_error(broadcast_id, str(exc), "send_failed")

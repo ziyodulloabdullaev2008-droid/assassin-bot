@@ -100,7 +100,7 @@ def build_broadcast_menu_text(
     if config.get("text_source_type") == "channel":
         info += f"📡 <b>Канал:</b> {source_channel_title(config)}\n"
     info += f"🔢 <b>Кол-во:</b> {config.get('count', 0)}\n"
-    info += f"⏱️ <b>Интервал:</b> {config.get('interval', 0)} мин\n"
+    info += f"⏱️ <b>Интервал:</b> {config.get('interval', 0)} мин на чат\n"
     info += f"⚡ <b>Темп:</b> {config.get('chat_pause', '1-3')} сек\n"
     info += f"💭 <b>Чатов:</b> {len(chats)}\n"
 

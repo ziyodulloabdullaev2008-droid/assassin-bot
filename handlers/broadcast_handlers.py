@@ -83,6 +83,7 @@ LOGIN_REQUIRED_TEXT = "\u274c \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\
 CANCEL_TEXT = "\u274c \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c"
 COUNT_BUTTON_TEXT = "\u041a\u043e\u043b-\u0432\u043e"
 INTERVAL_BUTTON_TEXT = "\u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b"
+CHAT_PAUSE_MAX_SECONDS = 3600
 
 
 def save_broadcast_config_with_profile(user_id: int, config: dict) -> None:
@@ -954,7 +955,7 @@ async def bc_quantity_callback(query: CallbackQuery, state: FSMContext):
     config = get_broadcast_config(query.from_user.id)
 
     text = (
-        "\U0001f522 <b>\u041a\u041e\u041b-\u0412\u041e \u0421\u041e\u041e\u0411\u0429\u0415\u041d\u0418\u0419</b>\n\n"
+        "\U0001f522 <b>\u041e\u0411\u0429\u0415\u0415 \u041a\u041e\u041b-\u0412\u041e \u0421\u041e\u041e\u0411\u0429\u0415\u041d\u0418\u0419</b>\n\n"
         f"\u0422\u0435\u043a\u0443\u0449\u0435\u0435: {config.get('count', 0)}\n\n"
         "\u0412\u0432\u0435\u0434\u0438 \u043d\u043e\u0432\u043e\u0435 \u0437\u043d\u0430\u0447\u0435\u043d\u0438\u0435 \u043e\u0442 1 \u0434\u043e 1000:"
     )
@@ -989,8 +990,9 @@ async def bc_interval_callback(query: CallbackQuery, state: FSMContext):
     current_interval = config.get("interval", "10-30")
 
     text = (
-        "\u23f1\ufe0f <b>\u0418\u041d\u0422\u0415\u0420\u0412\u0410\u041b \u041c\u0415\u0416\u0414\u0423 \u0426\u0418\u041a\u041b\u0410\u041c\u0418</b>\n\n"
+        "\u23f1\ufe0f <b>\u0418\u041d\u0422\u0415\u0420\u0412\u0410\u041b \u0414\u041b\u042f \u041a\u0410\u0416\u0414\u041e\u0413\u041e \u0427\u0410\u0422\u0410</b>\n\n"
         f"\u0422\u0435\u043a\u0443\u0449\u0438\u0439: {current_interval} \u043c\u0438\u043d\n\n"
+        "\u041f\u043e\u0441\u043b\u0435 \u043a\u0430\u0436\u0434\u043e\u0439 \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0438 \u0431\u043e\u0442 \u0437\u0430\u043d\u043e\u0432\u043e \u043d\u0430\u0437\u043d\u0430\u0447\u0430\u0435\u0442 \u044d\u0442\u043e\u0442 \u0438\u043d\u0442\u0435\u0440\u0432\u0430\u043b \u0438\u043c\u0435\u043d\u043d\u043e \u0434\u043b\u044f \u0442\u043e\u0433\u043e \u0447\u0430\u0442\u0430, \u043a\u0443\u0434\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0447\u0442\u043e \u043e\u0442\u043f\u0440\u0430\u0432\u0438\u043b.\n"
         "\u0412\u0432\u0435\u0434\u0438 \u043e\u0434\u043d\u043e \u0447\u0438\u0441\u043b\u043e \u0438\u043b\u0438 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d.\n"
         "\u041f\u0440\u0438\u043c\u0435\u0440\u044b: <code>15</code> \u0438\u043b\u0438 <code>10-30</code>"
     )
@@ -1026,12 +1028,13 @@ async def bc_batch_pause_callback(query: CallbackQuery, state: FSMContext):
 
     text = (
         "\u26a1 <b>\u0422\u0415\u041c\u041f</b>\n\n"
-        "\u042d\u0442\u043e \u0437\u0430\u0434\u0435\u0440\u0436\u043a\u0430 \u043c\u0435\u0436\u0434\u0443 \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0430\u043c\u0438 \u0432 \u0440\u0430\u0437\u043d\u044b\u0435 \u0447\u0430\u0442\u044b \u0432 \u0440\u0430\u043c\u043a\u0430\u0445 "
-        "\u043e\u0434\u043d\u043e\u0433\u043e \u043f\u0440\u043e\u0445\u043e\u0434\u0430 \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0438.\n\n"
+        "\u042d\u0442\u043e \u043c\u0438\u043d\u0438\u043c\u0430\u043b\u044c\u043d\u0430\u044f \u043f\u0430\u0443\u0437\u0430 \u043c\u0435\u0436\u0434\u0443 \u043b\u044e\u0431\u044b\u043c\u0438 \u0434\u0432\u0443\u043c\u044f \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0430\u043c\u0438.\n"
+        "\u0415\u0441\u043b\u0438 \u0434\u0432\u0430 \u0447\u0430\u0442\u0430 \u0433\u043e\u0442\u043e\u0432\u044b \u043f\u043e\u0447\u0442\u0438 \u043e\u0434\u043d\u043e\u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e, \u0438\u043c\u0435\u043d\u043d\u043e \u0442\u0435\u043c\u043f \u0440\u0430\u0437\u0434\u0432\u0438\u043d\u0435\u0442 \u0438\u0445 \u043f\u043e \u0432\u0440\u0435\u043c\u0435\u043d\u0438.\n\n"
         f"\u0422\u0435\u043a\u0443\u0449\u0438\u0439: <b>{current_pause}</b> \u0441\u0435\u043a\n\n"
         "\u0412\u0432\u0435\u0434\u0438 \u043e\u0434\u043d\u043e \u0447\u0438\u0441\u043b\u043e \u0438\u043b\u0438 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d:\n"
         "\u2022 <code>2</code>\n"
-        "\u2022 <code>1-3</code>"
+        "\u2022 <code>1-3</code>\n"
+        f"\u041c\u0430\u043a\u0441\u0438\u043c\u0443\u043c: <code>{CHAT_PAUSE_MAX_SECONDS}</code> \u0441\u0435\u043a"
     )
 
     kb = InlineKeyboardMarkup(
@@ -1228,7 +1231,7 @@ async def _render_group_detail(query: CallbackQuery, user_id: int, gid: int) -> 
 
     total_chats = sum(b.get("total_chats", 0) for _, b in items)
 
-    total_count = sum((b.get("total_chats", 0) * b.get("count", 0)) for _, b in items)
+    total_count = sum(int(b.get("count", 0) or 0) for _, b in items)
 
     sent = sum(b.get("sent_chats", 0) for _, b in items)
 
@@ -1415,10 +1418,11 @@ async def view_bc_callback(query: CallbackQuery):
         f"\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e: "
         f"{b.get('sent_chats', 0)}/{b.get('planned_count', 0)}\n"
     )
+    info += f"\u041e\u0448\u0438\u0431\u043e\u043a: {b.get('failed_count', 0)}\n"
 
     info += f"\u041a\u043e\u043b-\u0432\u043e: {b.get('count', 0)}\n"
 
-    info += f"\u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b: {b.get('interval_minutes', '?')} \u043c\u0438\u043d\n"
+    info += f"\u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b: {b.get('interval_minutes', '?')} \u043c\u0438\u043d \u043d\u0430 \u0447\u0430\u0442\n"
 
     buttons = [
         [
@@ -1976,7 +1980,7 @@ async def broadcast_count_button(message: Message, state: FSMContext):
 
     await message.answer(
         (
-            "\U0001f522 <b>\u041a\u041e\u041b-\u0412\u041e \u0421\u041e\u041e\u0411\u0429\u0415\u041d\u0418\u0419</b>\n\n"
+            "\U0001f522 <b>\u041e\u0411\u0429\u0415\u0415 \u041a\u041e\u041b-\u0412\u041e \u0421\u041e\u041e\u0411\u0429\u0415\u041d\u0418\u0419</b>\n\n"
             f"\u0422\u0435\u043a\u0443\u0449\u0435\u0435: {config.get('count', 0)}\n\n"
             "\u041e\u0442\u043f\u0440\u0430\u0432\u044c \u0447\u0438\u0441\u043b\u043e \u043e\u0442 1 \u0434\u043e 1000"
         ),
@@ -2023,8 +2027,7 @@ async def process_broadcast_count(message: Message, state: FSMContext):
             await update_broadcast_fields(
                 edit_broadcast_id,
                 count=count,
-                planned_count=active_broadcasts[edit_broadcast_id].get("total_chats", 0)
-                * count,
+                planned_count=count,
             )
 
         await state.clear()
@@ -2101,8 +2104,9 @@ async def broadcast_interval_button(message: Message, state: FSMContext):
 
     await message.answer(
         (
-            "\u23f1\ufe0f <b>\u0418\u041d\u0422\u0415\u0420\u0412\u0410\u041b \u041c\u0415\u0416\u0414\u0423 \u0426\u0418\u041a\u041b\u0410\u041c\u0418</b>\n\n"
+            "\u23f1\ufe0f <b>\u0418\u041d\u0422\u0415\u0420\u0412\u0410\u041b \u0414\u041b\u042f \u041a\u0410\u0416\u0414\u041e\u0413\u041e \u0427\u0410\u0422\u0410</b>\n\n"
             f"\u0422\u0435\u043a\u0443\u0449\u0438\u0439: {config.get('interval', 0)} \u043c\u0438\u043d\n\n"
+            "\u041f\u043e\u0441\u043b\u0435 \u043a\u0430\u0436\u0434\u043e\u0439 \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0438 \u0431\u043e\u0442 \u0437\u0430\u043d\u043e\u0432\u043e \u0432\u044b\u0431\u0438\u0440\u0430\u0435\u0442 \u044d\u0442\u043e\u0442 \u0438\u043d\u0442\u0435\u0440\u0432\u0430\u043b \u0434\u043b\u044f \u043a\u043e\u043d\u043a\u0440\u0435\u0442\u043d\u043e\u0433\u043e \u0447\u0430\u0442\u0430.\n"
             "\u041e\u0442\u043f\u0440\u0430\u0432\u044c \u043e\u0434\u043d\u043e \u0447\u0438\u0441\u043b\u043e \u0438\u043b\u0438 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d.\n"
             "\u041f\u0440\u0438\u043c\u0435\u0440\u044b: <code>15</code> \u0438\u043b\u0438 <code>10-30</code>"
         ),
@@ -2310,9 +2314,9 @@ async def process_broadcast_chat_pause(message: Message, state: FSMContext):
 
                     return
 
-                if min_pause > 30 or max_pause > 30:
+                if min_pause > CHAT_PAUSE_MAX_SECONDS or max_pause > CHAT_PAUSE_MAX_SECONDS:
                     await message.answer(
-                        "\u274c \u0422\u0435\u043c\u043f \u043d\u0435 \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u0431\u043e\u043b\u044c\u0448\u0435 30 \u0441\u0435\u043a\u0443\u043d\u0434"
+                        f"\u274c \u0422\u0435\u043c\u043f \u043d\u0435 \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u0431\u043e\u043b\u044c\u0448\u0435 {CHAT_PAUSE_MAX_SECONDS} \u0441\u0435\u043a\u0443\u043d\u0434"
                     )
 
                     return
@@ -2332,9 +2336,9 @@ async def process_broadcast_chat_pause(message: Message, state: FSMContext):
             try:
                 pause_int = int(text)
 
-                if pause_int < 1 or pause_int > 30:
+                if pause_int < 1 or pause_int > CHAT_PAUSE_MAX_SECONDS:
                     await message.answer(
-                        "\u274c \u0422\u0435\u043c\u043f \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u043e\u0442 1 \u0434\u043e 30 \u0441\u0435\u043a\u0443\u043d\u0434"
+                        f"\u274c \u0422\u0435\u043c\u043f \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u043e\u0442 1 \u0434\u043e {CHAT_PAUSE_MAX_SECONDS} \u0441\u0435\u043a\u0443\u043d\u0434"
                     )
 
                     return
@@ -2538,17 +2542,26 @@ async def execute_broadcast(
         "chat_pause": runtime_config.get("chat_pause", "1-3"),
         "total_chats": len(chat_ids),
         "sent_chats": 0,
-        "planned_count": len(chat_ids) * int(runtime_config.get("count", 1)),
+        "planned_count": int(runtime_config.get("count", 1)),
         "count": int(runtime_config.get("count", 1)),
         "interval_minutes": runtime_config.get("interval", 1),
         "interval_value": runtime_config.get("interval", 1),
         "start_time": datetime.now(timezone.utc),
         "status": "running",
         "failed_count": 0,
-        "current_round": 0,
-        "current_chat_index": 0,
+        "processed_count": 0,
+        "chat_runtime": [
+            {
+                "chat_id": chat_id,
+                "next_send_at": 0,
+                "sent_count": 0,
+                "failed_count": 0,
+                "order": index,
+            }
+            for index, chat_id in enumerate(chat_ids)
+        ],
+        "next_global_send_at": 0,
         "text_index": 0,
-        "sent_since_rest": 0,
     }
 
     if group_id is not None:
