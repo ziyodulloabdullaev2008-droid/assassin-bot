@@ -12,6 +12,7 @@ from aiogram.types import (
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 import io
+from html import escape
 
 from core.config import ADMIN_ID
 from database import (
@@ -22,11 +23,63 @@ from database import (
     get_user_accounts,
     is_vip_user,
 )
-from services.vip_service import vip_users_cache
+from services.vip_service import (
+    add_vip_user_to_cache,
+    remove_vip_user_from_cache,
+    get_vip_cache_size,
+)
 
 
-def get_vip_cache_size() -> int:
-    return len(vip_users_cache)
+def _build_users_lookup() -> dict[int, tuple[str, str]]:
+    return {
+        user_id: (username or "", first_name or "")
+        for user_id, username, first_name, _ in get_all_users()
+    }
+
+
+def _format_username(username: str) -> str:
+    if not username:
+        return "без @username"
+    return f"@{username.lstrip('@')}"
+
+
+def _format_vip_entry(user_id: int, users_lookup: dict[int, tuple[str, str]]) -> str:
+    username, first_name = users_lookup.get(user_id, ("", ""))
+    display_name = escape(first_name) if first_name else "без имени"
+    display_username = escape(_format_username(username))
+    return f"<code>{user_id}</code> - {display_name} - {display_username}"
+
+
+def _build_vip_list_text() -> str:
+    vip_list = get_all_vip_users()
+    users_lookup = _build_users_lookup()
+    text = "📋 <b>VIP юзеры:</b> ({})\n\n".format(len(vip_list))
+    for idx, user_id in enumerate(vip_list, 1):
+        text += f"{idx}. {_format_vip_entry(user_id, users_lookup)}\n"
+    return text
+
+
+def _build_vip_delete_keyboard() -> InlineKeyboardMarkup:
+    users_lookup = _build_users_lookup()
+    rows = []
+    for uid in get_all_vip_users():
+        username, first_name = users_lookup.get(uid, ("", ""))
+        label_parts = [str(uid)]
+        if first_name:
+            label_parts.append(first_name[:18])
+        elif username:
+            label_parts.append(_format_username(username)[:18])
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="❌ " + " | ".join(label_parts),
+                    callback_data=f"vip_remove_{uid}",
+                )
+            ]
+        )
+
+    rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="vip_back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 router = Router()
@@ -51,7 +104,7 @@ async def cmd_add_vip(message: Message):
     try:
         user_id = int(args[1])
         if add_vip_user(user_id):
-            vip_users_cache.add(user_id)
+            add_vip_user_to_cache(user_id)
             await message.answer(f"✅ Юзер {user_id} добавлен в VIP")
         else:
             await message.answer(f"⚠️ Юзер {user_id} уже в VIP")
@@ -74,7 +127,7 @@ async def cmd_remove_vip(message: Message):
     try:
         user_id = int(args[1])
         if remove_vip_user(user_id):
-            vip_users_cache.discard(user_id)
+            remove_vip_user_from_cache(user_id)
             await message.answer(f"✅ Юзер {user_id} удален из VIP")
         else:
             await message.answer(f"❌ Юзер {user_id} не найден в VIP")
@@ -94,10 +147,6 @@ async def cmd_show_vips(message: Message):
         await message.answer("📭 VIP список пуст")
         return
 
-    text = "👑 <b>VIP Юзеры:</b> ({})\n\n".format(len(vip_list))
-    for idx, user_id in enumerate(vip_list, 1):
-        text += f"{idx}. <code>{user_id}</code>\n"
-
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="➕ Добавить", callback_data="vip_add_menu")],
@@ -105,7 +154,7 @@ async def cmd_show_vips(message: Message):
         ]
     )
 
-    await message.answer(text, parse_mode="HTML", reply_markup=keyboard)
+    await message.answer(_build_vip_list_text(), parse_mode="HTML", reply_markup=keyboard)
 
 
 @router.callback_query(F.data == "vip_add_menu")
@@ -135,19 +184,11 @@ async def vip_delete_menu(query: CallbackQuery):
         await query.answer("VIP список пуст", show_alert=True)
         return
 
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=f"❌ {uid}", callback_data=f"vip_remove_{uid}")]
-            for uid in vip_list
-        ]
-        + [[InlineKeyboardButton(text="⬅️ Назад", callback_data="vip_back")]]
-    )
-
     await query.answer()
     await query.message.edit_text(
-        "👑 <b>Выберите VIP для удаления:</b>",
+        "📋 <b>Выберите VIP для удаления:</b>",
         parse_mode="HTML",
-        reply_markup=keyboard,
+        reply_markup=_build_vip_delete_keyboard(),
     )
 
 
@@ -160,7 +201,7 @@ async def vip_remove_callback(query: CallbackQuery):
 
     user_id = int(query.data.split("_")[-1])
     if remove_vip_user(user_id):
-        vip_users_cache.discard(user_id)
+        remove_vip_user_from_cache(user_id)
         await query.answer(f"✅ Юзер {user_id} удален из VIP")
         await vip_delete_menu(query)
     else:
@@ -179,10 +220,6 @@ async def vip_back(query: CallbackQuery):
         await query.message.edit_text("📭 VIP список пуст")
         return
 
-    text = "👑 <b>VIP Юзеры:</b> ({})\n\n".format(len(vip_list))
-    for idx, user_id in enumerate(vip_list, 1):
-        text += f"{idx}. <code>{user_id}</code>\n"
-
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="➕ Добавить", callback_data="vip_add_menu")],
@@ -191,7 +228,9 @@ async def vip_back(query: CallbackQuery):
     )
 
     await query.answer()
-    await query.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
+    await query.message.edit_text(
+        _build_vip_list_text(), parse_mode="HTML", reply_markup=keyboard
+    )
 
 
 @router.message(Command("users"))
@@ -304,7 +343,7 @@ async def process_vip_user_id(message: Message, state: FSMContext):
     try:
         user_id = int(message.text.strip())
         if add_vip_user(user_id):
-            vip_users_cache.add(user_id)
+            add_vip_user_to_cache(user_id)
             await message.answer(f"✅ Юзер {user_id} добавлен в VIP")
         else:
             await message.answer(f"⚠️ Юзер {user_id} уже в VIP")

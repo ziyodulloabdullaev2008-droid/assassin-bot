@@ -1,15 +1,36 @@
-from database import get_all_vip_users
+from database import get_all_vip_users, is_vip_user
 
 
 vip_users_cache = set()
 
 
 async def update_vip_cache():
-    """Обновить кэш VIP списка."""
-    global vip_users_cache
-    vip_users_cache = set(get_all_vip_users())
+    """Обновить кэш VIP-списка."""
+    vip_users_cache.clear()
+    vip_users_cache.update(get_all_vip_users())
+
+
+def add_vip_user_to_cache(user_id: int):
+    """Добавить пользователя в VIP-кэш без полной перезагрузки списка."""
+    vip_users_cache.add(user_id)
+
+
+def remove_vip_user_from_cache(user_id: int):
+    """Удалить пользователя из VIP-кэша без полной перезагрузки списка."""
+    vip_users_cache.discard(user_id)
+
+
+def get_vip_cache_size() -> int:
+    return len(vip_users_cache)
 
 
 def is_vip_user_cached(user_id: int) -> bool:
-    """Быстрая проверка VIP статуса через кэш (вместо запроса в БД)."""
-    return user_id in vip_users_cache
+    """Быстрая проверка VIP-статуса через кэш с подстраховкой БД."""
+    if user_id in vip_users_cache:
+        return True
+
+    if is_vip_user(user_id):
+        vip_users_cache.add(user_id)
+        return True
+
+    return False
