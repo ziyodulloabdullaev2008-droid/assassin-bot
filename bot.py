@@ -253,7 +253,10 @@ REQUIRED_CHANNELS = [
 ]
 
 
-def build_required_subscription_keyboard() -> InlineKeyboardMarkup:
+def build_required_subscription_keyboard(
+    channels: list[dict] | None = None,
+) -> InlineKeyboardMarkup:
+    channels = channels if channels is not None else REQUIRED_CHANNELS
     rows = [
         [
             InlineKeyboardButton(
@@ -261,7 +264,7 @@ def build_required_subscription_keyboard() -> InlineKeyboardMarkup:
                 url=channel["url"],
             )
         ]
-        for channel in REQUIRED_CHANNELS
+        for channel in channels
     ]
     rows.append(
         [
@@ -275,9 +278,11 @@ def build_required_subscription_keyboard() -> InlineKeyboardMarkup:
 
 
 def build_required_subscription_text(missing_titles: list[str] | None = None) -> str:
+    channels_count = len(missing_titles) if missing_titles else len(REQUIRED_CHANNELS)
     text = (
         "🔒 <b>Для работы с ботом нужна подписка</b>\n\n"
-        "Подпишись на оба канала и нажми кнопку проверки."
+        f"Подпишись на недостающие каналы/чаты ({channels_count}) "
+        "и нажми кнопку проверки."
     )
     if missing_titles:
         text += "\n\nНе хватает подписки на:\n" + "\n".join(
@@ -461,7 +466,7 @@ class SubscriptionRequiredMiddleware(BaseMiddleware):
 
         missing_titles = [channel["title"] for channel in missing_channels]
         text = build_required_subscription_text(missing_titles)
-        kb = build_required_subscription_keyboard()
+        kb = build_required_subscription_keyboard(missing_channels)
 
         if message:
             await message.answer(text, reply_markup=kb, parse_mode="HTML")
@@ -495,7 +500,7 @@ async def check_required_subscription_callback(query: CallbackQuery):
         try:
             await query.message.edit_text(
                 build_required_subscription_text(titles),
-                reply_markup=build_required_subscription_keyboard(),
+                reply_markup=build_required_subscription_keyboard(missing_channels),
                 parse_mode="HTML",
             )
         except Exception:
