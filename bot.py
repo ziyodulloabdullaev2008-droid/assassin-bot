@@ -203,7 +203,8 @@ def _format_session_file_age(user_id: int, account_number: int) -> str:
     if not session_file:
         return "\u043d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u043e"
 
-    age_days = max(int((time.time() - session_file.stat().st_mtime) // 86400), 0)
+    created_at = datetime.fromtimestamp(session_file.stat().st_mtime)
+    age_days = max((datetime.now() - created_at).days, 0)
     if age_days == 0:
         return "\u0441\u0435\u0433\u043e\u0434\u043d\u044f"
     return f"{age_days} \u0434\u043d."
@@ -644,6 +645,7 @@ async def get_sessions_text_and_keyboard(user_id):
             info += f"🔗 <b>Username:</b> @{username_safe}\n"
         info += f"⚙️ <b>Статус:</b> {mode_text}\n"
         info += f"📡 <b>Подключение:</b> {conn_text}\n"
+        info += f"\u23f3 <b>\u0421\u0435\u0441\u0441\u0438\u044f:</b> {_format_session_file_age(user_id, account_number)}\n"
         info += "──────────────────────\n\n"
 
         toggle_text = "⏸️ Отключить" if is_active else "▶️ Включить"
