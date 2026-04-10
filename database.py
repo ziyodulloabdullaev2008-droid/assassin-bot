@@ -176,11 +176,18 @@ def init_db():
 
             is_active BOOLEAN DEFAULT 0,
 
+            created_at REAL,
+
             UNIQUE(bot_user_id, account_number)
 
         )
 
     """)
+
+    cursor.execute("PRAGMA table_info(user_accounts)")
+    account_columns = {row[1] for row in cursor.fetchall()}
+    if "created_at" not in account_columns:
+        cursor.execute("ALTER TABLE user_accounts ADD COLUMN created_at REAL")
 
     # Таблица VIP пользователей
 
@@ -724,12 +731,12 @@ def add_user_account(
     cursor.execute(
         """
 
-        INSERT INTO user_accounts (bot_user_id, account_number, telegram_id, username, first_name, phone, is_active)
+        INSERT INTO user_accounts (bot_user_id, account_number, telegram_id, username, first_name, phone, is_active, created_at)
 
-        VALUES (?, ?, ?, ?, ?, ?, 1)
+        VALUES (?, ?, ?, ?, ?, ?, 1, ?)
 
     """,
-        (bot_user_id, next_account, telegram_id, username, first_name, phone),
+        (bot_user_id, next_account, telegram_id, username, first_name, phone, time.time()),
     )
 
     # Деактивируем все остальные аккаунты
@@ -794,12 +801,12 @@ def add_user_account_with_number(
             cursor.execute(
                 """
 
-                INSERT INTO user_accounts (bot_user_id, account_number, telegram_id, username, first_name, phone, is_active)
+                INSERT INTO user_accounts (bot_user_id, account_number, telegram_id, username, first_name, phone, is_active, created_at)
 
-                VALUES (?, ?, ?, ?, ?, ?, 1)
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?)
 
             """,
-                (bot_user_id, account_number, telegram_id, username, first_name, phone),
+                (bot_user_id, account_number, telegram_id, username, first_name, phone, time.time()),
             )
 
         conn.commit()
@@ -841,6 +848,29 @@ def get_user_accounts(bot_user_id: int) -> List[Tuple]:
         conn.close()
 
         return result
+
+    return _retry_db_operation(_get, max_retries=3, base_delay=0.5)
+
+
+def get_user_account_created_at(bot_user_id: int, account_number: int) -> Optional[float]:
+    """Получить время добавления аккаунта в бота как unix timestamp."""
+
+    def _get():
+        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(user_accounts)")
+        account_columns = {row[1] for row in cursor.fetchall()}
+        if "created_at" not in account_columns:
+            cursor.execute("ALTER TABLE user_accounts ADD COLUMN created_at REAL")
+            conn.commit()
+
+        cursor.execute(
+            "SELECT created_at FROM user_accounts WHERE bot_user_id = ? AND account_number = ?",
+            (bot_user_id, account_number),
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row and row[0] is not None else None
 
     return _retry_db_operation(_get, max_retries=3, base_delay=0.5)
 
