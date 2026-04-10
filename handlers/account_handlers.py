@@ -43,8 +43,8 @@ def _get_session_age_days(user_id: int, account_number: int) -> int | None:
     if not session_file:
         return None
 
-    modified_at = datetime.fromtimestamp(session_file.stat().st_mtime)
-    return max((datetime.now() - modified_at).days, 0)
+    created_at = datetime.fromtimestamp(session_file.stat().st_mtime)
+    return max((datetime.now() - created_at).days, 0)
 
 
 def _format_session_age(user_id: int, account_number: int) -> str:
