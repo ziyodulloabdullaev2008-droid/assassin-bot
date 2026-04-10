@@ -190,11 +190,18 @@ def init_db():
 
             user_id INTEGER PRIMARY KEY,
 
-            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+            expires_at REAL
 
         )
 
     """)
+
+    cursor.execute("PRAGMA table_info(vip_users)")
+    vip_columns = {row[1] for row in cursor.fetchall()}
+    if "expires_at" not in vip_columns:
+        cursor.execute("ALTER TABLE vip_users ADD COLUMN expires_at REAL")
 
     conn.commit()
 
@@ -1010,103 +1017,134 @@ def load_broadcast_config(user_id: int) -> dict:
 # === VIP ?????????????? ===
 
 
-def add_vip_user(user_id: int) -> bool:
-    """Добавить пользователя в VIP"""
+
+def _ensure_vip_expires_column(cursor):
+    cursor.execute("PRAGMA table_info(vip_users)")
+    vip_columns = {row[1] for row in cursor.fetchall()}
+    if "expires_at" not in vip_columns:
+        cursor.execute("ALTER TABLE vip_users ADD COLUMN expires_at REAL")
+
+
+def _cleanup_expired_vip_users(cursor):
+    cursor.execute(
+        "DELETE FROM vip_users WHERE expires_at IS NOT NULL AND expires_at <= ?",
+        (time.time(),),
+    )
+
+
+def add_vip_user(user_id: int, days: int = 0) -> bool:
+    """???????? ??? ???????? VIP. days=0 ???????? ????????."""
 
     try:
         conn = sqlite3.connect(DB_PATH, timeout=30.0)
-
         cursor = conn.cursor()
-
-        # Проверяем есть ли уже
+        _ensure_vip_expires_column(cursor)
+        expires_at = None if days <= 0 else time.time() + days * 86400
 
         cursor.execute("SELECT user_id FROM vip_users WHERE user_id = ?", (user_id,))
-
         if cursor.fetchone():
-            conn.close()
-
-            return False
-
-        cursor.execute("INSERT INTO vip_users (user_id) VALUES (?)", (user_id,))
+            cursor.execute(
+                "UPDATE vip_users SET added_at = CURRENT_TIMESTAMP, expires_at = ? WHERE user_id = ?",
+                (expires_at, user_id),
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO vip_users (user_id, expires_at) VALUES (?, ?)",
+                (user_id, expires_at),
+            )
 
         conn.commit()
-
         conn.close()
-
         return True
 
     except Exception as e:
-        print(f"❌ Ошибка при добавлении VIP юзера: {str(e)}")
-
+        print(f"? ?????? ??? ?????????? VIP ?????: {str(e)}")
         return False
 
 
 def remove_vip_user(user_id: int) -> bool:
-    """Удалить пользователя из VIP"""
+    """??????? ???????????? ?? VIP"""
 
     try:
         conn = sqlite3.connect(DB_PATH, timeout=30.0)
-
         cursor = conn.cursor()
-
+        _ensure_vip_expires_column(cursor)
         cursor.execute("DELETE FROM vip_users WHERE user_id = ?", (user_id,))
 
         if cursor.rowcount == 0:
             conn.close()
-
             return False
 
         conn.commit()
-
         conn.close()
-
         return True
 
     except Exception as e:
-        print(f"❌ Ошибка при удалении VIP юзера: {str(e)}")
-
+        print(f"? ?????? ??? ???????? VIP ?????: {str(e)}")
         return False
 
 
 def is_vip_user(user_id: int) -> bool:
-    """Проверить является ли пользователь VIP"""
+    """????????? ???????? VIP-?????? ????????????."""
 
     try:
         conn = sqlite3.connect(DB_PATH, timeout=30.0)
-
         cursor = conn.cursor()
-
-        cursor.execute("SELECT user_id FROM vip_users WHERE user_id = ?", (user_id,))
-
+        _ensure_vip_expires_column(cursor)
+        _cleanup_expired_vip_users(cursor)
+        conn.commit()
+        cursor.execute(
+            "SELECT user_id FROM vip_users WHERE user_id = ? AND (expires_at IS NULL OR expires_at > ?)",
+            (user_id, time.time()),
+        )
         result = cursor.fetchone()
-
         conn.close()
-
         return result is not None
 
     except Exception as e:
-        print(f"❌ Ошибка при проверке VIP статуса: {str(e)}")
-
+        print(f"? ?????? ??? ???????? VIP ???????: {str(e)}")
         return False
 
 
 def get_all_vip_users() -> List[int]:
-    """Получить список всех VIP юзеров"""
+    """???????? ?????? ???? ???????? VIP ??????."""
 
     try:
         conn = sqlite3.connect(DB_PATH, timeout=30.0)
-
         cursor = conn.cursor()
-
-        cursor.execute("SELECT user_id FROM vip_users ORDER BY user_id")
-
+        _ensure_vip_expires_column(cursor)
+        _cleanup_expired_vip_users(cursor)
+        conn.commit()
+        cursor.execute(
+            "SELECT user_id FROM vip_users WHERE expires_at IS NULL OR expires_at > ? ORDER BY user_id",
+            (time.time(),),
+        )
         vip_list = [row[0] for row in cursor.fetchall()]
-
         conn.close()
-
         return vip_list
 
     except Exception as e:
-        print(f"❌ Ошибка при получении VIP списка: {str(e)}")
+        print(f"? ?????? ??? ????????? VIP ??????: {str(e)}")
+        return []
 
+
+def get_all_vip_users_with_expiry() -> List[Tuple[int, Optional[float]]]:
+    """???????? ???????? VIP ?????? ?????? ?? ?????? ?????????."""
+
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        cursor = conn.cursor()
+        _ensure_vip_expires_column(cursor)
+        _cleanup_expired_vip_users(cursor)
+        conn.commit()
+        cursor.execute(
+            "SELECT user_id, expires_at FROM vip_users WHERE expires_at IS NULL OR expires_at > ? ORDER BY user_id",
+            (time.time(),),
+        )
+        vip_list = [(row[0], row[1]) for row in cursor.fetchall()]
+        conn.close()
+        return vip_list
+
+    except Exception as e:
+        print(f"? ?????? ??? ????????? VIP ??????: {str(e)}")
         return []

@@ -25,12 +25,10 @@ def get_vip_cache_size() -> int:
 
 
 def is_vip_user_cached(user_id: int) -> bool:
-    """Быстрая проверка VIP-статуса через кэш с подстраховкой БД."""
-    if user_id in vip_users_cache:
-        return True
-
+    """????????? VIP-?????? ? ???????????????? ??? ? ??."""
     if is_vip_user(user_id):
         vip_users_cache.add(user_id)
         return True
 
+    vip_users_cache.discard(user_id)
     return False
