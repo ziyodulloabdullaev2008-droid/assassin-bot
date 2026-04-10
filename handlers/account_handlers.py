@@ -10,11 +10,14 @@ from aiogram.types import (
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 import io
+from datetime import datetime
+from pathlib import Path
 
 from core.config import API_HASH, API_ID
 from core.state import app_state
 from database import get_user_accounts
 from services.session_service import ensure_connected_client
+from services.user_paths import session_base_path
 
 router = Router()
 LOGIN_REQUIRED_TEXT = "\u274c \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u043e\u0439\u0434\u0438 \u0447\u0435\u0440\u0435\u0437 /login"
@@ -29,6 +32,28 @@ def _status_text(is_active: bool) -> str:
 
 def _h(text: str) -> str:
     return (text or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _get_session_age_days(user_id: int, account_number: int) -> int | None:
+    candidates = [
+        Path(f"{session_base_path(user_id, account_number)}.session"),
+        Path(__file__).resolve().parent.parent / f"session_{user_id}_{account_number}.session",
+    ]
+    session_file = next((candidate for candidate in candidates if candidate.exists()), None)
+    if not session_file:
+        return None
+
+    modified_at = datetime.fromtimestamp(session_file.stat().st_mtime)
+    return max((datetime.now() - modified_at).days, 0)
+
+
+def _format_session_age(user_id: int, account_number: int) -> str:
+    age_days = _get_session_age_days(user_id, account_number)
+    if age_days is None:
+        return "\u043d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u043e"
+    if age_days == 0:
+        return "\u0441\u0435\u0433\u043e\u0434\u043d\u044f"
+    return f"{age_days} \u0434\u043d."
 
 
 async def show_accounts_menu(message: Message, user_id: int, edit: bool = False):
@@ -49,7 +74,9 @@ async def show_accounts_menu(message: Message, user_id: int, edit: bool = False)
     for account_number, telegram_id, username, first_name, is_active in accounts:
         status = _status_text(is_active)
         first_name_safe = _h(first_name or "")
+        session_age = _format_session_age(user_id, account_number)
         info += f"{status} <b>{first_name_safe}</b> • #{account_number}\n"
+        info += f"   \u23f3 \u0421\u0435\u0441\u0441\u0438\u044f: {session_age}\n"
         buttons.append(
             [
                 InlineKeyboardButton(
@@ -118,12 +145,14 @@ async def view_account(query: CallbackQuery):
             username_safe = _h(
                 username or "\u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d"
             )
+            session_age = _format_session_age(user_id, account_number)
             info = (
                 "🧾 <b>ИНФОРМАЦИЯ ОБ АККАУНТЕ</b>\n"
                 "━━━━━━━━━━━━━━━━\n\n"
                 f"{status} <b>{first_name_safe}</b> • #{account_number}\n"
                 f"🆔 ID: <code>{telegram_id}</code>\n"
-                f"🔗 Username: @{username_safe}\n\n"
+                f"\U0001f517 Username: @{username_safe}\n"
+                f"\u23f3 \u0421\u0435\u0441\u0441\u0438\u044f: <b>{session_age}</b>\n\n"
                 f"{LOGIN_REQUIRED_TEXT}."
             )
             inline_keyboard = InlineKeyboardMarkup(
@@ -494,6 +523,7 @@ async def refresh_menu_content(
 
     try:
         me = await client.get_me()
+        session_age = _format_session_age(user_id, account_number)
 
         info = (
             "👤 <b>МОЙ АККАУНТ</b>\n"
@@ -501,7 +531,8 @@ async def refresh_menu_content(
             f"📛 Имя: <b>{_h(me.first_name)}</b>\n"
             f"🆔 ID: <code>{me.id}</code>\n"
             f"🔗 Username: @{_h(me.username) if me.username else 'не указано'}\n"
-            f"📱 Номер: <code>{_h(me.phone)}</code>\n\n"
+            f"\U0001f4f1 \u041d\u043e\u043c\u0435\u0440: <code>{_h(me.phone)}</code>\n"
+            f"\u23f3 \u0421\u0435\u0441\u0441\u0438\u044f: <b>{session_age}</b>\n\n"
             "ℹ️ Для полного списка и статистики используй кнопку «Список чатов»."
         )
 
