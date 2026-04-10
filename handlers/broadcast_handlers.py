@@ -3372,6 +3372,7 @@ async def bc_chats_add_callback(query: CallbackQuery, state: FSMContext):
     text = (
         "\U0001f4ec <b>\u0414\u041e\u0411\u0410\u0412\u041b\u0415\u041d\u0418\u0415 \u0427\u0410\u0422\u0410</b>\n\n"
         "\u041e\u0442\u043f\u0440\u0430\u0432\u044c ID \u0447\u0430\u0442\u0430 \u0438\u043b\u0438 \u0441\u0441\u044b\u043b\u043a\u0443/\u044e\u0437\u0435\u0440\u043d\u0435\u0439\u043c \u043a\u0430\u043d\u0430\u043b\u0430:\n"
+        "\u041c\u043e\u0436\u043d\u043e \u0441\u0440\u0430\u0437\u0443 \u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e: \u043a\u0430\u0436\u0434\u044b\u0439 ID/\u0441\u0441\u044b\u043b\u043a\u0443 \u0441 \u043d\u043e\u0432\u043e\u0439 \u0441\u0442\u0440\u043e\u043a\u0438.\n\n"
         "\u041f\u0440\u0438\u043c\u0435\u0440\u044b:\n"
         "  \u2022 <code>-1001234567890</code>\n"
         "  \u2022 <code>@mychannel</code>\n\n"
@@ -3394,129 +3395,169 @@ async def bc_chats_add_callback(query: CallbackQuery, state: FSMContext):
 
 @router.message(BroadcastConfigState.waiting_for_chat_id)
 async def process_add_broadcast_chat_with_profile(message: Message, state: FSMContext):
-    """Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р Т‘Р С•Р В±Р В°Р Р†Р В»Р ВµР Р…Р С‘РЎРЏ РЎвЂЎР В°РЎвЂљР В° Р Р† РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”РЎС“"""
+    """Add one or many chats to the broadcast list."""
 
     user_id = message.from_user.id
+    raw_input = message.text or ""
+    chat_inputs = [line.strip() for line in raw_input.splitlines() if line.strip()]
 
-    chat_input = message.text.strip()
-
-    # Р СџРЎР‚Р С•Р Р†Р ВµРЎР‚РЎРЏР ВµР С РЎвЂЎРЎвЂљР С• РЎРЊРЎвЂљР С• Р Р…Р Вµ Р С”Р Р…Р С•Р С—Р С”Р В° Р С•РЎвЂљР СР ВµР Р…РЎвЂ№
-
-    if chat_input == CANCEL_TEXT:
-        await return_to_previous_menu(message, state)
-
+    if not chat_inputs:
+        await message.answer(
+            "\u274c \u041e\u0442\u043f\u0440\u0430\u0432\u044c ID \u0447\u0430\u0442\u0430, \u0441\u0441\u044b\u043b\u043a\u0443 \u0438\u043b\u0438 \u044e\u0437\u0435\u0440\u043d\u0435\u0439\u043c. \u041c\u043e\u0436\u043d\u043e \u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0441\u0442\u0440\u043e\u043a \u0441\u0440\u0430\u0437\u0443.",
+            parse_mode="HTML",
+        )
         return
 
-    # Р Р€Р Т‘Р В°Р В»РЎРЏР ВµР С РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р Вµ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ Р Т‘Р В»РЎРЏ РЎвЂЎР С‘РЎРѓРЎвЂљР С•РЎвЂљРЎвЂ№ РЎвЂЎР В°РЎвЂљР В°
+    if len(chat_inputs) == 1 and chat_inputs[0] == CANCEL_TEXT:
+        await return_to_previous_menu(message, state)
+        return
 
     try:
         await message.delete()
-
     except Exception:
         pass
 
-    # Р СџР С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°Р ВµР С Р В·Р В°Р С–РЎР‚РЎС“Р В·Р С”РЎС“
-
-    loading_msg = await message.answer(
-        "\u23f3 \u0417\u0430\u0433\u0440\u0443\u0436\u0430\u044e \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044e \u043e \u0447\u0430\u0442\u0435..."
+    loading_text = (
+        "\u23f3 \u0417\u0430\u0433\u0440\u0443\u0436\u0430\u044e \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044e \u043e \u0447\u0430\u0442\u0430\u0445..."
+        if len(chat_inputs) > 1
+        else "\u23f3 \u0417\u0430\u0433\u0440\u0443\u0436\u0430\u044e \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044e \u043e \u0447\u0430\u0442\u0435..."
     )
+    loading_msg = await message.answer(loading_text)
 
-    try:
-        # Р СџРЎР‚Р С•Р Р†Р ВµРЎР‚РЎРЏР ВµР С Р В°Р Р†РЎвЂљР С•РЎР‚Р С‘Р В·Р В°РЎвЂ Р С‘РЎР‹
-
-        if user_id not in user_authenticated or not user_authenticated[user_id]:
-            await message.answer(LOGIN_REQUIRED_TEXT)
-
-            await state.clear()
-
-            return
-
-        chat_id = None
-
-        chat_name = None
-        chat_link = None
-        try:
-            chat = None
-            chat_reference = parse_numeric_reference(chat_input)
-            if chat_reference is None:
-                chat_reference = chat_input
-
-            chat, resolved_account = await _resolve_chat_for_user(user_id, chat_reference)
-            _ = resolved_account  # kept for future diagnostics
-
-            try:
-                chat_id = int(get_peer_id(chat))
-            except Exception:
-                chat_id = int(getattr(chat, "id"))
-
-            title = getattr(chat, "title", None) or getattr(chat, "first_name", None)
-            if not title and hasattr(chat, "id"):
-                title = f"user{chat.id}"
-
-            chat_name = str(title) if title else f"\u0427\u0430\u0442 {chat_id}"
-            chat_link = _detect_chat_link(chat_input, chat)
-
-        except Exception as e:
-            print(
-                f"РІСњРЉ Р С›РЎв‚¬Р С‘Р В±Р С”Р В° Р С—Р В°РЎР‚РЎРѓР С‘Р Р…Р С–Р В°: {str(e)}"
-            )
-
-            await message.answer(
-                "\u274c \u0427\u0430\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0412\u0432\u0435\u0434\u0438 ID \u0447\u0430\u0442\u0430 "
-                "(<code>-1003880811528</code>), \u0441\u0441\u044b\u043b\u043a\u0443 \u0438\u043b\u0438 \u044e\u0437\u0435\u0440\u043d\u0435\u0439\u043c "
-                "(<code>@mychannel</code>). \u0410\u043a\u043a\u0430\u0443\u043d\u0442, \u0447\u0435\u0440\u0435\u0437 \u043a\u043e\u0442\u043e\u0440\u044b\u0439 "
-                "\u0438\u0434\u0435\u0442 \u043f\u043e\u0438\u0441\u043a, \u0434\u043e\u043b\u0436\u0435\u043d \u0432\u0438\u0434\u0435\u0442\u044c \u044d\u0442\u043e\u0442 \u0447\u0430\u0442.",
-                parse_mode="HTML",
-            )
-
-            return
-
-        if chat_id is None:
-            await message.answer(
-                "\u274c \u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u043f\u0440\u0435\u0434\u0435\u043b\u0438\u0442\u044c ID \u0447\u0430\u0442\u0430"
-            )
-
-            return
-
-        if not chat_link:
-            chat_link = _detect_chat_link(chat_input, None)
-
-        # Р вЂќР С•Р В±Р В°Р Р†Р В»РЎРЏР ВµР С РЎвЂЎР В°РЎвЂљ Р Р† Р вЂР вЂќ
-
-        added = add_broadcast_chat_with_profile(
-            user_id,
-            chat_id,
-            chat_name or f"\u0427\u0430\u0442 {chat_id}",
-            chat_link=chat_link,
-        )
-
-        # Р С›РЎвЂљР С—РЎР‚Р В°Р Р†Р В»РЎРЏР ВµР С РЎС“Р Р†Р ВµР Т‘Р С•Р СР В»Р ВµР Р…Р С‘Р Вµ
-
-        if added:
-            notify_msg = await message.answer(
-                f"\u2705 \u0427\u0430\u0442 '{chat_name or chat_id}' \u0443\u0441\u043f\u0435\u0448\u043d\u043e \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d!"
-            )
-
-        else:
-            notify_msg = await message.answer(
-                f"\u26a0\ufe0f \u0427\u0430\u0442 '{chat_name or chat_id}' \u0443\u0436\u0435 \u0435\u0441\u0442\u044c \u0432 \u0441\u043f\u0438\u0441\u043a\u0435"
-            )
-
-        # Р Р€Р Т‘Р В°Р В»РЎРЏР ВµР С РЎС“Р Р†Р ВµР Т‘Р С•Р СР В»Р ВµР Р…Р С‘Р Вµ Р С—Р С•РЎРѓР В»Р Вµ 5 РЎРѓР ВµР С”РЎС“Р Р…Р Т‘
-
-        import asyncio
-
-        asyncio.create_task(delete_message_after_delay(notify_msg, 5))
-
-        # Р Р€Р Т‘Р В°Р В»РЎРЏР ВµР С РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р Вµ Р В·Р В°Р С–РЎР‚РЎС“Р В·Р С”Р С‘
-
+    async def _delete_loading():
         try:
             await loading_msg.delete()
-
         except Exception:
             pass
 
-        # Р С›РЎвЂљР С”РЎР‚РЎвЂ№Р Р†Р В°Р ВµР С Р СР ВµР Р…РЎР‹ РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р С‘
+    async def _resolve_chat_input(chat_input: str) -> dict:
+        chat_reference = parse_numeric_reference(chat_input)
+        if chat_reference is None:
+            chat_reference = chat_input
+
+        chat, resolved_account = await _resolve_chat_for_user(user_id, chat_reference)
+        _ = resolved_account  # kept for future diagnostics
+
+        try:
+            chat_id = int(get_peer_id(chat))
+        except Exception:
+            chat_id = int(getattr(chat, "id"))
+
+        title = getattr(chat, "title", None) or getattr(chat, "first_name", None)
+        if not title and hasattr(chat, "id"):
+            title = f"user{chat.id}"
+
+        chat_name = str(title) if title else f"\u0427\u0430\u0442 {chat_id}"
+        chat_link = _detect_chat_link(chat_input, chat) or _detect_chat_link(chat_input, None)
+        return {
+            "input": chat_input,
+            "chat_id": chat_id,
+            "chat_name": chat_name,
+            "chat_link": chat_link,
+        }
+
+    def _item_line(item: dict) -> str:
+        name = html.escape(str(item.get("chat_name") or item.get("chat_id") or item.get("input")))
+        chat_id = item.get("chat_id")
+        if chat_id is None:
+            return f"\u2022 {name}"
+        return f"\u2022 {name} <code>{chat_id}</code>"
+
+    def _build_add_summary(added: list[dict], duplicates: list[dict], failed: list[dict]) -> str:
+        lines = [
+            "\U0001f4ec <b>\u0418\u0442\u043e\u0433 \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0438\u044f \u0447\u0430\u0442\u043e\u0432</b>",
+            "",
+            f"\u2705 \u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u043e: <b>{len(added)}</b>",
+            f"\u26a0\ufe0f \u0423\u0436\u0435 \u0431\u044b\u043b\u0438: <b>{len(duplicates)}</b>",
+            f"\u274c \u041e\u0448\u0438\u0431\u043e\u043a: <b>{len(failed)}</b>",
+        ]
+
+        def append_items(title: str, items: list[dict]) -> None:
+            if not items:
+                return
+            lines.extend(["", title])
+            for item in items[:8]:
+                lines.append(_item_line(item))
+            if len(items) > 8:
+                lines.append(f"... \u0435\u0449\u0435 {len(items) - 8}")
+
+        append_items("\u2705 <b>\u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u044b:</b>", added)
+        append_items("\u26a0\ufe0f <b>\u0423\u0436\u0435 \u0432 \u0441\u043f\u0438\u0441\u043a\u0435:</b>", duplicates)
+
+        if failed:
+            lines.extend(["", "\u274c <b>\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c:</b>"])
+            for item in failed[:8]:
+                source = html.escape(str(item.get("input", "")))
+                error = html.escape(str(item.get("error", ""))[:180])
+                lines.append(f"\u2022 <code>{source}</code> - {error}")
+            if len(failed) > 8:
+                lines.append(f"... \u0435\u0449\u0435 {len(failed) - 8}")
+
+        return "\n".join(lines)
+
+    try:
+        if user_id not in user_authenticated or not user_authenticated[user_id]:
+            await message.answer(LOGIN_REQUIRED_TEXT)
+            await state.clear()
+            await _delete_loading()
+            return
+
+        added_chats: list[dict] = []
+        duplicate_chats: list[dict] = []
+        failed_chats: list[dict] = []
+
+        for chat_input in chat_inputs:
+            if chat_input == CANCEL_TEXT:
+                continue
+
+            try:
+                chat_data = await _resolve_chat_input(chat_input)
+                chat_id = chat_data.get("chat_id")
+                chat_name = chat_data.get("chat_name") or f"\u0427\u0430\u0442 {chat_id}"
+                if chat_id is None:
+                    raise RuntimeError("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u043f\u0440\u0435\u0434\u0435\u043b\u0438\u0442\u044c ID \u0447\u0430\u0442\u0430")
+
+                added = add_broadcast_chat_with_profile(
+                    user_id,
+                    chat_id,
+                    chat_name,
+                    chat_link=chat_data.get("chat_link"),
+                )
+
+                if added:
+                    added_chats.append(chat_data)
+                else:
+                    duplicate_chats.append(chat_data)
+
+            except Exception as e:
+                print(f"Broadcast chat add failed for {chat_input}: {str(e)}")
+                failed_chats.append({"input": chat_input, "error": str(e)})
+
+        await _delete_loading()
+
+        if not added_chats and not duplicate_chats:
+            if len(failed_chats) == 1:
+                await message.answer(
+                    "\u274c \u0427\u0430\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0412\u0432\u0435\u0434\u0438 ID \u0447\u0430\u0442\u0430 "
+                    "(<code>-1003880811528</code>), \u0441\u0441\u044b\u043b\u043a\u0443 \u0438\u043b\u0438 \u044e\u0437\u0435\u0440\u043d\u0435\u0439\u043c "
+                    "(<code>@mychannel</code>). \u0410\u043a\u043a\u0430\u0443\u043d\u0442, \u0447\u0435\u0440\u0435\u0437 \u043a\u043e\u0442\u043e\u0440\u044b\u0439 "
+                    "\u0438\u0434\u0435\u0442 \u043f\u043e\u0438\u0441\u043a, \u0434\u043e\u043b\u0436\u0435\u043d \u0432\u0438\u0434\u0435\u0442\u044c \u044d\u0442\u043e\u0442 \u0447\u0430\u0442.",
+                    parse_mode="HTML",
+                )
+            else:
+                await message.answer(
+                    _build_add_summary(added_chats, duplicate_chats, failed_chats),
+                    parse_mode="HTML",
+                )
+            return
+
+        notify_msg = await message.answer(
+            _build_add_summary(added_chats, duplicate_chats, failed_chats),
+            parse_mode="HTML",
+        )
+
+        if not failed_chats:
+            asyncio.create_task(delete_message_after_delay(notify_msg, 7))
 
         state_data = await state.get_data()
         await state.clear()
@@ -3525,9 +3566,9 @@ async def process_add_broadcast_chat_with_profile(message: Message, state: FSMCo
         )
 
     except Exception as e:
-        print(f"Р С›РЎв‚¬Р С‘Р В±Р С”Р В° Р Р† process_add_broadcast_chat: {str(e)}")
-
-        await message.answer(f"\u274c \u041e\u0448\u0438\u0431\u043a\u0430: {str(e)}")
+        await _delete_loading()
+        print(f"Error in process_add_broadcast_chat: {str(e)}")
+        await message.answer(f"\u274c \u041e\u0448\u0438\u0431\u043a\u0430: {html.escape(str(e))}", parse_mode="HTML")
 
 
 @router.callback_query(F.data.startswith("select_chat_"))
