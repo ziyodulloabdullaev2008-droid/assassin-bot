@@ -11,12 +11,10 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 import io
 from datetime import datetime
-from pathlib import Path
 from core.config import API_HASH, API_ID
 from core.state import app_state
 from database import get_user_accounts, get_user_account_created_at
 from services.session_service import ensure_connected_client
-from services.user_paths import session_base_path
 
 router = Router()
 LOGIN_REQUIRED_TEXT = "\u274c \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u043e\u0439\u0434\u0438 \u0447\u0435\u0440\u0435\u0437 /login"
@@ -36,14 +34,7 @@ def _h(text: str) -> str:
 def _get_session_age_days(user_id: int, account_number: int) -> int | None:
     created_at = get_user_account_created_at(user_id, account_number)
     if created_at is None:
-        candidates = [
-            Path(f"{session_base_path(user_id, account_number)}.session"),
-            Path(__file__).resolve().parent.parent / f"session_{user_id}_{account_number}.session",
-        ]
-        session_file = next((path for path in candidates if path.exists()), None)
-        if not session_file:
-            return None
-        created_at = session_file.stat().st_mtime
+        return None
 
     created_at_dt = datetime.fromtimestamp(float(created_at))
     return max((datetime.now() - created_at_dt).days, 0)

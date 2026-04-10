@@ -198,14 +198,7 @@ def cleanup_user_session(user_id: int, account_number: int = None):
 def _format_account_added_age(user_id: int, account_number: int) -> str:
     created_at = get_user_account_created_at(user_id, account_number)
     if created_at is None:
-        candidates = [
-            Path(f"{session_base_path(user_id, account_number)}.session"),
-            Path(__file__).resolve().parent / f"session_{user_id}_{account_number}.session",
-        ]
-        session_file = next((path for path in candidates if path.exists()), None)
-        if not session_file:
-            return "\u043d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u043e"
-        created_at = session_file.stat().st_mtime
+        return "\u043d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u043e"
 
     created_at_dt = datetime.fromtimestamp(float(created_at))
     age_days = max((datetime.now() - created_at_dt).days, 0)
