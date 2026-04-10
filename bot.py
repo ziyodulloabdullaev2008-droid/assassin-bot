@@ -194,6 +194,21 @@ def cleanup_user_session(user_id: int, account_number: int = None):
     stop_mention_monitoring(user_id, account_number)
 
 
+def _format_session_file_age(user_id: int, account_number: int) -> str:
+    candidates = [
+        Path(f"{session_base_path(user_id, account_number)}.session"),
+        Path(__file__).resolve().parent / f"session_{user_id}_{account_number}.session",
+    ]
+    session_file = next((path for path in candidates if path.exists()), None)
+    if not session_file:
+        return "\u043d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u043e"
+
+    age_days = max(int((time.time() - session_file.stat().st_mtime) // 86400), 0)
+    if age_days == 0:
+        return "\u0441\u0435\u0433\u043e\u0434\u043d\u044f"
+    return f"{age_days} \u0434\u043d."
+
+
 async def start_mention_monitoring(user_id: int):
     """Запускает мониторинг упоминаний для всех аккаунтов пользователя"""
 
