@@ -3537,6 +3537,15 @@ async def process_add_broadcast_chat_with_profile(message: Message, state: FSMCo
 
         if not added_chats and not duplicate_chats:
             if len(failed_chats) == 1:
+                error_text = str(failed_chats[0].get("error", "")).lower()
+                if "timed out" in error_text or "timeout" in error_text:
+                    await message.answer(
+                        "\u274c Telegram \u0441\u043b\u0438\u0448\u043a\u043e\u043c \u0434\u043e\u043b\u0433\u043e \u043e\u0442\u0432\u0435\u0447\u0430\u0435\u0442 \u043f\u0440\u0438 \u043f\u043e\u0438\u0441\u043a\u0435 \u0447\u0430\u0442\u0430. "
+                        "\u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439 \u0435\u0449\u0435 \u0440\u0430\u0437 \u0438\u043b\u0438 \u0434\u0440\u0443\u0433\u0443\u044e "
+                        "\u0441\u0441\u044b\u043b\u043a\u0443/\u0430\u0439\u0434\u0438.",
+                        parse_mode="HTML",
+                    )
+                    return
                 await message.answer(
                     "\u274c \u0427\u0430\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0412\u0432\u0435\u0434\u0438 ID \u0447\u0430\u0442\u0430 "
                     "(<code>-1003880811528</code>), \u0441\u0441\u044b\u043b\u043a\u0443 \u0438\u043b\u0438 \u044e\u0437\u0435\u0440\u043d\u0435\u0439\u043c "

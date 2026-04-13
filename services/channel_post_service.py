@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any
 from telethon.utils import get_peer_id
 from services.mention_utils import normalize_chat_id
@@ -63,27 +64,7 @@ def _entity_reference_candidates(entity) -> set[int]:
     return candidates
 
 
-async def resolve_entity_reference(client, reference: str | int):
-    normalized_ref = (
-        normalize_channel_reference(reference)
-        if isinstance(reference, str)
-        else reference
-    )
-
-    try:
-        return await client.get_entity(normalized_ref)
-    except Exception:
-        pass
-
-    numeric_ref = parse_numeric_reference(normalized_ref)
-    if numeric_ref is None:
-        raise ValueError(f"Chat or channel not found for reference: {reference}")
-
-    target_candidates = {
-        int(numeric_ref),
-        normalize_chat_id(numeric_ref),
-    }
-
+async def _find_entity_in_dialogs(client, target_candidates: set[int]):
     async for dialog in client.iter_dialogs():
         entity = getattr(dialog, "entity", None)
         if entity is None:
@@ -91,6 +72,45 @@ async def resolve_entity_reference(client, reference: str | int):
         entity_candidates = _entity_reference_candidates(entity)
         if entity_candidates & target_candidates:
             return entity
+    return None
+
+
+async def resolve_entity_reference(client, reference: str | int):
+    normalized_ref = (
+        normalize_channel_reference(reference)
+        if isinstance(reference, str)
+        else reference
+    )
+
+    lookup_timed_out = False
+    try:
+        return await asyncio.wait_for(client.get_entity(normalized_ref), timeout=12.0)
+    except asyncio.TimeoutError:
+        lookup_timed_out = True
+    except Exception:
+        pass
+
+    numeric_ref = parse_numeric_reference(normalized_ref)
+    if numeric_ref is None:
+        if lookup_timed_out:
+            raise TimeoutError(f"Telegram timed out while resolving chat: {reference}")
+        raise ValueError(f"Chat or channel not found for reference: {reference}")
+
+    target_candidates = {
+        int(numeric_ref),
+        normalize_chat_id(numeric_ref),
+    }
+
+    try:
+        entity = await asyncio.wait_for(
+            _find_entity_in_dialogs(client, target_candidates), timeout=15.0
+        )
+    except asyncio.TimeoutError as exc:
+        raise TimeoutError(
+            f"Telegram timed out while scanning dialogs for chat: {reference}"
+        ) from exc
+    if entity is not None:
+        return entity
 
     raise ValueError(f"Chat or channel not found for reference: {reference}")
 
