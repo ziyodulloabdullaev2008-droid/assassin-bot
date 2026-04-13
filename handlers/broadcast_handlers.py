@@ -1322,50 +1322,78 @@ async def bc_active_callback(query: CallbackQuery):
 
 
 async def _render_group_detail(query: CallbackQuery, user_id: int, gid: int) -> None:
-
-    items = [
-        (bid, b)
-        for bid, b in active_broadcasts.items()
-        if b.get("group_id") == gid
-        and b.get("user_id") == user_id
-        and b.get("status") in ("running", "paused")
-    ]
-
-    if not items:
+    payload = _build_group_detail_payload(user_id, gid)
+    if not payload:
         await query.answer(
             "\u0413\u0440\u0443\u043f\u043f\u0430 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430",
             show_alert=True,
         )
-
         return
 
+    info, keyboard = payload
+    await _edit_or_notice(query, info, keyboard)
+
+
+def _group_runtime_items(user_id: int, gid: int) -> list[tuple[int, dict]]:
+    return [
+        (bid, broadcast)
+        for bid, broadcast in active_broadcasts.items()
+        if broadcast.get("group_id") == gid
+        and broadcast.get("user_id") == user_id
+        and broadcast.get("status") in ("running", "paused")
+    ]
+
+
+def _group_error_runtime_items(items: list[tuple[int, dict]]) -> list[tuple[int, dict, dict]]:
+    error_items: list[tuple[int, dict, dict]] = []
+    for bid, broadcast in items:
+        for chat_item in _broadcast_chat_runtime_items(broadcast):
+            if str(chat_item.get("last_error") or "").strip():
+                error_items.append((bid, broadcast, chat_item))
+    error_items.sort(
+        key=lambda item: float(item[2].get("last_error_at", 0.0) or 0.0),
+        reverse=True,
+    )
+    return error_items
+
+
+def _build_group_detail_payload(
+    user_id: int, gid: int
+) -> tuple[str, InlineKeyboardMarkup] | None:
+    items = _group_runtime_items(user_id, gid)
+    if not items:
+        return None
+
     total_accounts = len(items)
-
-    total_chats = sum(b.get("total_chats", 0) for _, b in items)
-
-    total_count = sum(int(b.get("count", 0) or 0) for _, b in items)
-
-    sent = sum(b.get("sent_chats", 0) for _, b in items)
+    total_chats = sum(int(broadcast.get("total_chats", 0) or 0) for _, broadcast in items)
+    total_count = sum(int(broadcast.get("count", 0) or 0) for _, broadcast in items)
+    sent = sum(int(broadcast.get("sent_chats", 0) or 0) for _, broadcast in items)
+    failed = sum(int(broadcast.get("failed_count", 0) or 0) for _, broadcast in items)
+    error_items = _group_error_runtime_items(items)
 
     status = (
         "\u25b6\ufe0f \u0410\u043a\u0442\u0438\u0432\u043d\u0430"
-        if any(b["status"] == "running" for _, b in items)
+        if any(broadcast["status"] == "running" for _, broadcast in items)
         else "\u23f8\ufe0f \u041f\u0430\u0443\u0437\u0430"
     )
 
+    interval_values = {
+        str(broadcast.get("interval_value", broadcast.get("interval_minutes", "?")))
+        for _, broadcast in items
+    }
+    pause_values = {str(broadcast.get("chat_pause", "1-3")) for _, broadcast in items}
+    interval_text = ", ".join(sorted(interval_values)) if interval_values else "-"
+    pause_text = ", ".join(sorted(pause_values)) if pause_values else "-"
+
     info = f"\U0001f4e6 <b>\u0413\u0440\u0443\u043f\u043f\u0430 #{gid}</b>\n\n"
-
     info += f"\u0421\u0442\u0430\u0442\u0443\u0441: {status}\n"
-
-    info += (
-        f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432: {total_accounts}\n"
-    )
-
+    info += f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432: {total_accounts}\n"
     info += f"\u0427\u0430\u0442\u043e\u0432: {total_chats}\n"
-
     info += f"\u041f\u043b\u0430\u043d: {total_count}\n"
-
-    info += f"\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e: {sent}\n\n"
+    info += f"\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e: {sent}\n"
+    info += f"\u041e\u0448\u0438\u0431\u043e\u043a: {failed}\n"
+    info += f"\u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b: {html.escape(interval_text)} \u043c\u0438\u043d\n"
+    info += f"\u0422\u0435\u043c\u043f: {html.escape(pause_text)} \u0441\u0435\u043a\n"
 
     buttons = [
         [
@@ -1386,21 +1414,110 @@ async def _render_group_detail(query: CallbackQuery, user_id: int, gid: int) -> 
         ],
         [
             InlineKeyboardButton(
+                text="\u270f\ufe0f \u041a\u043e\u043b-\u0432\u043e",
+                callback_data=f"bc_group_edit_count_{gid}",
+            ),
+            InlineKeyboardButton(
+                text="\u23f1\ufe0f \u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b",
+                callback_data=f"bc_group_edit_interval_{gid}",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text="\u26a1 \u0422\u0435\u043c\u043f",
+                callback_data=f"bc_group_edit_pause_{gid}",
+            ),
+            InlineKeyboardButton(
                 text="\U0001f504 \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c",
                 callback_data=f"view_group_{gid}",
-            )
+            ),
         ],
+    ]
+    if error_items:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"\u26a0\ufe0f \u041e\u0448\u0438\u0431\u043a\u0438 ({len(error_items)})",
+                    callback_data=f"bc_group_errors_{gid}",
+                )
+            ]
+        )
+    buttons.append(
         [
             InlineKeyboardButton(
                 text="\u2b05\ufe0f \u041d\u0430\u0437\u0430\u0434",
                 callback_data="bc_active",
             )
-        ],
+        ]
+    )
+    return info, InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+async def _edit_group_detail_message(
+    message: Message, user_id: int, gid: int, *, chat_id: int, message_id: int
+) -> bool:
+    payload = _build_group_detail_payload(user_id, gid)
+    if not payload:
+        return False
+    info, keyboard = payload
+    await message.bot.edit_message_text(
+        chat_id=chat_id,
+        message_id=message_id,
+        text=info,
+        reply_markup=keyboard,
+        parse_mode="HTML",
+    )
+    return True
+
+
+async def _render_group_error_log(query: CallbackQuery, gid: int) -> None:
+    user_id = query.from_user.id
+    items = _group_runtime_items(user_id, gid)
+    if not items:
+        await query.answer(
+            "\u0413\u0440\u0443\u043f\u043f\u0430 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430",
+            show_alert=True,
+        )
+        return
+
+    error_items = _group_error_runtime_items(items)
+    lines = [f"\u26a0\ufe0f <b>\u041e\u0448\u0438\u0431\u043a\u0438 \u0433\u0440\u0443\u043f\u043f\u044b #{gid}</b>", ""]
+    if not error_items:
+        lines.append("\u0421\u0435\u0439\u0447\u0430\u0441 \u043e\u0448\u0438\u0431\u043e\u043a \u043d\u0435\u0442.")
+    else:
+        for _, broadcast, chat_item in error_items[:15]:
+            account_name = html.escape(
+                str(
+                    broadcast.get(
+                        "account_name",
+                        f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442 {broadcast.get('account', '?')}",
+                    )
+                )
+            )
+            lines.append(f"<b>{account_name}</b>")
+            lines.append(f"<pre>{html.escape(_format_chat_error_log(chat_item))}</pre>")
+
+    buttons = [
+        [
+            InlineKeyboardButton(
+                text="\u2b05\ufe0f \u041a \u0433\u0440\u0443\u043f\u043f\u0435",
+                callback_data=f"view_group_{gid}",
+            )
+        ]
     ]
+    if error_items:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="\U0001f504 \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c",
+                    callback_data=f"bc_group_errors_{gid}",
+                )
+            ]
+        )
 
     await _edit_or_notice(
         query,
-        info,
+        "\n".join(lines),
         InlineKeyboardMarkup(inline_keyboard=buttons),
     )
 
@@ -1421,6 +1538,144 @@ async def view_group_callback(query: CallbackQuery):
         return
 
     await _render_group_detail(query, user_id, gid)
+
+
+@router.callback_query(F.data.startswith("bc_group_errors_"))
+async def bc_group_errors_callback(query: CallbackQuery):
+    await query.answer()
+    try:
+        gid = int(query.data.split("_")[3])
+    except Exception:
+        await query.answer("\u041e\u0448\u0438\u0431\u043a\u0430", show_alert=True)
+        return
+    await _render_group_error_log(query, gid)
+
+
+@router.callback_query(F.data.startswith("bc_group_edit_count_"))
+async def bc_group_edit_count_callback(query: CallbackQuery, state: FSMContext):
+    await query.answer()
+    user_id = query.from_user.id
+    try:
+        gid = int(query.data.split("_")[4])
+    except Exception:
+        await query.answer("\u041e\u0448\u0438\u0431\u043a\u0430", show_alert=True)
+        return
+    if not _group_runtime_items(user_id, gid):
+        await query.answer(
+            "\u0413\u0440\u0443\u043f\u043f\u0430 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430",
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(BroadcastConfigState.waiting_for_count)
+    await state.update_data(
+        edit_group_id=gid,
+        edit_message_id=query.message.message_id,
+        chat_id=query.message.chat.id,
+        previous_menu="group_detail",
+    )
+    await query.message.edit_text(
+        "\U0001f522 <b>\u041a\u041e\u041b-\u0412\u041e \u0414\u041b\u042f \u0413\u0420\u0423\u041f\u041f\u042b</b>\n\n"
+        "\u041d\u043e\u0432\u043e\u0435 \u0437\u043d\u0430\u0447\u0435\u043d\u0438\u0435 \u043f\u0440\u0438\u043c\u0435\u043d\u0438\u0442\u0441\u044f \u043a \u043a\u0430\u0436\u0434\u043e\u0439 \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0435 \u0432 \u0433\u0440\u0443\u043f\u043f\u0435.\n\n"
+        "\u0412\u0432\u0435\u0434\u0438 \u0447\u0438\u0441\u043b\u043e \u043e\u0442 1 \u0434\u043e 1000:",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=CANCEL_TEXT,
+                        callback_data=f"view_group_{gid}",
+                    )
+                ]
+            ]
+        ),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data.startswith("bc_group_edit_interval_"))
+async def bc_group_edit_interval_callback(query: CallbackQuery, state: FSMContext):
+    await query.answer()
+    user_id = query.from_user.id
+    try:
+        gid = int(query.data.split("_")[4])
+    except Exception:
+        await query.answer("\u041e\u0448\u0438\u0431\u043a\u0430", show_alert=True)
+        return
+    if not _group_runtime_items(user_id, gid):
+        await query.answer(
+            "\u0413\u0440\u0443\u043f\u043f\u0430 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430",
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(BroadcastConfigState.waiting_for_interval)
+    await state.update_data(
+        edit_group_id=gid,
+        edit_message_id=query.message.message_id,
+        chat_id=query.message.chat.id,
+        previous_menu="group_detail",
+    )
+    await query.message.edit_text(
+        "\u23f1\ufe0f <b>\u0418\u041d\u0422\u0415\u0420\u0412\u0410\u041b \u0414\u041b\u042f \u0413\u0420\u0423\u041f\u041f\u042b</b>\n\n"
+        "\u041d\u043e\u0432\u044b\u0439 \u0438\u043d\u0442\u0435\u0440\u0432\u0430\u043b \u043f\u0440\u0438\u043c\u0435\u043d\u0438\u0442\u0441\u044f \u043a \u043a\u0430\u0436\u0434\u043e\u0439 \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0435 \u0432 \u0433\u0440\u0443\u043f\u043f\u0435.\n"
+        "\u041e\u0442\u043f\u0440\u0430\u0432\u044c \u043e\u0434\u043d\u043e \u0447\u0438\u0441\u043b\u043e \u0438\u043b\u0438 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d.\n"
+        "\u041f\u0440\u0438\u043c\u0435\u0440\u044b: <code>15</code> \u0438\u043b\u0438 <code>10-30</code>",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=CANCEL_TEXT,
+                        callback_data=f"view_group_{gid}",
+                    )
+                ]
+            ]
+        ),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data.startswith("bc_group_edit_pause_"))
+async def bc_group_edit_pause_callback(query: CallbackQuery, state: FSMContext):
+    await query.answer()
+    user_id = query.from_user.id
+    try:
+        gid = int(query.data.split("_")[4])
+    except Exception:
+        await query.answer("\u041e\u0448\u0438\u0431\u043a\u0430", show_alert=True)
+        return
+    if not _group_runtime_items(user_id, gid):
+        await query.answer(
+            "\u0413\u0440\u0443\u043f\u043f\u0430 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430",
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(BroadcastConfigState.waiting_for_chat_pause)
+    await state.update_data(
+        edit_group_id=gid,
+        edit_message_id=query.message.message_id,
+        chat_id=query.message.chat.id,
+        previous_menu="group_detail",
+    )
+    await query.message.edit_text(
+        "\u26a1 <b>\u0422\u0415\u041c\u041f \u0414\u041b\u042f \u0413\u0420\u0423\u041f\u041f\u042b</b>\n\n"
+        "\u041d\u043e\u0432\u044b\u0439 \u0442\u0435\u043c\u043f \u043f\u0440\u0438\u043c\u0435\u043d\u0438\u0442\u0441\u044f \u043a\u043e \u0432\u0441\u0435\u043c \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0430\u043c \u0432 \u0433\u0440\u0443\u043f\u043f\u0435.\n\n"
+        "\u0412\u0432\u0435\u0434\u0438 \u043e\u0434\u043d\u043e \u0447\u0438\u0441\u043b\u043e \u0438\u043b\u0438 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d:\n"
+        "\u2022 <code>2</code>\n"
+        "\u2022 <code>1-3</code>\n"
+        f"\u041c\u0430\u043a\u0441\u0438\u043c\u0443\u043c: <code>{CHAT_PAUSE_MAX_SECONDS}</code> \u0441\u0435\u043a",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=CANCEL_TEXT,
+                        callback_data=f"view_group_{gid}",
+                    )
+                ]
+            ]
+        ),
+        parse_mode="HTML",
+    )
 
 
 @router.callback_query(F.data.startswith("bc_group_pause_"))
@@ -2448,6 +2703,7 @@ async def process_broadcast_count(message: Message, state: FSMContext):
         data = await state.get_data()
 
         edit_broadcast_id = data.get("edit_broadcast_id")
+        edit_group_id = data.get("edit_group_id")
         edit_message_id = data.get("edit_message_id")
 
         chat_id = data.get("chat_id")
@@ -2458,6 +2714,18 @@ async def process_broadcast_count(message: Message, state: FSMContext):
                 count=count,
                 planned_count=count,
             )
+        elif edit_group_id is not None:
+            for bid, broadcast in list(active_broadcasts.items()):
+                if (
+                    broadcast.get("group_id") == edit_group_id
+                    and broadcast.get("user_id") == user_id
+                    and broadcast.get("status") in ("running", "paused")
+                ):
+                    await update_broadcast_fields(
+                        bid,
+                        count=count,
+                        planned_count=count,
+                    )
 
         await state.clear()
 
@@ -2472,6 +2740,23 @@ async def process_broadcast_count(message: Message, state: FSMContext):
         # Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚РЎС“Р ВµР С РЎвЂљР С• Р В¶Р Вµ РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р Вµ РЎРѓ Р С‘Р Р…РЎвЂћР С•РЎР‚Р СР В°РЎвЂ Р С‘Р ВµР в„– Р С• РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р Вµ Р С‘Р В»Р С‘ Р С•РЎвЂљР С—РЎР‚Р В°Р Р†Р В»РЎРЏР ВµР С Р Р…Р С•Р Р†Р С•Р Вµ
 
         chats = get_broadcast_chats(user_id)
+
+        if edit_message_id and chat_id and edit_group_id is not None:
+            try:
+                if await _edit_group_detail_message(
+                    message,
+                    user_id,
+                    edit_group_id,
+                    chat_id=chat_id,
+                    message_id=edit_message_id,
+                ):
+                    return
+            except Exception as e:
+                print(f"Group detail refresh failed after count update: {e}")
+                await message.answer(
+                    "\u274c \u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u043c\u0435\u043d\u044e \u0433\u0440\u0443\u043f\u043f\u044b"
+                )
+                return
 
         if edit_message_id and chat_id:
             try:
@@ -2635,6 +2920,7 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
         data = await state.get_data()
 
         edit_broadcast_id = data.get("edit_broadcast_id")
+        edit_group_id = data.get("edit_group_id")
         edit_message_id = data.get("edit_message_id")
 
         chat_id = data.get("chat_id")
@@ -2645,6 +2931,18 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
                 interval_minutes=interval_value,
                 interval_value=interval_value,
             )
+        elif edit_group_id is not None:
+            for bid, broadcast in list(active_broadcasts.items()):
+                if (
+                    broadcast.get("group_id") == edit_group_id
+                    and broadcast.get("user_id") == user_id
+                    and broadcast.get("status") in ("running", "paused")
+                ):
+                    await update_broadcast_fields(
+                        bid,
+                        interval_minutes=interval_value,
+                        interval_value=interval_value,
+                    )
 
         await state.clear()
 
@@ -2659,6 +2957,23 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
         # Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚РЎС“Р ВµР С РЎвЂљР С• Р В¶Р Вµ РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р Вµ РЎРѓ Р С‘Р Р…РЎвЂћР С•РЎР‚Р СР В°РЎвЂ Р С‘Р ВµР в„– Р С• РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р Вµ
 
         chats = get_broadcast_chats(user_id)
+
+        if edit_message_id and chat_id and edit_group_id is not None:
+            try:
+                if await _edit_group_detail_message(
+                    message,
+                    user_id,
+                    edit_group_id,
+                    chat_id=chat_id,
+                    message_id=edit_message_id,
+                ):
+                    return
+            except Exception as e:
+                print(f"Group detail refresh failed after interval update: {e}")
+                await message.answer(
+                    "\u274c \u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u043c\u0435\u043d\u044e \u0433\u0440\u0443\u043f\u043f\u044b"
+                )
+                return
 
         if edit_message_id and chat_id:
             try:
@@ -2791,6 +3106,7 @@ async def process_broadcast_chat_pause(message: Message, state: FSMContext):
 
         data = await state.get_data()
 
+        edit_group_id = data.get("edit_group_id")
         edit_message_id = data.get("edit_message_id")
 
         chat_id = data.get("chat_id")
@@ -2806,6 +3122,32 @@ async def process_broadcast_chat_pause(message: Message, state: FSMContext):
             pass
 
         # Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚РЎС“Р ВµР С Р СР ВµР Р…РЎР‹ РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р С‘
+
+        if edit_group_id is not None:
+            for bid, broadcast in list(active_broadcasts.items()):
+                if (
+                    broadcast.get("group_id") == edit_group_id
+                    and broadcast.get("user_id") == user_id
+                    and broadcast.get("status") in ("running", "paused")
+                ):
+                    await update_broadcast_fields(bid, chat_pause=pause_value)
+
+        if edit_message_id and chat_id and edit_group_id is not None:
+            try:
+                if await _edit_group_detail_message(
+                    message,
+                    user_id,
+                    edit_group_id,
+                    chat_id=chat_id,
+                    message_id=edit_message_id,
+                ):
+                    return
+            except Exception as e:
+                print(f"Group detail refresh failed after pace update: {e}")
+                await message.answer(
+                    "\u274c \u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u043c\u0435\u043d\u044e \u0433\u0440\u0443\u043f\u043f\u044b"
+                )
+                return
 
         if edit_message_id and chat_id:
             try:

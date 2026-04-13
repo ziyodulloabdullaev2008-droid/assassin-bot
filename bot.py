@@ -551,6 +551,125 @@ async def cmd_sessions(message: Message):
     )
 
 
+@dp.callback_query(F.data == "add_new_account")
+async def add_new_account_callback(query: CallbackQuery, state: FSMContext):
+
+    await query.answer()
+
+    user = query.from_user
+
+    add_or_update_user(user.id, user.username or "unknown", user.first_name)
+
+    await state.set_state(LoginStates.waiting_phone)
+
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="↩️ Отменить действие")]], resize_keyboard=True
+    )
+
+    guide_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🎥 Видеогайд", url="https://t.me/assassin2026gaides/2"
+                )
+            ]
+        ]
+    )
+
+    await query.message.answer(
+        "🔐 <b>ВХОД В АККАУНТ</b>\n\n"
+        "Для работы бота необходимо получить доступ к твоему Telegram аккаунту.\n\n"
+        "📱 <b>Введи свой номер телефона в формате:</b>\n"
+        "+7XXXXXXXXXX или +1XXXXXXXXX",
+        parse_mode="HTML",
+        reply_markup=keyboard,
+    )
+
+    await query.message.answer(
+        "Если нужна помощь по входу, открой видеоинструкцию:",
+        reply_markup=guide_keyboard,
+    )
+
+
+@dp.callback_query(F.data == "refresh_sessions_menu")
+async def refresh_sessions_menu_callback(query: CallbackQuery, state: FSMContext):
+
+    await query.answer("Обновляю...")
+
+    await state.clear()
+
+    user_id = query.from_user.id
+    synced = 0
+    total = 0
+
+    user_clients = app_state.user_authenticated.get(user_id, {}) or {}
+    for account_number in list(user_clients.keys()):
+        total += 1
+        try:
+            client = await ensure_connected_client(
+                user_id,
+                account_number,
+                api_id=API_ID,
+                api_hash=API_HASH,
+            )
+            if not client:
+                continue
+
+            me = await client.get_me()
+            if me:
+                add_user_account_with_number(
+                    user_id,
+                    account_number,
+                    me.id,
+                    me.username or "",
+                    me.first_name or "User",
+                    me.phone or "",
+                )
+                synced += 1
+        except Exception:
+            continue
+
+    info, inline_keyboard = await get_sessions_text_and_keyboard(user_id)
+
+    refresh_text = "🔄 <b>Список аккаунтов обновлён</b>"
+    if total > 0:
+        refresh_text += f"\nСинхронизировано: <b>{synced}/{total}</b>"
+
+    if not info:
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="➕ Добавить аккаунт", callback_data="add_new_account"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="🔄 Обновить", callback_data="refresh_sessions_menu"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="⬅️ Назад", callback_data="close_sessions_menu"
+                    )
+                ],
+            ]
+        )
+        await query.message.edit_text(
+            refresh_text + "\n\n❌ Нет добавленных аккаунтов",
+            reply_markup=kb,
+            parse_mode="HTML",
+        )
+        return
+
+    await query.message.edit_text(
+        refresh_text + "\n\n" + info,
+        reply_markup=inline_keyboard,
+        parse_mode="HTML",
+        disable_web_page_preview=True,
+    )
+
+
 async def get_sessions_text_and_keyboard(user_id):
     """Build account menu text and keyboard."""
     accounts = get_user_accounts(user_id)
@@ -665,6 +784,9 @@ async def get_sessions_text_and_keyboard(user_id):
                 text="➕ Добавить аккаунт", callback_data="add_new_account"
             )
         ]
+    )
+    keyboard_buttons.append(
+        [InlineKeyboardButton(text="🔄 Обновить", callback_data="refresh_sessions_menu")]
     )
     keyboard_buttons.append(
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="close_sessions_menu")]
