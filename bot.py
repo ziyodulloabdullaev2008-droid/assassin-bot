@@ -939,16 +939,23 @@ async def proxy_back_accounts_callback(query: CallbackQuery, state: FSMContext):
 
 @dp.callback_query(F.data.startswith("proxy_account_"))
 async def proxy_account_callback(query: CallbackQuery, state: FSMContext):
-    await query.answer()
-    await state.clear()
-    account_number = int(query.data.rsplit("_", 1)[1])
-    proxy_settings = get_account_proxy(query.from_user.id, account_number)
-    check_result = get_account_proxy_check_result(query.from_user.id, account_number)
-    await query.message.edit_text(
-        _build_proxy_account_text(account_number, proxy_settings, check_result),
-        parse_mode="HTML",
-        reply_markup=_build_proxy_account_keyboard(account_number, bool(proxy_settings)),
-    )
+    try:
+        await query.answer()
+        await state.clear()
+        account_number = int(query.data.rsplit("_", 1)[1])
+        proxy_settings = get_account_proxy(query.from_user.id, account_number)
+        check_result = get_account_proxy_check_result(query.from_user.id, account_number)
+        await query.message.edit_text(
+            _build_proxy_account_text(account_number, proxy_settings, check_result),
+            parse_mode="HTML",
+            reply_markup=_build_proxy_account_keyboard(account_number, bool(proxy_settings)),
+        )
+    except Exception as exc:
+        print(f"❌ Ошибка в proxy_account_callback: {exc}")
+        try:
+            await query.answer(f"❌ Ошибка: {str(exc)}", show_alert=True)
+        except Exception:
+            pass
 
 
 @dp.callback_query(F.data.startswith("proxy_set_"))
