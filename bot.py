@@ -2,6 +2,8 @@
 
 import asyncio
 
+import html
+
 import sys
 
 from datetime import datetime
