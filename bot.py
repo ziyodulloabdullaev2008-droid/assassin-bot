@@ -262,6 +262,7 @@ class ProxyStates(StatesGroup):
 
 
 vip_denial_messages = {}
+subscription_check_cache = {}
 REQUIRED_CHANNELS = [
     {
         "chat_id": "@stryxxss",
@@ -340,6 +341,13 @@ async def get_missing_required_channels(bot: Bot, user_id: int) -> list[dict]:
         except Exception:
             missing.append(channel)
     return missing
+
+
+def _has_fresh_subscription_cache(user_id: int, ttl_seconds: int = 300) -> bool:
+    cached_at = float(subscription_check_cache.get(user_id, 0.0) or 0.0)
+    if cached_at <= 0:
+        return False
+    return (datetime.now().timestamp() - cached_at) <= ttl_seconds
 
 
 class PrivateOnlyMiddleware(BaseMiddleware):
@@ -500,9 +508,15 @@ class SubscriptionRequiredMiddleware(BaseMiddleware):
         if user_id in {ADMIN_ID, 777000}:
             return await handler(event, data)
 
+        if _has_fresh_subscription_cache(user_id):
+            return await handler(event, data)
+
         missing_channels = await get_missing_required_channels(bot, user_id)
         if not missing_channels:
+            subscription_check_cache[user_id] = datetime.now().timestamp()
             return await handler(event, data)
+
+        subscription_check_cache.pop(user_id, None)
 
         missing_titles = [channel["title"] for channel in missing_channels]
         text = build_required_subscription_text(missing_titles)
