@@ -4,11 +4,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+from services.user_paths import CONFIG_EXAMPLE_PATH, CONFIG_PATH, ensure_runtime_dir
 
 ROOT = Path(__file__).resolve().parent
 REQUIREMENTS_FILE = ROOT / "requirements.txt"
-CONFIG_FILE = ROOT / "config.local.json"
-CONFIG_EXAMPLE_FILE = ROOT / "config.local.example.json"
+CONFIG_FILE = CONFIG_PATH
+CONFIG_EXAMPLE_FILE = CONFIG_EXAMPLE_PATH
 
 REQUIRED_MODULES = (
     "aiogram",
@@ -54,15 +55,18 @@ def ensure_dependencies() -> None:
 
 
 def ensure_local_config() -> None:
+    ensure_runtime_dir()
+
     if not CONFIG_FILE.exists():
         if not CONFIG_EXAMPLE_FILE.exists():
             raise SystemExit("config.local.example.json is missing")
 
+        CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
         CONFIG_FILE.write_text(
             CONFIG_EXAMPLE_FILE.read_text(encoding="utf-8"),
             encoding="utf-8",
         )
-        _print("Created config.local.json from config.local.example.json")
+        _print(f"Created {CONFIG_FILE} from {CONFIG_EXAMPLE_FILE}")
         _print("Fill in your real TOKEN / API_ID / API_HASH and run again")
         raise SystemExit(1)
 

@@ -1,10 +1,10 @@
 import json
 import os
-from pathlib import Path
+
+from services.user_paths import CONFIG_PATH
 
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-LOCAL_CONFIG_PATH = ROOT_DIR / "config.local.json"
+LOCAL_CONFIG_PATH = CONFIG_PATH
 
 
 def _load_local_config() -> dict:

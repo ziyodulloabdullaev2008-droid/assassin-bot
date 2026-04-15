@@ -1,9 +1,57 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent / "users"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_RUNTIME_DIR = ROOT_DIR / "runtime"
+
+
+def _resolve_runtime_dir() -> Path:
+    env_value = (os.getenv("ASSASSIN_RUNTIME_DIR") or "").strip()
+    if env_value:
+        return Path(env_value).expanduser().resolve()
+
+    if DEFAULT_RUNTIME_DIR.exists():
+        return DEFAULT_RUNTIME_DIR.resolve()
+
+    return ROOT_DIR
+
+
+RUNTIME_DIR = _resolve_runtime_dir()
+BASE_DIR = RUNTIME_DIR / "users"
+LOGS_DIR = RUNTIME_DIR / "logs"
+COMMON_DIR = BASE_DIR / "_common"
+
+_CONFIG_ENV = (os.getenv("ASSASSIN_CONFIG_PATH") or "").strip()
+CONFIG_PATH = (
+    Path(_CONFIG_ENV).expanduser().resolve()
+    if _CONFIG_ENV
+    else (
+        (RUNTIME_DIR / "config.local.json")
+        if (RUNTIME_DIR / "config.local.json").exists()
+        else (ROOT_DIR / "config.local.json")
+    )
+)
+CONFIG_EXAMPLE_PATH = (
+    (RUNTIME_DIR / "config.local.example.json")
+    if (RUNTIME_DIR / "config.local.example.json").exists()
+    else (ROOT_DIR / "config.local.example.json")
+)
+LEGACY_BROADCAST_CONFIGS_PATH = RUNTIME_DIR / "broadcast_configs.json"
+
+BASE_DIR.mkdir(parents=True, exist_ok=True)
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
+COMMON_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def ensure_runtime_dir() -> Path:
+    RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+    BASE_DIR.mkdir(parents=True, exist_ok=True)
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    COMMON_DIR.mkdir(parents=True, exist_ok=True)
+    return RUNTIME_DIR
 
 
 def ensure_user_dir(user_id: int) -> Path:

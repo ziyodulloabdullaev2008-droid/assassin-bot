@@ -95,7 +95,7 @@ def build_broadcast_menu_text(
     """Строит текст меню рассылки."""
     info = "📤 <b>РАССЫЛКА</b>\n\n" if show_title else ""
     mode_text = "random" if config.get("text_mode") == "random" else "no random"
-    info += f"💬 <b>Источник:</b> {build_text_source_label(config)}\n"
+    info += f"💬 <b>Источник текста:</b> {build_text_source_label(config)}\n"
     info += f"💬 <b>Вариантов:</b> {count_source_items(config)} ({mode_text})\n"
     if config.get("text_source_type") == "channel":
         info += f"📡 <b>Канал:</b> {source_channel_title(config)}\n"
