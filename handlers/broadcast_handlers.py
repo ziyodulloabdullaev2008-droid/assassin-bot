@@ -101,7 +101,7 @@ def _is_channel_source(config: dict) -> bool:
 
 def _build_text_settings_info(config: dict) -> str:
     info = "📝 <b>НАСТРОЙКИ КОНТЕНТА</b>\n\n"
-    info += f"Источник: {build_text_source_label(config)}\n"
+    info += f"Источник текста: {build_text_source_label(config)}\n"
     info += f"Вариантов: {count_source_items(config)}\n"
     info += (
         f"Режим: {'Random ✅' if config.get('text_mode') == 'random' else 'No Random ❌'}\n"
@@ -177,6 +177,45 @@ def _iter_connected_account_numbers(user_id: int) -> list[int]:
     connected = list((user_authenticated.get(user_id) or {}).keys())
     connected.sort()
     return connected
+
+
+def _preferred_account_number(user_id: int) -> int | None:
+    accounts = get_user_accounts(user_id)
+    for acc_num, _, _, _, is_active in accounts:
+        if is_active:
+            return acc_num
+    return accounts[0][0] if accounts else None
+
+
+async def _load_channel_preview_message(user_id: int, config: dict, text_index: int):
+    items = config.get("source_posts") or []
+    if text_index < 0 or text_index >= len(items):
+        raise IndexError("Post not found")
+
+    account_number = _preferred_account_number(user_id)
+    if account_number is None:
+        raise RuntimeError("Нет подключенных аккаунтов")
+
+    client = await ensure_connected_client(
+        user_id,
+        account_number,
+        api_id=API_ID,
+        api_hash=API_HASH,
+    )
+    if not client:
+        raise RuntimeError("Не удалось подключить аккаунт")
+
+    source_ref = str(config.get("source_channel_ref") or "")
+    if not source_ref:
+        raise RuntimeError("Источник канала не задан")
+
+    source_entity = await resolve_entity_reference(client, source_ref)
+    message_id = int(items[text_index]["message_id"])
+    source_message = await client.get_messages(source_entity, ids=message_id)
+    if not source_message:
+        raise RuntimeError("Пост канала не найден")
+
+    return client, source_message, account_number
 
 
 async def _resolve_chat_for_user(
@@ -768,7 +807,7 @@ async def text_list_callback(query: CallbackQuery, state: FSMContext):
     kb = build_texts_keyboard(
         items or [],
         back_callback="bc_text",
-        item_prefix="Post" if is_channel else "Text",
+        item_prefix="Пост" if is_channel else "Text",
         allow_add=not is_channel,
         extra_buttons=extra_buttons,
     )
@@ -824,6 +863,31 @@ async def text_view_callback(query: CallbackQuery, state: FSMContext):
                         url=post_link,
                     )
                 ])
+            nav_row = []
+            if text_index > 0:
+                nav_row.append(
+                    InlineKeyboardButton(
+                        text="\u2b05\ufe0f \u041f\u0440\u0435\u0434",
+                        callback_data=f"text_view_{text_index - 1}",
+                    )
+                )
+            if text_index + 1 < len(items):
+                nav_row.append(
+                    InlineKeyboardButton(
+                        text="\u0414\u0430\u043b\u0435\u0435 \u27a1\ufe0f",
+                        callback_data=f"text_view_{text_index + 1}",
+                    )
+                )
+            if nav_row:
+                buttons.append(nav_row)
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text="\U0001f9ea \u0422\u0435\u0441\u0442 \u0441\u0435\u0431\u0435",
+                        callback_data=f"text_channel_test_{text_index}",
+                    )
+                ]
+            )
             buttons.append([InlineKeyboardButton(text="\u041d\u0430\u0437\u0430\u0434", callback_data="text_list")])
             kb = InlineKeyboardMarkup(inline_keyboard=buttons)
         else:
@@ -859,6 +923,35 @@ async def text_view_callback(query: CallbackQuery, state: FSMContext):
         await query.message.edit_text(info, reply_markup=kb, parse_mode="HTML")
     except (ValueError, IndexError):
         await query.answer("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0442\u043a\u0440\u044b\u0442\u044c \u044d\u043b\u0435\u043c\u0435\u043d\u0442", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("text_channel_test_"))
+async def text_channel_test_callback(query: CallbackQuery):
+    await query.answer("Отправляю тест...")
+
+    user_id = query.from_user.id
+    config = get_broadcast_config(user_id)
+    if not _is_channel_source(config):
+        await query.answer("Этот тест работает только для канального режима", show_alert=True)
+        return
+
+    try:
+        text_index = int(query.data.split("_")[3])
+        client, source_message, account_number = await _load_channel_preview_message(
+            user_id,
+            config,
+            text_index,
+        )
+        await client.send_message("me", source_message)
+        await query.answer(
+            f"Тестовый пост отправлен в Избранное через аккаунт {account_number}",
+            show_alert=True,
+        )
+    except Exception as exc:
+        await query.answer(
+            f"Не удалось отправить тестовый пост: {str(exc)}",
+            show_alert=True,
+        )
 
 
 @router.callback_query(F.data == "text_add_new")

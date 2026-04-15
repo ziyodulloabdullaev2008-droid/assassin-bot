@@ -44,6 +44,7 @@ from core.logging import (
 )
 
 from services.proxy_service import (
+    build_session_candidates,
     build_telegram_client,
     format_proxy_summary,
     parse_proxy_input,
@@ -89,8 +90,10 @@ from database import (
     get_user_account_created_at,
     init_db,
     add_or_update_user,
+    get_account_proxy_check_result,
     clear_account_proxy,
     get_account_proxy,
+    save_account_proxy_check_result,
     set_user_logged_in,
     start_login_session,
     get_login_session,
@@ -365,6 +368,7 @@ class VIPCheckMiddleware(BaseMiddleware):
     VIP_ONLY_COMMANDS = {
         "/login",
         "/proxy",
+        "/health",
         "/menu",
         "/sa",
         "/se",
@@ -553,15 +557,29 @@ def _build_login_proxy_choice_keyboard() -> InlineKeyboardMarkup:
 
 
 def _build_proxy_accounts_keyboard(accounts) -> InlineKeyboardMarkup:
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                text=f"Аккаунт {account_number}",
-                callback_data=f"proxy_account_{account_number}",
-            )
-        ]
-        for account_number, *_ in accounts
-    ]
+    keyboard = []
+    for account_number, _, username, first_name, _ in accounts:
+        label_suffix = ""
+        if username:
+            label_suffix = f"@{username}"
+        elif first_name:
+            label_suffix = str(first_name)
+
+        button_text = f"Аккаунт {account_number}"
+        if label_suffix:
+            shortened = label_suffix[:20]
+            if len(label_suffix) > 20:
+                shortened += "..."
+            button_text += f" • {shortened}"
+
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=button_text,
+                    callback_data=f"proxy_account_{account_number}",
+                )
+            ]
+        )
     keyboard.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="close_proxy_menu")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -572,6 +590,11 @@ def _build_proxy_account_keyboard(account_number: int, has_proxy: bool) -> Inlin
             InlineKeyboardButton(
                 text="📡 Проверить", callback_data=f"proxy_test_{account_number}"
             ),
+            InlineKeyboardButton(
+                text="🔌 Переподключить", callback_data=f"proxy_reconnect_{account_number}"
+            ),
+        ],
+        [
             InlineKeyboardButton(
                 text="✏️ Изменить", callback_data=f"proxy_set_{account_number}"
             ),
@@ -652,12 +675,134 @@ async def _start_login_with_optional_proxy(
     )
 
 
-def _build_proxy_account_text(account_number: int, proxy_settings) -> str:
+def _format_relative_datetime(timestamp: float | None) -> str:
+    if not timestamp:
+        return "не было"
+    try:
+        dt = datetime.fromtimestamp(float(timestamp)).astimezone()
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return "неизвестно"
+
+
+def _format_proxy_check_block(check_result: dict | None) -> str:
+    if not check_result:
+        return "Проверка: не запускалась"
+
+    status = check_result.get("ok")
+    status_text = (
+        "успешно"
+        if status is True
+        else ("ошибка" if status is False else "неизвестно")
+    )
+    ping_ms = check_result.get("ping_ms")
+    ping_text = f"{ping_ms} ms" if ping_ms is not None else "-"
+    error_text = str(check_result.get("error") or "-")
+    success_at = _format_relative_datetime(check_result.get("success_at"))
+    checked_at = _format_relative_datetime(check_result.get("checked_at"))
+    return (
+        f"Проверка: {status_text}\n"
+        f"Последняя проверка: {checked_at}\n"
+        f"Последний успех: {success_at}\n"
+        f"Пинг: {ping_text}\n"
+        f"Ошибка: {error_text}"
+    )
+
+
+def _build_proxy_account_text(account_number: int, proxy_settings, check_result=None) -> str:
     status = "Настроен" if proxy_settings else "Не задан"
+    check_block = html.escape(_format_proxy_check_block(check_result))
+    proxy_block = html.escape(format_proxy_summary(proxy_settings))
     return (
         f"🌐 <b>Прокси аккаунта {account_number}</b>\n\n"
         f"Статус: <b>{status}</b>\n\n"
-        f"<code>{format_proxy_summary(proxy_settings)}</code>"
+        f"<code>{proxy_block}</code>\n\n"
+        f"<code>{check_block}</code>"
+    )
+
+
+def _build_health_accounts_keyboard(accounts) -> InlineKeyboardMarkup:
+    keyboard = []
+    for account_number, _, username, first_name, _ in accounts:
+        label = f"Аккаунт {account_number}"
+        if username:
+            label += f" • @{str(username)[:18]}"
+        elif first_name:
+            label += f" • {str(first_name)[:18]}"
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=label,
+                    callback_data=f"health_account_{account_number}",
+                )
+            ]
+        )
+    keyboard.append(
+        [InlineKeyboardButton(text="🔄 Обновить", callback_data="health_refresh")]
+    )
+    keyboard.append(
+        [InlineKeyboardButton(text="⬅️ Закрыть", callback_data="health_close")]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+async def _build_account_health_text(user_id: int, account_number: int) -> str:
+    accounts = get_user_accounts(user_id)
+    account_info = next((acc for acc in accounts if acc[0] == account_number), None)
+    if not account_info:
+        return "❌ Аккаунт не найден"
+
+    _, telegram_id, username, first_name, is_active = account_info
+    session_candidates = build_session_candidates(user_id, account_number)
+    session_exists = bool(session_candidates)
+    proxy_settings = get_account_proxy(user_id, account_number)
+    proxy_check = get_account_proxy_check_result(user_id, account_number)
+
+    client = None
+    authorized = False
+    connected = False
+    try:
+        client = await ensure_connected_client(
+            user_id,
+            account_number,
+            api_id=API_ID,
+            api_hash=API_HASH,
+        )
+        if client:
+            connected = bool(client.is_connected())
+            authorized = bool(await client.is_user_authorized())
+    except Exception:
+        pass
+
+    lines = [
+        f"🩺 <b>Health аккаунта {account_number}</b>",
+        "",
+        f"Имя: <b>{html.escape(str(first_name or 'Неизвестно'))}</b>",
+        f"Username: <code>@{html.escape(str(username))}</code>" if username else "Username: -",
+        f"Telegram ID: <code>{telegram_id}</code>",
+        f"Статус: <b>{'в работе' if is_active else 'выключен'}</b>",
+        "",
+        f"Файл сессии: <b>{'есть' if session_exists else 'нет'}</b>",
+        f"Авторизация: <b>{'ok' if authorized else 'нет'}</b>",
+        f"Подключение: <b>{'активно' if connected else 'ленивый режим'}</b>",
+        f"Прокси: <b>{'есть' if proxy_settings else 'нет'}</b>",
+        "",
+        f"<code>{html.escape(_format_proxy_check_block(proxy_check))}</code>",
+    ]
+    return "\n".join(lines)
+
+
+def _build_health_detail_keyboard(account_number: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔄 Проверить ещё раз",
+                    callback_data=f"health_account_{account_number}",
+                )
+            ],
+            [InlineKeyboardButton(text="⬅️ К аккаунтам", callback_data="health_refresh")],
+        ]
     )
 
 
@@ -722,6 +867,52 @@ async def cmd_proxy(message: Message):
     )
 
 
+@dp.message(Command("health"))
+async def cmd_health(message: Message):
+    accounts = get_user_accounts(message.from_user.id)
+    if not accounts:
+        await message.answer("❌ Сначала добавь аккаунт через /login")
+        return
+
+    await message.answer(
+        "🩺 <b>Проверка аккаунтов</b>\n\nВыбери аккаунт для диагностики:",
+        parse_mode="HTML",
+        reply_markup=_build_health_accounts_keyboard(accounts),
+    )
+
+
+@dp.callback_query(F.data == "health_close")
+async def health_close_callback(query: CallbackQuery):
+    await query.answer()
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+
+
+@dp.callback_query(F.data == "health_refresh")
+async def health_refresh_callback(query: CallbackQuery):
+    await query.answer()
+    accounts = get_user_accounts(query.from_user.id)
+    await query.message.edit_text(
+        "🩺 <b>Проверка аккаунтов</b>\n\nВыбери аккаунт для диагностики:",
+        parse_mode="HTML",
+        reply_markup=_build_health_accounts_keyboard(accounts),
+    )
+
+
+@dp.callback_query(F.data.startswith("health_account_"))
+async def health_account_callback(query: CallbackQuery):
+    await query.answer("Собираю состояние...")
+    account_number = int(query.data.rsplit("_", 1)[1])
+    text = await _build_account_health_text(query.from_user.id, account_number)
+    await query.message.edit_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=_build_health_detail_keyboard(account_number),
+    )
+
+
 @dp.callback_query(F.data == "close_proxy_menu")
 async def close_proxy_menu_callback(query: CallbackQuery):
     await query.answer()
@@ -752,8 +943,9 @@ async def proxy_account_callback(query: CallbackQuery, state: FSMContext):
     await state.clear()
     account_number = int(query.data.rsplit("_", 1)[1])
     proxy_settings = get_account_proxy(query.from_user.id, account_number)
+    check_result = get_account_proxy_check_result(query.from_user.id, account_number)
     await query.message.edit_text(
-        _build_proxy_account_text(account_number, proxy_settings),
+        _build_proxy_account_text(account_number, proxy_settings, check_result),
         parse_mode="HTML",
         reply_markup=_build_proxy_account_keyboard(account_number, bool(proxy_settings)),
     )
@@ -794,12 +986,16 @@ async def process_proxy_value(message: Message, state: FSMContext):
         await state.clear()
         await message.answer(
             "✅ Прокси сохранён.\n\n"
-            f"<code>{format_proxy_summary(proxy_settings)}</code>",
+            f"<code>{html.escape(format_proxy_summary(proxy_settings))}</code>",
             parse_mode="HTML",
             reply_markup=get_main_menu_keyboard(),
         )
         await message.answer(
-            _build_proxy_account_text(account_number, proxy_settings),
+            _build_proxy_account_text(
+                account_number,
+                proxy_settings,
+                get_account_proxy_check_result(message.from_user.id, account_number),
+            ),
             parse_mode="HTML",
             reply_markup=_build_proxy_account_keyboard(account_number, True),
         )
@@ -817,7 +1013,7 @@ async def proxy_delete_callback(query: CallbackQuery, state: FSMContext):
     clear_account_proxy(query.from_user.id, account_number)
     await drop_cached_client(query.from_user.id, account_number)
     await query.message.edit_text(
-        _build_proxy_account_text(account_number, None),
+        _build_proxy_account_text(account_number, None, None),
         parse_mode="HTML",
         reply_markup=_build_proxy_account_keyboard(account_number, False),
     )
@@ -832,19 +1028,68 @@ async def proxy_test_callback(query: CallbackQuery):
         await query.answer("❌ У этого аккаунта прокси не задан", show_alert=True)
         return
 
-    ok, details = await test_session_proxy(
+    ok, details, ping_ms = await test_session_proxy(
         query.from_user.id,
         account_number,
         API_ID,
         API_HASH,
         proxy_settings,
     )
+    save_account_proxy_check_result(
+        query.from_user.id,
+        account_number,
+        ok=ok,
+        error=None if ok else details,
+        ping_ms=ping_ms,
+    )
     status_line = "✅ Прокси рабочий" if ok else "❌ Прокси не отвечает"
     await query.message.edit_text(
-        _build_proxy_account_text(account_number, proxy_settings)
-        + f"\n\n<b>Проверка:</b>\n<code>{status_line}\n{details}</code>",
+        _build_proxy_account_text(
+            account_number,
+            proxy_settings,
+            get_account_proxy_check_result(query.from_user.id, account_number),
+        )
+        + f"\n\n<b>Проверка:</b>\n<code>{html.escape(status_line)}\n{html.escape(details)}</code>",
         parse_mode="HTML",
         reply_markup=_build_proxy_account_keyboard(account_number, True),
+    )
+
+
+@dp.callback_query(F.data.startswith("proxy_reconnect_"))
+async def proxy_reconnect_callback(query: CallbackQuery):
+    await query.answer("Переподключаю аккаунт...")
+    account_number = int(query.data.rsplit("_", 1)[1])
+    proxy_settings = get_account_proxy(query.from_user.id, account_number)
+
+    await drop_cached_client(query.from_user.id, account_number)
+    client = await ensure_connected_client(
+        query.from_user.id,
+        account_number,
+        api_id=API_ID,
+        api_hash=API_HASH,
+    )
+    if not client:
+        await query.message.edit_text(
+            _build_proxy_account_text(
+                account_number,
+                proxy_settings,
+                get_account_proxy_check_result(query.from_user.id, account_number),
+            )
+            + "\n\n<b>Переподключение:</b>\n<code>❌ Не удалось подключить аккаунт.</code>",
+            parse_mode="HTML",
+            reply_markup=_build_proxy_account_keyboard(account_number, bool(proxy_settings)),
+        )
+        return
+
+    await query.message.edit_text(
+        _build_proxy_account_text(
+            account_number,
+            proxy_settings,
+            get_account_proxy_check_result(query.from_user.id, account_number),
+        )
+        + "\n\n<b>Переподключение:</b>\n<code>✅ Аккаунт снова в памяти и готов к работе.</code>",
+        parse_mode="HTML",
+        reply_markup=_build_proxy_account_keyboard(account_number, bool(proxy_settings)),
     )
 
 
@@ -1005,6 +1250,12 @@ async def get_sessions_text_and_keyboard(user_id):
 
     keyboard_buttons = []
     for account_number, telegram_id, username, first_name, is_active in accounts:
+        session_candidates = [
+            Path(f"{session_base_path(user_id, account_number)}.session"),
+            Path(__file__).resolve().parent
+            / f"session_{user_id}_{account_number}.session",
+        ]
+        session_exists = any(path.exists() for path in session_candidates)
         client_obj = (
             user_authenticated.get(user_id, {}).get(account_number)
             if user_id in user_authenticated
@@ -1017,7 +1268,12 @@ async def get_sessions_text_and_keyboard(user_id):
 
         status_icon = "🟢" if is_active else "🔴"
         mode_text = "в работе" if is_active else "выключен"
-        conn_text = "онлайн" if client_in_memory else "оффлайн"
+        if client_in_memory:
+            conn_text = "подключен"
+        elif session_exists:
+            conn_text = "готов к запуску"
+        else:
+            conn_text = "нет сессии"
 
         first_name_safe = (
             first_name.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -1460,7 +1716,7 @@ async def process_login_proxy(message: Message, state: FSMContext):
 
     await message.answer(
         "✅ Прокси принят.\n\n"
-        f"<code>{format_proxy_summary(proxy_settings)}</code>",
+        f"<code>{html.escape(format_proxy_summary(proxy_settings))}</code>",
         parse_mode="HTML",
     )
 

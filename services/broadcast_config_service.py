@@ -1,13 +1,12 @@
+import json
 from core.state import app_state
 from database import load_broadcast_config, save_broadcast_config
-from pathlib import Path
-import json
+from services.user_paths import LEGACY_BROADCAST_CONFIGS_PATH
 
 
 def load_broadcast_configs() -> None:
     """Загружает сохранённые конфиги рассылки при старте."""
-    config_dir = Path(__file__).resolve().parent.parent
-    config_file = config_dir / "broadcast_configs.json"
+    config_file = LEGACY_BROADCAST_CONFIGS_PATH
 
     if config_file.exists():
         try:

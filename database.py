@@ -200,6 +200,16 @@ def init_db():
         cursor.execute("ALTER TABLE user_accounts ADD COLUMN proxy_password TEXT")
     if "proxy_secret" not in account_columns:
         cursor.execute("ALTER TABLE user_accounts ADD COLUMN proxy_secret TEXT")
+    if "proxy_last_check_at" not in account_columns:
+        cursor.execute("ALTER TABLE user_accounts ADD COLUMN proxy_last_check_at REAL")
+    if "proxy_last_check_ok" not in account_columns:
+        cursor.execute("ALTER TABLE user_accounts ADD COLUMN proxy_last_check_ok INTEGER")
+    if "proxy_last_check_error" not in account_columns:
+        cursor.execute("ALTER TABLE user_accounts ADD COLUMN proxy_last_check_error TEXT")
+    if "proxy_last_ping_ms" not in account_columns:
+        cursor.execute("ALTER TABLE user_accounts ADD COLUMN proxy_last_ping_ms INTEGER")
+    if "proxy_last_success_at" not in account_columns:
+        cursor.execute("ALTER TABLE user_accounts ADD COLUMN proxy_last_success_at REAL")
 
     # Таблица VIP пользователей
 
@@ -920,7 +930,9 @@ def set_account_proxy(bot_user_id: int, account_number: int, proxy_data: dict) -
     cursor.execute(
         """
         UPDATE user_accounts
-        SET proxy_type = ?, proxy_host = ?, proxy_port = ?, proxy_login = ?, proxy_password = ?, proxy_secret = ?
+        SET proxy_type = ?, proxy_host = ?, proxy_port = ?, proxy_login = ?, proxy_password = ?, proxy_secret = ?,
+            proxy_last_check_at = NULL, proxy_last_check_ok = NULL, proxy_last_check_error = NULL,
+            proxy_last_ping_ms = NULL, proxy_last_success_at = NULL
         WHERE bot_user_id = ? AND account_number = ?
         """,
         (
@@ -947,13 +959,82 @@ def clear_account_proxy(bot_user_id: int, account_number: int) -> None:
         """
         UPDATE user_accounts
         SET proxy_type = NULL, proxy_host = NULL, proxy_port = NULL,
-            proxy_login = NULL, proxy_password = NULL, proxy_secret = NULL
+            proxy_login = NULL, proxy_password = NULL, proxy_secret = NULL,
+            proxy_last_check_at = NULL, proxy_last_check_ok = NULL, proxy_last_check_error = NULL,
+            proxy_last_ping_ms = NULL, proxy_last_success_at = NULL
         WHERE bot_user_id = ? AND account_number = ?
         """,
         (bot_user_id, account_number),
     )
     conn.commit()
     conn.close()
+
+
+def save_account_proxy_check_result(
+    bot_user_id: int,
+    account_number: int,
+    *,
+    ok: bool,
+    error: str | None = None,
+    ping_ms: int | None = None,
+    checked_at: float | None = None,
+) -> None:
+    checked_value = float(checked_at or time.time())
+    success_value = checked_value if ok else None
+
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE user_accounts
+        SET proxy_last_check_at = ?, proxy_last_check_ok = ?, proxy_last_check_error = ?,
+            proxy_last_ping_ms = ?, proxy_last_success_at = COALESCE(?, proxy_last_success_at)
+        WHERE bot_user_id = ? AND account_number = ?
+        """,
+        (
+            checked_value,
+            1 if ok else 0,
+            (error or "")[:1000] if error else None,
+            ping_ms,
+            success_value,
+            bot_user_id,
+            account_number,
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_account_proxy_check_result(
+    bot_user_id: int,
+    account_number: int,
+) -> Optional[dict]:
+    def _get():
+        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT proxy_last_check_at, proxy_last_check_ok, proxy_last_check_error,
+                   proxy_last_ping_ms, proxy_last_success_at
+            FROM user_accounts
+            WHERE bot_user_id = ? AND account_number = ?
+            """,
+            (bot_user_id, account_number),
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if not row or row[0] is None:
+            return None
+
+        return {
+            "checked_at": float(row[0]) if row[0] is not None else None,
+            "ok": None if row[1] is None else bool(row[1]),
+            "error": row[2],
+            "ping_ms": int(row[3]) if row[3] is not None else None,
+            "success_at": float(row[4]) if row[4] is not None else None,
+        }
+
+    return _retry_db_operation(_get, max_retries=3, base_delay=0.5)
 
 
 def get_user_account_created_at(bot_user_id: int, account_number: int) -> Optional[float]:

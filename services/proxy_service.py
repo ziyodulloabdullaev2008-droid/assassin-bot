@@ -172,10 +172,10 @@ async def test_session_proxy(
     proxy_settings: ProxySettings | None,
     *,
     timeout: float = 8.0,
-) -> tuple[bool, str]:
+) -> tuple[bool, str, int | None]:
     candidates = build_session_candidates(user_id, account_number)
     if not candidates:
-        return False, "Файл сессии не найден."
+        return False, "Файл сессии не найден.", None
 
     session_file = candidates[0]
     src = Path(f"{session_file}.session")
@@ -186,14 +186,16 @@ async def test_session_proxy(
     try:
         shutil.copy2(src, clone_session)
         client = build_telegram_client(clone_base, api_id, api_hash, proxy_settings)
+        started_at = time.perf_counter()
         await asyncio.wait_for(client.connect(), timeout=timeout)
+        ping_ms = int((time.perf_counter() - started_at) * 1000)
         if not await client.is_user_authorized():
-            return False, "Сессия не авторизована."
-        return True, "Подключение прошло успешно."
+            return False, "Сессия не авторизована.", ping_ms
+        return True, "Подключение прошло успешно.", ping_ms
     except asyncio.TimeoutError:
-        return False, "Таймаут подключения."
+        return False, "Таймаут подключения.", None
     except Exception as exc:
-        return False, str(exc)
+        return False, str(exc), None
     finally:
         if client:
             try:
