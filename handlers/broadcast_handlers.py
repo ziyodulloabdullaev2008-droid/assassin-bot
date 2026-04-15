@@ -1097,7 +1097,7 @@ async def bc_interval_callback(query: CallbackQuery, state: FSMContext):
 
     config = get_broadcast_config(query.from_user.id)
 
-    current_interval = config.get("interval", "10-30")
+    current_interval = config.get("interval", "30-90")
 
     text = (
         "\u23f1\ufe0f <b>\u0418\u041d\u0422\u0415\u0420\u0412\u0410\u041b \u0414\u041b\u042f \u041a\u0410\u0416\u0414\u041e\u0413\u041e \u0427\u0410\u0422\u0410</b>\n\n"
@@ -1134,7 +1134,7 @@ async def bc_batch_pause_callback(query: CallbackQuery, state: FSMContext):
 
     config = get_broadcast_config(query.from_user.id)
 
-    current_pause = config.get("chat_pause", "1-3")
+    current_pause = config.get("chat_pause", "20-60")
 
     text = (
         "\u26a1 <b>\u0422\u0415\u041c\u041f</b>\n\n"
@@ -1381,7 +1381,7 @@ def _build_group_detail_payload(
         str(broadcast.get("interval_value", broadcast.get("interval_minutes", "?")))
         for _, broadcast in items
     }
-    pause_values = {str(broadcast.get("chat_pause", "1-3")) for _, broadcast in items}
+    pause_values = {str(broadcast.get("chat_pause", "20-60")) for _, broadcast in items}
     interval_text = ", ".join(sorted(interval_values)) if interval_values else "-"
     pause_text = ", ".join(sorted(pause_values)) if pause_values else "-"
 
@@ -3310,7 +3310,7 @@ async def execute_broadcast(
         "parse_mode": runtime_config.get("parse_mode", "HTML"),
         "source_channel_ref": runtime_config.get("source_channel_ref", ""),
         "source_channel_title": runtime_config.get("source_channel_title", ""),
-        "chat_pause": runtime_config.get("chat_pause", "1-3"),
+        "chat_pause": runtime_config.get("chat_pause", "20-60"),
         "total_chats": len(chat_ids),
         "sent_chats": 0,
         "planned_count": int(runtime_config.get("count", 1)),

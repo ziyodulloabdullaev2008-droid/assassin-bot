@@ -188,6 +188,18 @@ def init_db():
     account_columns = {row[1] for row in cursor.fetchall()}
     if "created_at" not in account_columns:
         cursor.execute("ALTER TABLE user_accounts ADD COLUMN created_at REAL")
+    if "proxy_type" not in account_columns:
+        cursor.execute("ALTER TABLE user_accounts ADD COLUMN proxy_type TEXT")
+    if "proxy_host" not in account_columns:
+        cursor.execute("ALTER TABLE user_accounts ADD COLUMN proxy_host TEXT")
+    if "proxy_port" not in account_columns:
+        cursor.execute("ALTER TABLE user_accounts ADD COLUMN proxy_port INTEGER")
+    if "proxy_login" not in account_columns:
+        cursor.execute("ALTER TABLE user_accounts ADD COLUMN proxy_login TEXT")
+    if "proxy_password" not in account_columns:
+        cursor.execute("ALTER TABLE user_accounts ADD COLUMN proxy_password TEXT")
+    if "proxy_secret" not in account_columns:
+        cursor.execute("ALTER TABLE user_accounts ADD COLUMN proxy_secret TEXT")
 
     # Таблица VIP пользователей
 
@@ -850,6 +862,98 @@ def get_user_accounts(bot_user_id: int) -> List[Tuple]:
         return result
 
     return _retry_db_operation(_get, max_retries=3, base_delay=0.5)
+
+
+def get_account_proxy(bot_user_id: int, account_number: int) -> Optional[dict]:
+    """Получить прокси аккаунта в нормализованном виде."""
+
+    def _get():
+        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT proxy_type, proxy_host, proxy_port, proxy_login, proxy_password, proxy_secret
+            FROM user_accounts
+            WHERE bot_user_id = ? AND account_number = ?
+            """,
+            (bot_user_id, account_number),
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if not row or not row[0] or not row[1] or not row[2]:
+            return None
+
+        proxy_type, host, port, login, password, secret = row
+        if proxy_type == "mtproto":
+            if not secret:
+                return None
+            return {
+                "type": "mtproto",
+                "host": host,
+                "port": int(port),
+                "secret": secret,
+            }
+
+        return {
+            "type": "socks5",
+            "host": host,
+            "port": int(port),
+            "username": login,
+            "password": password,
+        }
+
+    return _retry_db_operation(_get, max_retries=3, base_delay=0.5)
+
+
+def set_account_proxy(bot_user_id: int, account_number: int, proxy_data: dict) -> None:
+    """Сохранить прокси за аккаунтом."""
+
+    proxy_type = str(proxy_data.get("type") or "").strip().lower()
+    host = proxy_data.get("host")
+    port = proxy_data.get("port")
+    login = proxy_data.get("username")
+    password = proxy_data.get("password")
+    secret = proxy_data.get("secret")
+
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE user_accounts
+        SET proxy_type = ?, proxy_host = ?, proxy_port = ?, proxy_login = ?, proxy_password = ?, proxy_secret = ?
+        WHERE bot_user_id = ? AND account_number = ?
+        """,
+        (
+            proxy_type,
+            host,
+            int(port) if port is not None else None,
+            login,
+            password,
+            secret,
+            bot_user_id,
+            account_number,
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def clear_account_proxy(bot_user_id: int, account_number: int) -> None:
+    """Удалить прокси аккаунта."""
+
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE user_accounts
+        SET proxy_type = NULL, proxy_host = NULL, proxy_port = NULL,
+            proxy_login = NULL, proxy_password = NULL, proxy_secret = NULL
+        WHERE bot_user_id = ? AND account_number = ?
+        """,
+        (bot_user_id, account_number),
+    )
+    conn.commit()
+    conn.close()
 
 
 def get_user_account_created_at(bot_user_id: int, account_number: int) -> Optional[float]:

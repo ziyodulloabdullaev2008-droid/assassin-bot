@@ -43,7 +43,17 @@ from core.logging import (
     stop_telegram_log_forwarding,
 )
 
-from services.session_service import load_saved_sessions
+from services.proxy_service import (
+    build_telegram_client,
+    format_proxy_summary,
+    parse_proxy_input,
+    test_session_proxy,
+)
+from services.session_service import (
+    drop_cached_client,
+    ensure_connected_client,
+    load_saved_sessions,
+)
 from services.user_paths import (
     session_base_path,
     temp_session_base_path,
@@ -75,9 +85,12 @@ from handlers.joins_handlers import router as joins_router
 from services.vip_service import is_vip_user_cached, update_vip_cache
 
 from database import (
+    add_user_account_with_number,
     get_user_account_created_at,
     init_db,
     add_or_update_user,
+    clear_account_proxy,
+    get_account_proxy,
     set_user_logged_in,
     start_login_session,
     get_login_session,
@@ -86,6 +99,7 @@ from database import (
     delete_login_session,
     add_user_account,
     get_user_accounts,
+    set_account_proxy,
     get_tracked_chats,
     get_broadcast_chats,
 )
@@ -223,6 +237,10 @@ async def start_mention_monitoring(user_id: int):
 
 
 class LoginStates(StatesGroup):
+    waiting_proxy_choice = State()
+
+    waiting_proxy_input = State()
+
     waiting_phone = State()
 
     waiting_code = State()
@@ -234,6 +252,10 @@ class LoginStates(StatesGroup):
 
 class DeleteChatState(StatesGroup):
     waiting_for_number = State()
+
+
+class ProxyStates(StatesGroup):
+    waiting_proxy_value = State()
 
 
 vip_denial_messages = {}
@@ -342,6 +364,7 @@ class VIPCheckMiddleware(BaseMiddleware):
 
     VIP_ONLY_COMMANDS = {
         "/login",
+        "/proxy",
         "/menu",
         "/sa",
         "/se",
@@ -503,6 +526,140 @@ dp.update.outer_middleware(PrivateOnlyMiddleware())
 dp.update.outer_middleware(VIPCheckMiddleware())
 dp.update.outer_middleware(SubscriptionRequiredMiddleware())
 
+LOGIN_CANCEL_TEXT = "↩️ Отменить действие"
+
+
+def _build_login_cancel_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=LOGIN_CANCEL_TEXT)]],
+        resize_keyboard=True,
+    )
+
+
+def _build_login_proxy_choice_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🌐 Добавить прокси", callback_data="login_proxy_yes"
+                ),
+                InlineKeyboardButton(
+                    text="⏭️ Без прокси", callback_data="login_proxy_skip"
+                ),
+            ],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="login_proxy_cancel")],
+        ]
+    )
+
+
+def _build_proxy_accounts_keyboard(accounts) -> InlineKeyboardMarkup:
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                text=f"Аккаунт {account_number}",
+                callback_data=f"proxy_account_{account_number}",
+            )
+        ]
+        for account_number, *_ in accounts
+    ]
+    keyboard.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="close_proxy_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def _build_proxy_account_keyboard(account_number: int, has_proxy: bool) -> InlineKeyboardMarkup:
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                text="📡 Проверить", callback_data=f"proxy_test_{account_number}"
+            ),
+            InlineKeyboardButton(
+                text="✏️ Изменить", callback_data=f"proxy_set_{account_number}"
+            ),
+        ]
+    ]
+    if has_proxy:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text="🗑 Удалить", callback_data=f"proxy_delete_{account_number}"
+                )
+            ]
+        )
+    keyboard.append(
+        [InlineKeyboardButton(text="⬅️ К аккаунтам", callback_data="proxy_back_accounts")]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def _build_proxy_input_cancel_keyboard(account_number: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="❌ Отмена", callback_data=f"proxy_account_{account_number}"
+                )
+            ]
+        ]
+    )
+
+
+async def _send_phone_prompt(target_message):
+    guide_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🎥 Видеогайд", url="https://t.me/assassin2026gaides/2"
+                )
+            ]
+        ]
+    )
+
+    await target_message.answer(
+        "🔐 <b>ВХОД В АККАУНТ</b>\n\n"
+        "Для работы бота нужно дать доступ к твоему Telegram аккаунту.\n\n"
+        "📱 <b>Введи свой номер телефона в формате:</b>\n"
+        "+7XXXXXXXXXX или +1XXXXXXXXX",
+        parse_mode="HTML",
+        reply_markup=_build_login_cancel_keyboard(),
+    )
+
+    await target_message.answer(
+        "Если нужна помощь по входу, открой видеоинструкцию:",
+        reply_markup=guide_keyboard,
+    )
+
+
+async def _start_login_with_optional_proxy(
+    target_message: Message,
+    state: FSMContext,
+    user_id: int,
+    username: str | None,
+    first_name: str | None,
+):
+    add_or_update_user(user_id, username or "unknown", first_name)
+    await state.clear()
+    await state.set_state(LoginStates.waiting_proxy_choice)
+    await target_message.answer(
+        "🌐 <b>Прокси перед входом</b>\n\n"
+        "Если хочешь, можешь сразу задать прокси для этого аккаунта.\n"
+        "Поддерживаются:\n"
+        "• <code>host:port</code>\n"
+        "• <code>host:port:login:password</code>\n"
+        "• <code>host:port:secret</code>\n"
+        "• ссылка <code>t.me/proxy?server=...</code>",
+        parse_mode="HTML",
+        reply_markup=_build_login_proxy_choice_keyboard(),
+    )
+
+
+def _build_proxy_account_text(account_number: int, proxy_settings) -> str:
+    status = "Настроен" if proxy_settings else "Не задан"
+    return (
+        f"🌐 <b>Прокси аккаунта {account_number}</b>\n\n"
+        f"Статус: <b>{status}</b>\n\n"
+        f"<code>{format_proxy_summary(proxy_settings)}</code>"
+    )
+
 
 @dp.callback_query(F.data == "check_required_subscription")
 async def check_required_subscription_callback(query: CallbackQuery):
@@ -551,43 +708,157 @@ async def cmd_sessions(message: Message):
     )
 
 
+@dp.message(Command("proxy"))
+async def cmd_proxy(message: Message):
+    accounts = get_user_accounts(message.from_user.id)
+    if not accounts:
+        await message.answer("❌ Сначала добавь аккаунт через /login")
+        return
+
+    await message.answer(
+        "🌐 <b>Прокси аккаунтов</b>\n\nВыбери аккаунт:",
+        parse_mode="HTML",
+        reply_markup=_build_proxy_accounts_keyboard(accounts),
+    )
+
+
+@dp.callback_query(F.data == "close_proxy_menu")
+async def close_proxy_menu_callback(query: CallbackQuery):
+    await query.answer()
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+
+
+@dp.callback_query(F.data == "proxy_back_accounts")
+async def proxy_back_accounts_callback(query: CallbackQuery, state: FSMContext):
+    await query.answer()
+    await state.clear()
+    accounts = get_user_accounts(query.from_user.id)
+    if not accounts:
+        await query.message.edit_text("❌ Аккаунты не найдены")
+        return
+    await query.message.edit_text(
+        "🌐 <b>Прокси аккаунтов</b>\n\nВыбери аккаунт:",
+        parse_mode="HTML",
+        reply_markup=_build_proxy_accounts_keyboard(accounts),
+    )
+
+
+@dp.callback_query(F.data.startswith("proxy_account_"))
+async def proxy_account_callback(query: CallbackQuery, state: FSMContext):
+    await query.answer()
+    await state.clear()
+    account_number = int(query.data.rsplit("_", 1)[1])
+    proxy_settings = get_account_proxy(query.from_user.id, account_number)
+    await query.message.edit_text(
+        _build_proxy_account_text(account_number, proxy_settings),
+        parse_mode="HTML",
+        reply_markup=_build_proxy_account_keyboard(account_number, bool(proxy_settings)),
+    )
+
+
+@dp.callback_query(F.data.startswith("proxy_set_"))
+async def proxy_set_callback(query: CallbackQuery, state: FSMContext):
+    await query.answer()
+    account_number = int(query.data.rsplit("_", 1)[1])
+    await state.set_state(ProxyStates.waiting_proxy_value)
+    await state.update_data(proxy_account_number=account_number)
+    await query.message.edit_text(
+        "🌐 <b>Новый прокси</b>\n\n"
+        "Отправь прокси одним сообщением.\n"
+        "Форматы:\n"
+        "<code>host:port</code>\n"
+        "<code>host:port:login:password</code>\n"
+        "<code>host:port:secret</code>\n"
+        "<code>https://t.me/proxy?server=...</code>",
+        parse_mode="HTML",
+        reply_markup=_build_proxy_input_cancel_keyboard(account_number),
+    )
+
+
+@dp.message(ProxyStates.waiting_proxy_value, ~F.text.startswith("/"))
+async def process_proxy_value(message: Message, state: FSMContext):
+    data = await state.get_data()
+    account_number = data.get("proxy_account_number")
+    if not account_number:
+        await state.clear()
+        await message.answer("❌ Потерян аккаунт для настройки прокси.")
+        return
+
+    try:
+        proxy_settings = parse_proxy_input(message.text)
+        set_account_proxy(message.from_user.id, account_number, proxy_settings)
+        await drop_cached_client(message.from_user.id, account_number)
+        await state.clear()
+        await message.answer(
+            "✅ Прокси сохранён.\n\n"
+            f"<code>{format_proxy_summary(proxy_settings)}</code>",
+            parse_mode="HTML",
+            reply_markup=get_main_menu_keyboard(),
+        )
+        await message.answer(
+            _build_proxy_account_text(account_number, proxy_settings),
+            parse_mode="HTML",
+            reply_markup=_build_proxy_account_keyboard(account_number, True),
+        )
+    except Exception as exc:
+        await message.answer(
+            f"❌ Не удалось сохранить прокси: {exc}\n\nПопробуй ещё раз.",
+        )
+
+
+@dp.callback_query(F.data.startswith("proxy_delete_"))
+async def proxy_delete_callback(query: CallbackQuery, state: FSMContext):
+    await query.answer()
+    await state.clear()
+    account_number = int(query.data.rsplit("_", 1)[1])
+    clear_account_proxy(query.from_user.id, account_number)
+    await drop_cached_client(query.from_user.id, account_number)
+    await query.message.edit_text(
+        _build_proxy_account_text(account_number, None),
+        parse_mode="HTML",
+        reply_markup=_build_proxy_account_keyboard(account_number, False),
+    )
+
+
+@dp.callback_query(F.data.startswith("proxy_test_"))
+async def proxy_test_callback(query: CallbackQuery):
+    await query.answer("Проверяю прокси...")
+    account_number = int(query.data.rsplit("_", 1)[1])
+    proxy_settings = get_account_proxy(query.from_user.id, account_number)
+    if not proxy_settings:
+        await query.answer("❌ У этого аккаунта прокси не задан", show_alert=True)
+        return
+
+    ok, details = await test_session_proxy(
+        query.from_user.id,
+        account_number,
+        API_ID,
+        API_HASH,
+        proxy_settings,
+    )
+    status_line = "✅ Прокси рабочий" if ok else "❌ Прокси не отвечает"
+    await query.message.edit_text(
+        _build_proxy_account_text(account_number, proxy_settings)
+        + f"\n\n<b>Проверка:</b>\n<code>{status_line}\n{details}</code>",
+        parse_mode="HTML",
+        reply_markup=_build_proxy_account_keyboard(account_number, True),
+    )
+
+
 @dp.callback_query(F.data == "add_new_account")
 async def add_new_account_callback(query: CallbackQuery, state: FSMContext):
 
     await query.answer()
 
-    user = query.from_user
-
-    add_or_update_user(user.id, user.username or "unknown", user.first_name)
-
-    await state.set_state(LoginStates.waiting_phone)
-
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="↩️ Отменить действие")]], resize_keyboard=True
-    )
-
-    guide_keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="🎥 Видеогайд", url="https://t.me/assassin2026gaides/2"
-                )
-            ]
-        ]
-    )
-
-    await query.message.answer(
-        "🔐 <b>ВХОД В АККАУНТ</b>\n\n"
-        "Для работы бота необходимо получить доступ к твоему Telegram аккаунту.\n\n"
-        "📱 <b>Введи свой номер телефона в формате:</b>\n"
-        "+7XXXXXXXXXX или +1XXXXXXXXX",
-        parse_mode="HTML",
-        reply_markup=keyboard,
-    )
-
-    await query.message.answer(
-        "Если нужна помощь по входу, открой видеоинструкцию:",
-        reply_markup=guide_keyboard,
+    await _start_login_with_optional_proxy(
+        query.message,
+        state,
+        query.from_user.id,
+        query.from_user.username,
+        query.from_user.first_name,
     )
 
 
@@ -734,10 +1005,15 @@ async def get_sessions_text_and_keyboard(user_id):
 
     keyboard_buttons = []
     for account_number, telegram_id, username, first_name, is_active in accounts:
-        client_in_memory = (
-            user_id in user_authenticated
-            and account_number in user_authenticated[user_id]
+        client_obj = (
+            user_authenticated.get(user_id, {}).get(account_number)
+            if user_id in user_authenticated
+            else None
         )
+        try:
+            client_in_memory = bool(client_obj and client_obj.is_connected())
+        except Exception:
+            client_in_memory = False
 
         status_icon = "🟢" if is_active else "🔴"
         mode_text = "в работе" if is_active else "выключен"
@@ -864,7 +1140,12 @@ async def toggle_account(query: CallbackQuery):
 
                     return
 
-                client = TelegramClient(str(session_file), API_ID, API_HASH)
+                client = build_telegram_client(
+                    session_file,
+                    API_ID,
+                    API_HASH,
+                    get_account_proxy(bot_user_id, account_number),
+                )
 
                 for attempt in range(3):
                     try:
@@ -1113,39 +1394,77 @@ async def cmd_login(message: Message, state: FSMContext):
 
     print(f"📱 ЛОГИН: Пользователь {user.id} ({user.first_name}) нажал /login")
 
-    add_or_update_user(user.id, user.username or "unknown", user.first_name)
+    await _start_login_with_optional_proxy(
+        message,
+        state,
+        user.id,
+        user.username,
+        user.first_name,
+    )
 
+
+@dp.callback_query(F.data == "login_proxy_yes")
+async def login_proxy_yes_callback(query: CallbackQuery, state: FSMContext):
+
+    await query.answer()
+
+    await state.set_state(LoginStates.waiting_proxy_input)
+
+    await query.message.answer(
+        "🌐 Отправь прокси одним сообщением.\n\n"
+        "Форматы:\n"
+        "host:port\n"
+        "host:port:login:password\n"
+        "host:port:secret\n"
+        "https://t.me/proxy?server=...",
+        reply_markup=_build_login_cancel_keyboard(),
+    )
+
+
+@dp.callback_query(F.data == "login_proxy_skip")
+async def login_proxy_skip_callback(query: CallbackQuery, state: FSMContext):
+
+    await query.answer()
+
+    await state.update_data(login_proxy=None)
     await state.set_state(LoginStates.waiting_phone)
 
-    print("   ✅ Состояние установлено на waiting_phone")
+    await _send_phone_prompt(query.message)
 
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="↩️ Отменить действие")]], resize_keyboard=True
-    )
 
-    guide_keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="🎥 Видеогайд", url="https://t.me/assassin2026gaides/2"
-                )
-            ]
-        ]
-    )
+@dp.callback_query(F.data == "login_proxy_cancel")
+async def login_proxy_cancel_callback(query: CallbackQuery, state: FSMContext):
+
+    await query.answer()
+
+    await state.clear()
+
+    await query.message.answer("✅ Вход отменен", reply_markup=get_main_menu_keyboard())
+
+
+@dp.message(
+    LoginStates.waiting_proxy_input,
+    ~F.text.startswith("/"),
+    ~(F.text == LOGIN_CANCEL_TEXT),
+)
+async def process_login_proxy(message: Message, state: FSMContext):
+
+    try:
+        proxy_settings = parse_proxy_input(message.text)
+    except Exception as exc:
+        await message.answer(f"❌ Не удалось распознать прокси: {exc}")
+        return
+
+    await state.update_data(login_proxy=proxy_settings)
+    await state.set_state(LoginStates.waiting_phone)
 
     await message.answer(
-        "🔐 <b>ВХОД В АККАУНТ</b>\n\n"
-        "Для работы бота необходимо получить доступ к твоему Telegram аккаунту.\n\n"
-        "📱 <b>Введи свой номер телефона в формате:</b>\n"
-        "+7XXXXXXXXXX или +1XXXXXXXXX",
+        "✅ Прокси принят.\n\n"
+        f"<code>{format_proxy_summary(proxy_settings)}</code>",
         parse_mode="HTML",
-        reply_markup=keyboard,
     )
 
-    await message.answer(
-        "Если нужна помощь по входу, открой видеоинструкцию:",
-        reply_markup=guide_keyboard,
-    )
+    await _send_phone_prompt(message)
 
 
 @dp.message(
@@ -1176,9 +1495,11 @@ async def process_phone(message: Message, state: FSMContext):
 
     temp_session_file = temp_session_base_path(user_id, login_id)
 
-    client = TelegramClient(str(temp_session_file), API_ID, API_HASH)
+    data = await state.get_data()
+    login_proxy = data.get("login_proxy")
 
     try:
+        client = build_telegram_client(temp_session_file, API_ID, API_HASH, login_proxy)
         await message.answer("⏳ Подключение к Telegram...")
 
         print("   ⏳ Подключаюсь к Telegram...")
@@ -1306,34 +1627,24 @@ async def process_phone(message: Message, state: FSMContext):
 
 
 @dp.message(
+    LoginStates.waiting_proxy_choice,
+    F.text.in_({LOGIN_CANCEL_TEXT, "❌ Отменить", "Отменить"}),
+)
+@dp.message(
+    LoginStates.waiting_proxy_input,
+    F.text.in_({LOGIN_CANCEL_TEXT, "❌ Отменить", "Отменить"}),
+)
+@dp.message(
     LoginStates.waiting_phone,
-    F.text.in_(
-        {
-            "\u21a9\ufe0f \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435",
-            "\u274c \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c",
-            "\u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c",
-        }
-    ),
+    F.text.in_({LOGIN_CANCEL_TEXT, "❌ Отменить", "Отменить"}),
 )
 @dp.message(
     LoginStates.waiting_code,
-    F.text.in_(
-        {
-            "\u21a9\ufe0f \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435",
-            "\u274c \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c",
-            "\u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c",
-        }
-    ),
+    F.text.in_({LOGIN_CANCEL_TEXT, "❌ Отменить", "Отменить"}),
 )
 @dp.message(
     LoginStates.waiting_password,
-    F.text.in_(
-        {
-            "\u21a9\ufe0f \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435",
-            "\u274c \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c",
-            "\u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c",
-        }
-    ),
+    F.text.in_({LOGIN_CANCEL_TEXT, "❌ Отменить", "Отменить"}),
 )
 async def cancel_login_flow(message: Message, state: FSMContext):
     user_id = message.from_user.id
@@ -1613,6 +1924,9 @@ async def process_password(message: Message, state: FSMContext):
             print(f"✅ Аккаунт добавлен в БД с номером: {account_number}")
 
             data = await state.get_data()
+            login_proxy = data.get("login_proxy")
+            if login_proxy:
+                set_account_proxy(user_id, account_number, login_proxy)
 
             temp_session_file_str = data.get(
                 "temp_session_file", f"temp_session_{user_id}_unknown"
@@ -1702,7 +2016,7 @@ async def process_password(message: Message, state: FSMContext):
 
             print(f"   📍 Создаю новый клиент с сессией: {new_session_file}")
 
-            client = TelegramClient(str(new_session_file), API_ID, API_HASH)
+            client = build_telegram_client(new_session_file, API_ID, API_HASH, login_proxy)
 
             await client.connect()
 
@@ -1743,6 +2057,9 @@ async def process_password(message: Message, state: FSMContext):
         print(f"✅ Аккаунт добавлен в БД с номером: {account_number}")
 
         data = await state.get_data()
+        login_proxy = data.get("login_proxy")
+        if login_proxy:
+            set_account_proxy(user_id, account_number, login_proxy)
 
         temp_session_file_str = data.get(
             "temp_session_file", f"temp_session_{user_id}_unknown"
@@ -1834,7 +2151,7 @@ async def process_password(message: Message, state: FSMContext):
 
         print(f"   📍 Создаю новый клиент с сессией: {new_session_file}")
 
-        client = TelegramClient(str(new_session_file), API_ID, API_HASH)
+        client = build_telegram_client(new_session_file, API_ID, API_HASH, login_proxy)
 
         await client.connect()
 
@@ -1905,7 +2222,7 @@ async def main():
 
     print("⏳ Загружаю сессии и конфиги...")
 
-    await load_saved_sessions(API_ID, API_HASH, connect_on_start=True)
+    await load_saved_sessions(API_ID, API_HASH, connect_on_start=False)
 
     await update_vip_cache()
 

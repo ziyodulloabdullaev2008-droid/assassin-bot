@@ -204,9 +204,9 @@ def set_active_config(user_id: int, config_id: int) -> None:
             "text_mode": "random",
             "text_index": 0,
             "count": 1,
-            "interval": 1,
+            "interval": "30-90",
             "parse_mode": "HTML",
-            "chat_pause": "1-3",
+            "chat_pause": "20-60",
         }
 
         _apply_snapshot(user_id, default_config, [])
@@ -274,9 +274,9 @@ def get_config_detail(user_id: int, config_id: int) -> dict | None:
             "text_mode": "random",
             "text_index": 0,
             "count": 1,
-            "interval": 1,
+            "interval": "30-90",
             "parse_mode": "HTML",
-            "chat_pause": "1-3",
+            "chat_pause": "20-60",
         }
 
         return {"name": "По умолчанию", "config": default_config, "chats": []}

@@ -1,4 +1,5 @@
 import asyncio
+import html
 import random
 import time
 
@@ -193,6 +194,42 @@ async def _notify_floodwait(user_id: int, account_name: str, wait_seconds: int) 
         pass
 
 
+async def _notify_broadcast_error(
+    user_id: int,
+    account_name: str,
+    error_text: str,
+    *,
+    chat_id=None,
+    chat_name: str | None = None,
+) -> None:
+    bot = app_state.bot
+    if not bot:
+        return
+
+    lines = [
+        "\u26a0\ufe0f \u041e\u0448\u0438\u0431\u043a\u0430 \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0438",
+        "",
+        f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442: <b>{html.escape(str(account_name))}</b>",
+    ]
+    if chat_name or chat_id is not None:
+        lines.append(
+            f"\u0427\u0430\u0442: <b>{html.escape(str(chat_name or chat_id))}</b>"
+            + (f" (<code>{chat_id}</code>)" if chat_id is not None else "")
+        )
+    lines.append(
+        f"\u041e\u0448\u0438\u0431\u043a\u0430: <code>{html.escape(str(error_text)[:800])}</code>"
+    )
+
+    try:
+        await bot.send_message(
+            user_id,
+            "\n".join(lines),
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+
+
 async def schedule_broadcast_send(
     user_id: int,
     account_number: int,
@@ -224,6 +261,11 @@ async def schedule_broadcast_send(
                 broadcast_id,
                 "Account disconnected or session is no longer authorized",
                 "account_disconnected",
+            )
+            await _notify_broadcast_error(
+                user_id,
+                f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442 {account_number}",
+                "Account disconnected or session is no longer authorized",
             )
             return
 
@@ -259,7 +301,15 @@ async def schedule_broadcast_send(
         )
         if not chat_ids:
             await mark_error(broadcast_id, "No chats configured for broadcast", "no_chats")
+            await _notify_broadcast_error(
+                user_id,
+                account_name,
+                "No chats configured for broadcast",
+            )
             return
+
+        source_entity_cache: dict[str, object] = {}
+        source_message_cache: dict[tuple[str, int], object] = {}
 
         while True:
             broadcast = get_broadcast(broadcast_id)
@@ -278,7 +328,7 @@ async def schedule_broadcast_send(
 
             count = int(broadcast.get("count", count) or count or 1)
             interval_value = broadcast.get("interval_value", broadcast.get("interval_minutes", interval_minutes))
-            chat_pause_value = broadcast.get("chat_pause", "1-3")
+            chat_pause_value = broadcast.get("chat_pause", "20-60")
             chat_runtime = _normalize_chat_runtime(
                 chat_ids,
                 broadcast.get("chat_runtime") or chat_runtime,
@@ -323,14 +373,21 @@ async def schedule_broadcast_send(
 
             try:
                 if current_item.get("kind") == "forward":
-                    source_entity = await resolve_entity_reference(
-                        client,
-                        current_item["source_ref"],
-                    )
-                    source_message = await client.get_messages(
-                        source_entity,
-                        ids=int(current_item["message_id"]),
-                    )
+                    source_ref = str(current_item["source_ref"])
+                    source_message_id = int(current_item["message_id"])
+                    source_entity = source_entity_cache.get(source_ref)
+                    if source_entity is None:
+                        source_entity = await resolve_entity_reference(client, source_ref)
+                        source_entity_cache[source_ref] = source_entity
+
+                    source_cache_key = (source_ref, source_message_id)
+                    source_message = source_message_cache.get(source_cache_key)
+                    if source_message is None:
+                        source_message = await client.get_messages(
+                            source_entity,
+                            ids=source_message_id,
+                        )
+                        source_message_cache[source_cache_key] = source_message
                     if not source_message:
                         raise ValueError("Source channel message not found")
                     # Resend the source post as a fresh message so Telegram
@@ -389,6 +446,13 @@ async def schedule_broadcast_send(
                 chat_entry["failed_count"] = int(chat_entry.get("failed_count", 0) or 0) + 1
                 chat_entry["last_error"] = last_error
                 chat_entry["last_error_at"] = time.time()
+                await _notify_broadcast_error(
+                    user_id,
+                    account_name,
+                    last_error,
+                    chat_id=chat_id,
+                    chat_name=str(chat_entry.get("name") or ""),
+                )
 
             processed_count += 1
             interval_min, interval_max = _parse_int_range(interval_value, 1, 1)
@@ -418,5 +482,10 @@ async def schedule_broadcast_send(
 
     except Exception as exc:
         await mark_error(broadcast_id, str(exc), "send_failed")
+        await _notify_broadcast_error(
+            user_id,
+            account_name if "account_name" in locals() else f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442 {account_number}",
+            str(exc),
+        )
     finally:
         discard_broadcast_task(broadcast_id)

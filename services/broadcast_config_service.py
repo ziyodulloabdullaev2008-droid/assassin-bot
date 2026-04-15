@@ -52,11 +52,11 @@ def get_broadcast_config(user_id: int) -> dict:
     if "count" not in config:
         config["count"] = 1
     if "interval" not in config:
-        config["interval"] = 1
+        config["interval"] = "30-90"
     if "parse_mode" not in config:
         config["parse_mode"] = "HTML"
     if "chat_pause" not in config:
-        config["chat_pause"] = "1-3"
+        config["chat_pause"] = "20-60"
     if "plan_limit_count" not in config:
         config["plan_limit_count"] = 0
     if "plan_limit_rest" not in config:

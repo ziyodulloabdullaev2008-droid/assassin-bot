@@ -11,10 +11,12 @@ from core.state import app_state
 from database import (
     add_or_update_user,
     add_user_account_with_number,
+    get_account_proxy,
     get_all_users,
     get_user_accounts,
 )
-from services.user_paths import BASE_DIR, session_base_path
+from services.proxy_service import build_session_candidates, build_telegram_client
+from services.user_paths import BASE_DIR
 
 logger = get_logger("session_service")
 
@@ -58,7 +60,12 @@ async def recover_sessions_from_files(api_id: int, api_hash: str) -> bool:
                 continue
             seen_accounts.add(key)
 
-            client = TelegramClient(str(session_path), api_id, api_hash)
+            client = build_telegram_client(
+                session_path,
+                api_id,
+                api_hash,
+                get_account_proxy(user_id, account_number),
+            )
             try:
                 await asyncio.wait_for(client.connect(), timeout=5.0)
                 if await client.is_user_authorized():
@@ -196,6 +203,18 @@ async def ensure_connected_client(
     return app_state.user_authenticated.get(user_id, {}).get(account_number)
 
 
+async def drop_cached_client(user_id: int, account_number: int) -> None:
+    client = app_state.user_authenticated.get(user_id, {}).get(account_number)
+    if client:
+        await _safe_disconnect(client)
+
+    async with app_state.user_authenticated_lock:
+        user_clients = app_state.user_authenticated.get(user_id, {})
+        user_clients.pop(account_number, None)
+        if not user_clients:
+            app_state.user_authenticated.pop(user_id, None)
+
+
 async def _load_single_session(
     api_id: int,
     api_hash: str,
@@ -221,15 +240,22 @@ async def _load_single_session(
         if len(account_info) >= 5 and not account_info[4]:
             return False
 
-        candidates = _build_session_candidates(user_id, account_number)
+        candidates = build_session_candidates(user_id, account_number)
         if not candidates:
             logger.warning("Файл сессии не найден для %s_%s", user_id, account_number)
             return False
 
+        proxy_settings = get_account_proxy(user_id, account_number)
+
         for session_file in candidates:
             if not connect_on_start:
                 try:
-                    client = TelegramClient(str(session_file), api_id, api_hash)
+                    client = build_telegram_client(
+                        session_file,
+                        api_id,
+                        api_hash,
+                        proxy_settings,
+                    )
                     async with app_state.user_authenticated_lock:
                         app_state.user_authenticated.setdefault(user_id, {})
                         app_state.user_authenticated[user_id][account_number] = client
@@ -244,7 +270,12 @@ async def _load_single_session(
                     continue
 
             for attempt in range(2):
-                client = TelegramClient(str(session_file), api_id, api_hash)
+                client = build_telegram_client(
+                    session_file,
+                    api_id,
+                    api_hash,
+                    proxy_settings,
+                )
                 try:
                     await asyncio.wait_for(client.connect(), timeout=6.0)
                     if await client.is_user_authorized():
@@ -305,41 +336,6 @@ async def _load_single_session(
     return False
 
 
-def _build_session_candidates(user_id: int, account_number: int) -> list[Path]:
-    candidates: list[Path] = []
-    seen: set[str] = set()
-
-    def add_base(path_base: Path) -> None:
-        key = str(path_base)
-        if key in seen:
-            return
-        if Path(f"{path_base}.session").exists():
-            candidates.append(path_base)
-            seen.add(key)
-
-    # main expected location
-    add_base(session_base_path(user_id, account_number))
-
-    # legacy location in project root
-    add_base(
-        Path(__file__).resolve().parent.parent / f"session_{user_id}_{account_number}"
-    )
-
-    # fallback: any session for this user in users/<id>/sessions
-    for p in (BASE_DIR / str(user_id) / "sessions").glob(
-        f"session_{user_id}_*.session"
-    ):
-        add_base(p.with_suffix(""))
-
-    # fallback: any legacy session for this user in project root
-    for p in (
-        Path(__file__).resolve().parent.parent.glob(f"session_{user_id}_*.session")
-    ):
-        add_base(p.with_suffix(""))
-
-    return candidates
-
-
 async def _safe_disconnect(client: TelegramClient) -> None:
     try:
         await client.disconnect()
@@ -353,6 +349,7 @@ async def _try_load_from_clone(
     api_hash: str,
     user_id: int,
     account_number: int,
+    proxy_settings: dict | None,
 ) -> bool:
     src = Path(f"{session_file}.session")
     if not src.exists():
@@ -363,7 +360,7 @@ async def _try_load_from_clone(
     client = None
     try:
         shutil.copy2(src, clone_session)
-        client = TelegramClient(str(clone_base), api_id, api_hash)
+        client = build_telegram_client(clone_base, api_id, api_hash, proxy_settings)
         await asyncio.wait_for(client.connect(), timeout=6.0)
         if not await client.is_user_authorized():
             await _safe_disconnect(client)
