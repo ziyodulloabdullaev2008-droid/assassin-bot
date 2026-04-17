@@ -274,9 +274,14 @@ async def _load_account_folders(user_id: int, account_number: int) -> tuple[obje
         filters = await asyncio.wait_for(client(GetDialogFiltersRequest()), timeout=8.0)
     except asyncio.TimeoutError as exc:
         raise RuntimeError("Telegram слишком долго отвечает при загрузке папок") from exc
+
+    filter_items = getattr(filters, "filters", None)
+    if filter_items is None:
+        filter_items = filters or []
+
     folders = [
         item
-        for item in (filters or [])
+        for item in filter_items
         if getattr(item, "id", None) is not None and hasattr(item, "include_peers")
     ]
     return client, folders
