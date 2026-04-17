@@ -140,6 +140,12 @@ user_chats_files = app_state.user_chats_files
 
 active_broadcasts = app_state.active_broadcasts
 
+ACTIVE_BROADCAST_GUARD_TEXT = (
+    "❌ Сейчас у тебя идет активная рассылка.\n\n"
+    "Сначала останови её в разделе активных рассылок, а уже потом меняй "
+    "сессии, логин, прокси или состояние аккаунтов."
+)
+
 mention_monitors = app_state.mention_monitors
 
 
@@ -265,6 +271,37 @@ class ProxyStates(StatesGroup):
 
 vip_denial_messages = {}
 subscription_check_cache = {}
+
+
+def _has_running_broadcasts(user_id: int) -> bool:
+    return any(
+        broadcast.get("user_id") == user_id and broadcast.get("status") == "running"
+        for broadcast in active_broadcasts.values()
+    )
+
+
+async def _guard_broadcast_sensitive_action(target) -> bool:
+    user = getattr(target, "from_user", None)
+    user_id = getattr(user, "id", None)
+    if not user_id or not _has_running_broadcasts(user_id):
+        return True
+
+    text = ACTIVE_BROADCAST_GUARD_TEXT
+    if isinstance(target, CallbackQuery):
+        try:
+            await target.answer(text, show_alert=True)
+        except Exception:
+            try:
+                await target.message.answer(text)
+            except Exception:
+                pass
+        return False
+
+    try:
+        await target.answer(text)
+    except Exception:
+        pass
+    return False
 REQUIRED_CHANNELS = [
     {
         "chat_id": "@stryxxss",
@@ -647,7 +684,7 @@ async def _send_phone_prompt(target_message):
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="🎥 Видеогайд", url="https://t.me/assassin2026gaides/2"
+                    text="🎥 Видеогайд", url="https://youtu.be/YS8nkKR7C38?si=VKu6-6qsSBFOJwAB"
                 )
             ]
         ]
@@ -871,6 +908,8 @@ async def cmd_sessions(message: Message):
 
 @dp.message(Command("proxy"))
 async def cmd_proxy(message: Message):
+    if not await _guard_broadcast_sensitive_action(message):
+        return
     accounts = get_user_accounts(message.from_user.id)
     if not accounts:
         await message.answer("❌ Сначала добавь аккаунт через /login")
@@ -990,6 +1029,8 @@ async def proxy_account_callback(query: CallbackQuery, state: FSMContext):
 
 @dp.callback_query(F.data.startswith("proxy_set_"))
 async def proxy_set_callback(query: CallbackQuery, state: FSMContext):
+    if not await _guard_broadcast_sensitive_action(query):
+        return
     await query.answer()
     account_number = int(query.data.rsplit("_", 1)[1])
     await state.set_state(ProxyStates.waiting_proxy_value)
@@ -1009,6 +1050,8 @@ async def proxy_set_callback(query: CallbackQuery, state: FSMContext):
 
 @dp.message(ProxyStates.waiting_proxy_value, ~F.text.startswith("/"))
 async def process_proxy_value(message: Message, state: FSMContext):
+    if not await _guard_broadcast_sensitive_action(message):
+        return
     data = await state.get_data()
     account_number = data.get("proxy_account_number")
     if not account_number:
@@ -1044,6 +1087,8 @@ async def process_proxy_value(message: Message, state: FSMContext):
 
 @dp.callback_query(F.data.startswith("proxy_delete_"))
 async def proxy_delete_callback(query: CallbackQuery, state: FSMContext):
+    if not await _guard_broadcast_sensitive_action(query):
+        return
     await query.answer()
     await state.clear()
     account_number = int(query.data.rsplit("_", 1)[1])
@@ -1058,6 +1103,8 @@ async def proxy_delete_callback(query: CallbackQuery, state: FSMContext):
 
 @dp.callback_query(F.data.startswith("proxy_test_"))
 async def proxy_test_callback(query: CallbackQuery):
+    if not await _guard_broadcast_sensitive_action(query):
+        return
     await query.answer("Проверяю прокси...")
     account_number = int(query.data.rsplit("_", 1)[1])
     proxy_settings = get_account_proxy(query.from_user.id, account_number)
@@ -1094,6 +1141,8 @@ async def proxy_test_callback(query: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("proxy_reconnect_"))
 async def proxy_reconnect_callback(query: CallbackQuery):
+    if not await _guard_broadcast_sensitive_action(query):
+        return
     await query.answer("Переподключаю аккаунт...")
     account_number = int(query.data.rsplit("_", 1)[1])
     proxy_settings = get_account_proxy(query.from_user.id, account_number)
@@ -1132,6 +1181,8 @@ async def proxy_reconnect_callback(query: CallbackQuery):
 
 @dp.callback_query(F.data == "add_new_account")
 async def add_new_account_callback(query: CallbackQuery, state: FSMContext):
+    if not await _guard_broadcast_sensitive_action(query):
+        return
 
     await query.answer()
 
@@ -1367,6 +1418,8 @@ async def get_sessions_text_and_keyboard(user_id):
 
 @dp.callback_query(F.data.startswith("toggle_account_"))
 async def toggle_account(query: CallbackQuery):
+    if not await _guard_broadcast_sensitive_action(query):
+        return
 
     bot_user_id = query.from_user.id
 
@@ -1525,6 +1578,8 @@ async def close_sessions_menu_callback(query: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("delete_account_"))
 async def delete_account(query: CallbackQuery):
+    if not await _guard_broadcast_sensitive_action(query):
+        return
 
     bot_user_id = query.from_user.id
 
@@ -1682,6 +1737,8 @@ async def delete_account(query: CallbackQuery):
 
 @dp.message(Command("login"))
 async def cmd_login(message: Message, state: FSMContext):
+    if not await _guard_broadcast_sensitive_action(message):
+        return
 
     user = message.from_user
 
@@ -1698,6 +1755,8 @@ async def cmd_login(message: Message, state: FSMContext):
 
 @dp.callback_query(F.data == "login_proxy_yes")
 async def login_proxy_yes_callback(query: CallbackQuery, state: FSMContext):
+    if not await _guard_broadcast_sensitive_action(query):
+        return
 
     await query.answer()
 
@@ -1716,6 +1775,8 @@ async def login_proxy_yes_callback(query: CallbackQuery, state: FSMContext):
 
 @dp.callback_query(F.data == "login_proxy_skip")
 async def login_proxy_skip_callback(query: CallbackQuery, state: FSMContext):
+    if not await _guard_broadcast_sensitive_action(query):
+        return
 
     await query.answer()
 
@@ -1741,6 +1802,8 @@ async def login_proxy_cancel_callback(query: CallbackQuery, state: FSMContext):
     ~(F.text == LOGIN_CANCEL_TEXT),
 )
 async def process_login_proxy(message: Message, state: FSMContext):
+    if not await _guard_broadcast_sensitive_action(message):
+        return
 
     try:
         proxy_settings = parse_proxy_input(message.text)
@@ -1766,17 +1829,23 @@ async def process_login_proxy(message: Message, state: FSMContext):
     ~(F.text == "↩️ Отменить действие"),
 )
 async def process_phone(message: Message, state: FSMContext):
+    if not await _guard_broadcast_sensitive_action(message):
+        return
 
-    phone = message.text.strip()
+    phone_input = (message.text or "").strip()
+    digits_only = "".join(ch for ch in phone_input if ch.isdigit())
+    phone = f"+{digits_only}" if digits_only else phone_input
 
     user_id = message.from_user.id
 
-    print(f"📱 НОМЕР: Получен номер {phone} от {user_id}")
+    print(f"???? ??????????: ?????????????? ?????????? {phone} ???? {user_id}")
 
     if not phone.startswith("+") or not phone[1:].isdigit() or len(phone) < 10:
-        print("   ❌ Неверный формат номера")
+        print("   ??? ???????????????? ???????????? ????????????")
 
-        await message.answer("❌ Неверный формат! Используй +7XXXXXXXXXX")
+        await message.answer(
+            "??? ???????????????? ????????????! ?????????????????? +7XXXXXXXXXX ?????? ???????????? 7XXXXXXXXXX"
+        )
 
         return
 
@@ -2091,6 +2160,8 @@ async def submit_code(query: CallbackQuery, state: FSMContext):
 async def process_code_login(
     message: Message, code: str, user_id: int, state: FSMContext
 ):
+    if not await _guard_broadcast_sensitive_action(message):
+        return
 
     if user_id not in user_clients:
         await message.answer("❌ Сессия истекла. Попробуй /login снова")
@@ -2186,6 +2257,8 @@ async def process_code_login(
     ~(F.text == "↩️ Отменить действие"),
 )
 async def process_password(message: Message, state: FSMContext):
+    if not await _guard_broadcast_sensitive_action(message):
+        return
 
     user_id = message.from_user.id
 
@@ -2476,6 +2549,8 @@ async def process_password(message: Message, state: FSMContext):
 
 @dp.message(Command("logout"))
 async def cmd_logout(message: Message):
+    if not await _guard_broadcast_sensitive_action(message):
+        return
 
     user_id = message.from_user.id
 
