@@ -270,7 +270,10 @@ async def _load_account_folders(user_id: int, account_number: int) -> tuple[obje
     if not client:
         raise RuntimeError("Не удалось подключить аккаунт")
 
-    filters = await client(GetDialogFiltersRequest())
+    try:
+        filters = await asyncio.wait_for(client(GetDialogFiltersRequest()), timeout=8.0)
+    except asyncio.TimeoutError as exc:
+        raise RuntimeError("Telegram слишком долго отвечает при загрузке папок") from exc
     folders = [
         item
         for item in (filters or [])
@@ -285,7 +288,10 @@ async def _load_folder_chats(user_id: int, account_number: int, folder_id: int) 
     if folder is None:
         raise RuntimeError("Папка не найдена")
 
-    dialogs = await client.get_dialogs(limit=None)
+    try:
+        dialogs = await asyncio.wait_for(client.get_dialogs(limit=None), timeout=20.0)
+    except asyncio.TimeoutError as exc:
+        raise RuntimeError("Telegram слишком долго отвечает при загрузке чатов папки") from exc
     result: list[dict] = []
     seen_chat_ids: set[int] = set()
 
@@ -895,6 +901,16 @@ def _build_folder_preview_view(
         [InlineKeyboardButton(text="⬅️ К чатам", callback_data="bc_chats_back")]
     )
     return "\n".join(lines), InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
+
+
+def _parse_folder_callback(data: str, action: str) -> tuple[int, int]:
+    prefix = f"bc_folder_{action}_"
+    if not data.startswith(prefix):
+        raise ValueError("Неверный callback папки")
+
+    tail = data[len(prefix):]
+    account_text, folder_text = tail.split("_", 1)
+    return int(account_text), int(folder_text)
 
 
 @router.message(Command("broadcast"))
@@ -4122,9 +4138,20 @@ async def bc_folder_account_callback(query: CallbackQuery):
         return
 
     try:
+        await query.message.edit_text(
+            f"⏳ <b>Загружаю папки аккаунта {account_number}</b>",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+
+    try:
         _, folders = await _load_account_folders(user_id, account_number)
     except Exception as exc:
-        await query.answer(f"❌ {str(exc)[:180]}", show_alert=True)
+        await query.message.answer(
+            f"❌ Не удалось загрузить папки: {html.escape(str(exc))}",
+            parse_mode="HTML",
+        )
         return
 
     text, kb = _build_folder_list_view(account_number, folders)
@@ -4137,17 +4164,30 @@ async def bc_folder_pick_callback(query: CallbackQuery):
 
     user_id = query.from_user.id
     try:
-        _, _, account_number, folder_id = query.data.split("_", 3)
-        account_number = int(account_number)
-        folder_id = int(folder_id)
+        account_number, folder_id = _parse_folder_callback(query.data, "pick")
     except Exception:
         await query.answer("Ошибка папки", show_alert=True)
         return
 
     try:
-        _, folder, folder_chats = await _load_folder_chats(user_id, account_number, folder_id)
+        await query.message.edit_text(
+            f"⏳ <b>Загружаю чаты из папки {folder_id}</b>",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+
+    try:
+        _, folder, folder_chats = await _load_folder_chats(
+            user_id,
+            account_number,
+            folder_id,
+        )
     except Exception as exc:
-        await query.answer(f"❌ {str(exc)[:180]}", show_alert=True)
+        await query.message.answer(
+            f"❌ Не удалось загрузить чаты папки: {html.escape(str(exc))}",
+            parse_mode="HTML",
+        )
         return
 
     text, kb = _build_folder_preview_view(account_number, folder, folder_chats)
@@ -4162,7 +4202,27 @@ async def _apply_folder_import(
     *,
     replace_existing: bool,
 ) -> None:
-    _, folder, folder_chats = await _load_folder_chats(user_id, account_number, folder_id)
+    try:
+        await query.message.edit_text(
+            f"⏳ <b>Импортирую чаты из папки {folder_id}</b>",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+
+    try:
+        _, folder, folder_chats = await _load_folder_chats(
+            user_id,
+            account_number,
+            folder_id,
+        )
+    except Exception as exc:
+        await query.message.answer(
+            f"❌ Ошибка импорта из папки: {html.escape(str(exc))}",
+            parse_mode="HTML",
+        )
+        return
+
     if not folder_chats:
         await query.answer("В папке нет чатов для импорта", show_alert=True)
         return
@@ -4210,12 +4270,12 @@ async def bc_folder_add_callback(query: CallbackQuery):
     await query.answer()
 
     try:
-        _, _, _, account_number, folder_id = query.data.split("_", 4)
+        account_number, folder_id = _parse_folder_callback(query.data, "add")
         await _apply_folder_import(
             query,
             query.from_user.id,
-            int(account_number),
-            int(folder_id),
+            account_number,
+            folder_id,
             replace_existing=False,
         )
     except Exception as exc:
@@ -4230,12 +4290,12 @@ async def bc_folder_replace_callback(query: CallbackQuery):
     await query.answer()
 
     try:
-        _, _, _, account_number, folder_id = query.data.split("_", 4)
+        account_number, folder_id = _parse_folder_callback(query.data, "replace")
         await _apply_folder_import(
             query,
             query.from_user.id,
-            int(account_number),
-            int(folder_id),
+            account_number,
+            folder_id,
             replace_existing=True,
         )
     except Exception as exc:
