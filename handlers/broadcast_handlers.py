@@ -19,6 +19,7 @@ import asyncio
 import html
 
 from datetime import datetime, timezone
+from telethon.tl.functions.messages import GetDialogFiltersRequest
 from telethon.utils import get_peer_id
 
 from core.state import app_state
@@ -199,6 +200,127 @@ async def _ensure_account_ready(user_id: int, account_number: int):
 def _account_label(account_number: int, username: str | None, first_name: str | None) -> str:
     title = (first_name or username or f"Аккаунт {account_number}").strip()
     return title
+
+
+def _folder_title(dialog_filter) -> str:
+    title = getattr(dialog_filter, "title", None)
+    text = getattr(title, "text", None)
+    if text:
+        return str(text)
+    if isinstance(title, str) and title.strip():
+        return title.strip()
+    return f"Папка {getattr(dialog_filter, 'id', '?')}"
+
+
+def _folder_peer_ids(peers) -> set[int]:
+    result: set[int] = set()
+    for peer in peers or []:
+        try:
+            result.add(int(get_peer_id(peer)))
+        except Exception:
+            continue
+    return result
+
+
+def _dialog_matches_folder(dialog, dialog_filter) -> bool:
+    entity = getattr(dialog, "entity", None)
+    if entity is None:
+        return False
+
+    try:
+        dialog_peer_id = int(get_peer_id(entity))
+    except Exception:
+        return False
+
+    include_ids = _folder_peer_ids(getattr(dialog_filter, "include_peers", None))
+    exclude_ids = _folder_peer_ids(getattr(dialog_filter, "exclude_peers", None))
+    pinned_ids = _folder_peer_ids(getattr(dialog_filter, "pinned_peers", None))
+
+    if dialog_peer_id in exclude_ids:
+        return False
+
+    if include_ids or pinned_ids:
+        return dialog_peer_id in include_ids or dialog_peer_id in pinned_ids
+
+    if getattr(dialog_filter, "exclude_archived", False) and getattr(dialog, "archived", False):
+        return False
+    if getattr(dialog_filter, "exclude_muted", False):
+        notify_settings = getattr(dialog, "notify_settings", None)
+        if getattr(notify_settings, "mute_until", 0):
+            return False
+    if getattr(dialog_filter, "exclude_read", False) and getattr(dialog, "unread_count", 0) == 0:
+        return False
+    if getattr(dialog_filter, "groups", False) and not getattr(dialog, "is_group", False):
+        return False
+    if getattr(dialog_filter, "broadcasts", False):
+        if not getattr(dialog, "is_channel", False) or getattr(dialog, "is_group", False):
+            return False
+    if getattr(dialog_filter, "bots", False) and not bool(getattr(entity, "bot", False)):
+        return False
+    if getattr(dialog_filter, "contacts", False) and not bool(getattr(entity, "contact", False)):
+        return False
+    if getattr(dialog_filter, "non_contacts", False) and bool(getattr(entity, "contact", False)):
+        return False
+
+    return True
+
+
+async def _load_account_folders(user_id: int, account_number: int) -> tuple[object, list]:
+    client = await _ensure_account_ready(user_id, account_number)
+    if not client:
+        raise RuntimeError("Не удалось подключить аккаунт")
+
+    filters = await client(GetDialogFiltersRequest())
+    folders = [
+        item
+        for item in (filters or [])
+        if getattr(item, "id", None) is not None and hasattr(item, "include_peers")
+    ]
+    return client, folders
+
+
+async def _load_folder_chats(user_id: int, account_number: int, folder_id: int) -> tuple[object, object, list[dict]]:
+    client, folders = await _load_account_folders(user_id, account_number)
+    folder = next((item for item in folders if int(getattr(item, "id", -1)) == folder_id), None)
+    if folder is None:
+        raise RuntimeError("Папка не найдена")
+
+    dialogs = await client.get_dialogs(limit=None)
+    result: list[dict] = []
+    seen_chat_ids: set[int] = set()
+
+    for dialog in dialogs:
+        if not _dialog_matches_folder(dialog, folder):
+            continue
+
+        entity = getattr(dialog, "entity", None)
+        if entity is None:
+            continue
+
+        try:
+            chat_id = int(get_peer_id(entity))
+        except Exception:
+            chat_id = int(getattr(entity, "id", 0) or 0)
+        if not chat_id or chat_id in seen_chat_ids:
+            continue
+
+        title = getattr(entity, "title", None) or getattr(entity, "first_name", None)
+        if not title and hasattr(entity, "username") and entity.username:
+            title = f"@{entity.username}"
+        if not title:
+            title = f"Чат {chat_id}"
+
+        seen_chat_ids.add(chat_id)
+        result.append(
+            {
+                "chat_id": chat_id,
+                "chat_name": str(title),
+                "chat_link": _detect_chat_link(None, entity),
+            }
+        )
+
+    result.sort(key=lambda item: item["chat_name"].lower())
+    return client, folder, result
 
 
 def _preferred_account_number(user_id: int) -> int | None:
@@ -603,6 +725,12 @@ def _build_broadcast_chats_view(user_id: int) -> tuple[str, InlineKeyboardMarkup
                     callback_data="bc_chats_add",
                 ),
                 InlineKeyboardButton(
+                    text="\U0001f4c2 \u0418\u0437 \u043f\u0430\u043f\u043a\u0438",
+                    callback_data="bc_chats_import",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     text="\U0001f5d1\ufe0f \u0423\u0434\u0430\u043b\u0438\u0442\u044c",
                     callback_data="bc_chats_delete",
                 ),
@@ -650,6 +778,123 @@ async def show_broadcast_chats_menu(
 async def broadcast_chats_menu(message: Message):
     """Backward-compatible wrapper for old calls."""
     await show_broadcast_chats_menu(message, message.from_user.id)
+
+
+@router.callback_query(F.data == "bc_chats_back")
+async def bc_chats_back_callback(query: CallbackQuery):
+    await query.answer()
+    await show_broadcast_chats_menu(query, query.from_user.id)
+
+
+def _build_folder_account_picker(user_id: int) -> tuple[str, InlineKeyboardMarkup]:
+    accounts = get_user_accounts(user_id)
+    available_accounts = [
+        (acc_num, username, first_name)
+        for acc_num, _, username, first_name, is_active in accounts
+        if is_active
+    ] or [
+        (acc_num, username, first_name)
+        for acc_num, _, username, first_name, _ in accounts
+    ]
+
+    text = "📂 <b>ИМПОРТ ЧАТОВ ИЗ ПАПКИ</b>\n\nВыбери аккаунт, с которого читать папки Telegram."
+    keyboard_rows = [
+        [
+            InlineKeyboardButton(
+                text=f"👤 {_account_label(acc_num, username, first_name)}",
+                callback_data=f"bc_folder_acc_{acc_num}",
+            )
+        ]
+        for acc_num, username, first_name in available_accounts
+    ]
+    keyboard_rows.append(
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="bc_chats_back")]
+    )
+    return text, InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
+
+
+def _build_folder_list_view(account_number: int, folders: list) -> tuple[str, InlineKeyboardMarkup]:
+    lines = [
+        "📂 <b>ПАПКИ TELEGRAM</b>",
+        "",
+        f"Аккаунт: <b>{account_number}</b>",
+        "",
+    ]
+
+    keyboard_rows = []
+    for folder in folders:
+        folder_id = int(getattr(folder, "id", 0))
+        title = _folder_title(folder)
+        lines.append(f"• <b>{html.escape(title)}</b> — ID {folder_id}")
+        keyboard_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=title[:32],
+                    callback_data=f"bc_folder_pick_{account_number}_{folder_id}",
+                )
+            ]
+        )
+
+    if not folders:
+        lines.append("У этого аккаунта нет пользовательских папок.")
+
+    keyboard_rows.append(
+        [InlineKeyboardButton(text="⬅️ К аккаунтам", callback_data="bc_chats_import")]
+    )
+    keyboard_rows.append(
+        [InlineKeyboardButton(text="⬅️ К чатам", callback_data="bc_chats_back")]
+    )
+    return "\n".join(lines), InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
+
+
+def _build_folder_preview_view(
+    account_number: int,
+    folder,
+    folder_chats: list[dict],
+) -> tuple[str, InlineKeyboardMarkup]:
+    title = _folder_title(folder)
+    lines = [
+        "📂 <b>ПРЕДПРОСМОТР ПАПКИ</b>",
+        "",
+        f"Аккаунт: <b>{account_number}</b>",
+        f"Папка: <b>{html.escape(title)}</b>",
+        f"Найдено чатов: <b>{len(folder_chats)}</b>",
+        "",
+    ]
+
+    preview_items = folder_chats[:12]
+    for idx, item in enumerate(preview_items, 1):
+        name = html.escape(str(item.get("chat_name") or item.get("chat_id")))
+        lines.append(f"{idx}. {name} <code>{item['chat_id']}</code>")
+    if len(folder_chats) > len(preview_items):
+        lines.append(f"... ещё {len(folder_chats) - len(preview_items)}")
+
+    keyboard_rows = []
+    if folder_chats:
+        keyboard_rows.append(
+            [
+                InlineKeyboardButton(
+                    text="➕ Добавить",
+                    callback_data=f"bc_folder_add_{account_number}_{int(folder.id)}",
+                ),
+                InlineKeyboardButton(
+                    text="♻️ Заменить",
+                    callback_data=f"bc_folder_replace_{account_number}_{int(folder.id)}",
+                ),
+            ]
+        )
+    keyboard_rows.append(
+        [
+            InlineKeyboardButton(
+                text="⬅️ К папкам",
+                callback_data=f"bc_folder_acc_{account_number}",
+            )
+        ]
+    )
+    keyboard_rows.append(
+        [InlineKeyboardButton(text="⬅️ К чатам", callback_data="bc_chats_back")]
+    )
+    return "\n".join(lines), InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
 
 @router.message(Command("broadcast"))
@@ -3849,6 +4094,155 @@ async def bc_chats_add_callback(query: CallbackQuery, state: FSMContext):
     )
 
     await query.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+
+
+@router.callback_query(F.data == "bc_chats_import")
+async def bc_chats_import_callback(query: CallbackQuery):
+    await query.answer()
+
+    user_id = query.from_user.id
+    accounts = _iter_connected_account_numbers(user_id)
+    if not accounts:
+        await query.answer(LOGIN_REQUIRED_TEXT, show_alert=True)
+        return
+
+    text, kb = _build_folder_account_picker(user_id)
+    await _edit_or_notice(query, text, kb, fallback_to_answer=True)
+
+
+@router.callback_query(F.data.startswith("bc_folder_acc_"))
+async def bc_folder_account_callback(query: CallbackQuery):
+    await query.answer()
+
+    user_id = query.from_user.id
+    try:
+        account_number = int(query.data.rsplit("_", 1)[1])
+    except Exception:
+        await query.answer("Ошибка аккаунта", show_alert=True)
+        return
+
+    try:
+        _, folders = await _load_account_folders(user_id, account_number)
+    except Exception as exc:
+        await query.answer(f"❌ {str(exc)[:180]}", show_alert=True)
+        return
+
+    text, kb = _build_folder_list_view(account_number, folders)
+    await _edit_or_notice(query, text, kb, fallback_to_answer=True)
+
+
+@router.callback_query(F.data.startswith("bc_folder_pick_"))
+async def bc_folder_pick_callback(query: CallbackQuery):
+    await query.answer()
+
+    user_id = query.from_user.id
+    try:
+        _, _, account_number, folder_id = query.data.split("_", 3)
+        account_number = int(account_number)
+        folder_id = int(folder_id)
+    except Exception:
+        await query.answer("Ошибка папки", show_alert=True)
+        return
+
+    try:
+        _, folder, folder_chats = await _load_folder_chats(user_id, account_number, folder_id)
+    except Exception as exc:
+        await query.answer(f"❌ {str(exc)[:180]}", show_alert=True)
+        return
+
+    text, kb = _build_folder_preview_view(account_number, folder, folder_chats)
+    await _edit_or_notice(query, text, kb, fallback_to_answer=True)
+
+
+async def _apply_folder_import(
+    query: CallbackQuery,
+    user_id: int,
+    account_number: int,
+    folder_id: int,
+    *,
+    replace_existing: bool,
+) -> None:
+    _, folder, folder_chats = await _load_folder_chats(user_id, account_number, folder_id)
+    if not folder_chats:
+        await query.answer("В папке нет чатов для импорта", show_alert=True)
+        return
+
+    if replace_existing:
+        for chat_id, _chat_name in list(get_broadcast_chats(user_id)):
+            remove_broadcast_chat_with_profile(user_id, chat_id)
+
+    added = 0
+    duplicates = 0
+    for item in folder_chats:
+        is_added = add_broadcast_chat_with_profile(
+            user_id,
+            item["chat_id"],
+            item["chat_name"],
+            chat_link=item.get("chat_link"),
+        )
+        if is_added:
+            added += 1
+        else:
+            duplicates += 1
+
+    title = _folder_title(folder)
+    mode_label = "заменён" if replace_existing else "обновлён"
+    await show_broadcast_chats_menu(query, user_id)
+    await query.message.answer(
+        "\n".join(
+            [
+                "📂 <b>Импорт из папки завершён</b>",
+                "",
+                f"Папка: <b>{html.escape(title)}</b>",
+                f"Аккаунт-источник: <b>{account_number}</b>",
+                f"Список чатов {mode_label}.",
+                f"✅ Добавлено: <b>{added}</b>",
+                f"⚠️ Уже были: <b>{duplicates}</b>",
+                f"📊 Всего в папке: <b>{len(folder_chats)}</b>",
+            ]
+        ),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data.startswith("bc_folder_add_"))
+async def bc_folder_add_callback(query: CallbackQuery):
+    await query.answer()
+
+    try:
+        _, _, _, account_number, folder_id = query.data.split("_", 4)
+        await _apply_folder_import(
+            query,
+            query.from_user.id,
+            int(account_number),
+            int(folder_id),
+            replace_existing=False,
+        )
+    except Exception as exc:
+        await query.message.answer(
+            f"❌ Ошибка импорта из папки: {html.escape(str(exc))}",
+            parse_mode="HTML",
+        )
+
+
+@router.callback_query(F.data.startswith("bc_folder_replace_"))
+async def bc_folder_replace_callback(query: CallbackQuery):
+    await query.answer()
+
+    try:
+        _, _, _, account_number, folder_id = query.data.split("_", 4)
+        await _apply_folder_import(
+            query,
+            query.from_user.id,
+            int(account_number),
+            int(folder_id),
+            replace_existing=True,
+        )
+    except Exception as exc:
+        await query.message.answer(
+            f"❌ Ошибка замены чатов из папки: {html.escape(str(exc))}",
+            parse_mode="HTML",
+        )
 
 
 @router.message(BroadcastConfigState.waiting_for_chat_id)

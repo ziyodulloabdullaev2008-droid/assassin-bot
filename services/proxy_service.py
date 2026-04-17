@@ -25,7 +25,8 @@ def parse_proxy_input(raw_value: str) -> ProxySettings:
     if not value:
         raise ValueError("Прокси пустой.")
 
-    if "t.me/proxy" in value.lower():
+    lowered_value = value.lower()
+    if "t.me/proxy" in lowered_value or lowered_value.startswith("tg://proxy"):
         return _parse_mtproto_url(value)
 
     parts = [part.strip() for part in value.split(":")]
