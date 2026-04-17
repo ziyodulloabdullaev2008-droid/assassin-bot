@@ -174,9 +174,31 @@ async def _load_channel_source_for_user(
 
 
 def _iter_connected_account_numbers(user_id: int) -> list[int]:
-    connected = list((user_authenticated.get(user_id) or {}).keys())
-    connected.sort()
-    return connected
+    active_accounts = [
+        acc_num
+        for acc_num, _, _, _, is_active in get_user_accounts(user_id)
+        if is_active
+    ]
+    if active_accounts:
+        return sorted(active_accounts)
+
+    fallback_accounts = [acc_num for acc_num, _, _, _, _ in get_user_accounts(user_id)]
+    fallback_accounts.sort()
+    return fallback_accounts
+
+
+async def _ensure_account_ready(user_id: int, account_number: int):
+    return await ensure_connected_client(
+        user_id,
+        account_number,
+        api_id=API_ID,
+        api_hash=API_HASH,
+    )
+
+
+def _account_label(account_number: int, username: str | None, first_name: str | None) -> str:
+    title = (first_name or username or f"Аккаунт {account_number}").strip()
+    return title
 
 
 def _preferred_account_number(user_id: int) -> int | None:
@@ -637,7 +659,7 @@ async def cmd_broadcast_menu(message: Message):
 
     user_id = message.from_user.id
 
-    if user_id not in user_authenticated:
+    if not _iter_connected_account_numbers(user_id):
         await message.answer(LOGIN_REQUIRED_TEXT)
 
         return
@@ -3341,6 +3363,13 @@ async def execute_broadcast(
     chats: list,
     group_id: int = None,
 ) -> None:
+    client = await _ensure_account_ready(user_id, account_number)
+    if not client:
+        await _send_broadcast_notice(
+            message_or_query,
+            f"❌ Не удалось подключить аккаунт {account_number}. Проверь сессию и прокси.",
+        )
+        return
 
     chat_ids = [cid for cid, _ in chats]
     broadcast_id = next_broadcast_id()
@@ -3449,7 +3478,17 @@ async def bc_launch_callback(query: CallbackQuery):
     await query.answer()
     user_id = query.from_user.id
 
-    if user_id not in user_authenticated or not user_authenticated[user_id]:
+    accounts = get_user_accounts(user_id)
+    available_accounts = [
+        (acc_num, username, first_name)
+        for acc_num, _, username, first_name, is_active in accounts
+        if is_active
+    ] or [
+        (acc_num, username, first_name)
+        for acc_num, _, username, first_name, _ in accounts
+    ]
+
+    if not available_accounts:
         await _send_broadcast_notice(
             query,
             "\u274c \u0422\u044b \u043d\u0435 \u0437\u0430\u043b\u043e\u0433\u0438\u0440\u043e\u0432\u0430\u043d!",
@@ -3470,26 +3509,21 @@ async def bc_launch_callback(query: CallbackQuery):
         )
         return
 
-    accounts = get_user_accounts(user_id)
-    if len(accounts) == 1:
-        account_number = accounts[0][0]
+    if len(available_accounts) == 1:
+        account_number = available_accounts[0][0]
         await execute_broadcast(query, user_id, account_number, config, chats)
         return
 
     buttons = []
-    for acc_num, telegram_id, username, first_name, is_active in accounts:
-        is_connected = (
-            user_id in user_authenticated and acc_num in user_authenticated[user_id]
+    for acc_num, username, first_name in available_accounts:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f464 {_account_label(acc_num, username, first_name)}",
+                    callback_data=f"start_bc_{acc_num}",
+                )
+            ]
         )
-        if is_connected:
-            buttons.append(
-                [
-                    InlineKeyboardButton(
-                        text=f"\U0001f7e2 {first_name}",
-                        callback_data=f"start_bc_{acc_num}",
-                    )
-                ]
-            )
 
     if len(buttons) > 1:
         buttons.insert(
@@ -3501,13 +3535,6 @@ async def bc_launch_callback(query: CallbackQuery):
                 )
             ],
         )
-
-    if not buttons:
-        await _send_broadcast_notice(
-            query,
-            "\u274c \u041d\u0435\u0442 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u043d\u044b\u0445 \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432!",
-        )
-        return
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     await query.message.answer(
@@ -3545,13 +3572,11 @@ async def start_bc_callback(query: CallbackQuery):
         pass
 
     if query.data == "start_bc_all":
-        accounts = get_user_accounts(user_id)
-
-        connected_accounts = [
-            acc_num
-            for acc_num, _, _, _, _ in accounts
-            if user_id in user_authenticated and acc_num in user_authenticated[user_id]
-        ]
+        connected_accounts = []
+        for acc_num in _iter_connected_account_numbers(user_id):
+            client = await _ensure_account_ready(user_id, acc_num)
+            if client:
+                connected_accounts.append(acc_num)
 
         if not connected_accounts:
             await _send_broadcast_notice(
@@ -3610,7 +3635,17 @@ async def start_broadcast_button(message: Message):
 
     # Р СџРЎР‚Р С•Р Р†Р ВµРЎР‚РЎРЏР ВµР С Р В·Р В°Р В»Р С•Р С–Р С‘РЎР‚Р С•Р Р†Р В°Р Р… Р В»Р С‘
 
-    if user_id not in user_authenticated or not user_authenticated[user_id]:
+    accounts = get_user_accounts(user_id)
+    available_accounts = [
+        (acc_num, username, first_name)
+        for acc_num, _, username, first_name, is_active in accounts
+        if is_active
+    ] or [
+        (acc_num, username, first_name)
+        for acc_num, _, username, first_name, _ in accounts
+    ]
+
+    if not available_accounts:
         await message.answer(LOGIN_REQUIRED_TEXT)
 
         return
@@ -3637,30 +3672,23 @@ async def start_broadcast_button(message: Message):
 
     # Р вЂўРЎРѓР В»Р С‘ РЎвЂљР С•Р В»РЎРЉР С”Р С• Р С•Р Т‘Р С‘Р Р… Р В°Р С”Р С”Р В°РЎС“Р Р…РЎвЂљ - Р С‘РЎРѓР С—Р С•Р В»РЎРЉР В·РЎС“Р ВµР С Р ВµР С–Р С•
 
-    accounts = get_user_accounts(user_id)
-
-    if len(accounts) == 1:
-        account_number = accounts[0][0]
+    if len(available_accounts) == 1:
+        account_number = available_accounts[0][0]
 
     else:
         # Р вЂўРЎРѓР В»Р С‘ Р Р…Р ВµРЎРѓР С”Р С•Р В»РЎРЉР С”Р С• - Р С—Р С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°Р ВµР С Р Р†РЎвЂ№Р В±Р С•РЎР‚
 
         buttons = []
 
-        for acc_num, telegram_id, username, first_name, is_active in accounts:
-            is_connected = (
-                user_id in user_authenticated and acc_num in user_authenticated[user_id]
+        for acc_num, username, first_name in available_accounts:
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"\U0001f464 {_account_label(acc_num, username, first_name)}",
+                        callback_data=f"start_bc_{acc_num}",
+                    )
+                ]
             )
-
-            if is_connected:
-                buttons.append(
-                    [
-                        InlineKeyboardButton(
-                            text=f"\U0001f464 {first_name}",
-                            callback_data=f"start_bc_{acc_num}",
-                        )
-                    ]
-                )
 
         if len(buttons) > 1:
             buttons.insert(
@@ -3672,11 +3700,6 @@ async def start_broadcast_button(message: Message):
                     )
                 ],
             )
-
-        if not buttons:
-            await message.answer(LOGIN_REQUIRED_TEXT)
-
-            return
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -3931,7 +3954,7 @@ async def process_add_broadcast_chat_with_profile(message: Message, state: FSMCo
         return "\n".join(lines)
 
     try:
-        if user_id not in user_authenticated or not user_authenticated[user_id]:
+        if not _iter_connected_account_numbers(user_id):
             await message.answer(LOGIN_REQUIRED_TEXT)
             await state.clear()
             await _delete_loading()
@@ -4024,14 +4047,20 @@ async def select_chat_callback(query: CallbackQuery, state: FSMContext):
     try:
         chat_id = int(query.data.split("_")[2])
 
-        if user_id not in user_authenticated or not user_authenticated[user_id]:
+        available_accounts = _iter_connected_account_numbers(user_id)
+        if not available_accounts:
             await query.answer(LOGIN_REQUIRED_TEXT, show_alert=True)
 
             return
 
-        account_number = next(iter(user_authenticated[user_id].keys()))
-
-        client = user_authenticated[user_id][account_number]
+        account_number = available_accounts[0]
+        client = await _ensure_account_ready(user_id, account_number)
+        if not client:
+            await query.answer(
+                "❌ Не удалось подключить аккаунт. Проверь сессию и прокси.",
+                show_alert=True,
+            )
+            return
 
         # Р СџР С•Р В»РЎС“РЎвЂЎР В°Р ВµР С Р С‘Р Р…РЎвЂћР С•РЎР‚Р СР В°РЎвЂ Р С‘РЎР‹ Р С• Р Р†РЎвЂ№Р В±РЎР‚Р В°Р Р…Р Р…Р С•Р С РЎвЂЎР В°РЎвЂљР Вµ
 

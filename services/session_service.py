@@ -313,6 +313,7 @@ async def _load_single_session(
                             api_hash,
                             user_id,
                             account_number,
+                            proxy_settings,
                         )
                         if cloned_ok:
                             return True

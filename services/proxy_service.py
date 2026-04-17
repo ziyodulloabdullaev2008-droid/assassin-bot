@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, urlparse
 
 from telethon import TelegramClient
 from telethon.network.connection.tcpmtproxy import (
+    ConnectionTcpMTProxyIntermediate,
     ConnectionTcpMTProxyRandomizedIntermediate,
 )
 
@@ -40,11 +41,19 @@ def parse_proxy_input(raw_value: str) -> ProxySettings:
 
     if len(parts) == 3 and _looks_like_mtproto_secret(parts[2]):
         host, port, secret = parts
+        transport = _detect_mtproto_transport(secret)
+        if transport == "fake_tls":
+            raise ValueError(
+                "MTProto proxy с secret вида 'ee...' (fake TLS / доменный secret) "
+                "работает в Telegram Desktop, но не поддерживается Telethon в этом боте. "
+                "Используй SOCKS5 или обычный MTProto без доменного secret."
+            )
         return {
             "type": "mtproto",
             "host": _validate_host(host),
             "port": _validate_port(port),
             "secret": _normalize_secret(secret),
+            "transport": transport,
         }
 
     if len(parts) == 4:
@@ -91,7 +100,17 @@ def build_telegram_client(
                 proxy.get("password"),
             )
         elif proxy_type == "mtproto":
-            kwargs["connection"] = ConnectionTcpMTProxyRandomizedIntermediate
+            transport = str(proxy.get("transport") or "intermediate")
+            if transport == "fake_tls":
+                raise RuntimeError(
+                    "MTProto proxy с secret вида 'ee...' (fake TLS / доменный secret) "
+                    "Telethon в этом боте не поддерживает. Используй SOCKS5 или обычный MTProto."
+                )
+            kwargs["connection"] = (
+                ConnectionTcpMTProxyRandomizedIntermediate
+                if transport == "randomized_intermediate"
+                else ConnectionTcpMTProxyIntermediate
+            )
             kwargs["proxy"] = (
                 proxy["host"],
                 int(proxy["port"]),
@@ -126,11 +145,18 @@ def normalize_proxy_settings(proxy_settings: ProxySettings | None) -> ProxySetti
         }
 
     secret = _normalize_secret(str(proxy_settings.get("secret") or ""))
+    transport = _detect_mtproto_transport(secret)
+    if transport == "fake_tls":
+        raise ValueError(
+            "MTProto proxy с secret вида 'ee...' (fake TLS / доменный secret) "
+            "не поддерживается Telethon в этом боте."
+        )
     return {
         "type": "mtproto",
         "host": host,
         "port": port,
         "secret": secret,
+        "transport": transport,
     }
 
 
@@ -243,7 +269,20 @@ def _parse_mtproto_url(value: str) -> ProxySettings:
     host = _validate_host(query.get("server", [""])[0])
     port = _validate_port(query.get("port", [""])[0])
     secret = _normalize_secret(query.get("secret", [""])[0])
-    return {"type": "mtproto", "host": host, "port": port, "secret": secret}
+    transport = _detect_mtproto_transport(secret)
+    if transport == "fake_tls":
+        raise ValueError(
+            "MTProto proxy по ссылке t.me/proxy использует secret вида 'ee...' "
+            "(fake TLS / доменный secret). Telegram Desktop его понимает, "
+            "а Telethon в этом боте нет. Используй SOCKS5 или обычный MTProto."
+        )
+    return {
+        "type": "mtproto",
+        "host": host,
+        "port": port,
+        "secret": secret,
+        "transport": transport,
+    }
 
 
 def _validate_host(host: str) -> str:
@@ -277,6 +316,15 @@ def _looks_like_mtproto_secret(value: str) -> bool:
         return False
     lowered = normalized.lower()
     return all(ch in "0123456789abcdef" for ch in lowered)
+
+
+def _detect_mtproto_transport(secret: str) -> str:
+    normalized = (secret or "").strip().lower()
+    if normalized.startswith("ee"):
+        return "fake_tls"
+    if normalized.startswith("dd"):
+        return "randomized_intermediate"
+    return "intermediate"
 
 
 def _empty_to_none(value: Any) -> str | None:
