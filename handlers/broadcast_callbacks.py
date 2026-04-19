@@ -2,8 +2,11 @@ from handlers.broadcast_shared import *  # noqa: F401,F403
 from handlers.broadcast_text_flow import return_to_previous_menu
 from services.broadcast_preflight_service import build_broadcast_preflight_text
 from services.operation_guard_service import get_active_operation
+from ui.main_menu_ui import BROADCAST_BUTTON_TEXT
 
 @router.message(Command("broadcast"))
+@router.message(F.text == BROADCAST_BUTTON_TEXT)
+@router.message(F.text.in_({"Рассылка", "📤 Рассылка"}))
 @router.message(F.text.contains("\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430"))
 async def cmd_broadcast_menu(message: Message):
     """Handle cmd broadcast menu."""
