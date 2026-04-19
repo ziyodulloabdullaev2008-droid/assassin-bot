@@ -317,13 +317,11 @@ async def _guard_user_operation(target) -> bool:
     return False
 
 
-async def _guard_broadcast_sensitive_action(target) -> bool:
+async def _guard_running_broadcast(target) -> bool:
     user = getattr(target, "from_user", None)
     user_id = getattr(user, "id", None)
     if not user_id:
         return True
-    if not await _guard_user_operation(target):
-        return False
     if not _has_running_broadcasts(user_id):
         return True
 
@@ -343,6 +341,12 @@ async def _guard_broadcast_sensitive_action(target) -> bool:
     except Exception:
         pass
     return False
+
+
+async def _guard_broadcast_sensitive_action(target) -> bool:
+    if not await _guard_user_operation(target):
+        return False
+    return await _guard_running_broadcast(target)
 REQUIRED_CHANNELS = [
     {
         "chat_id": "@stryxxss",
@@ -856,8 +860,13 @@ def _build_empty_sessions_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def _format_account_list_label(account_number: int, username: str, first_name: str) -> str:
-    label = f"{account_number}"
+def _format_account_list_label(
+    account_number: int,
+    username: str,
+    first_name: str,
+    is_active: bool,
+) -> str:
+    label = f"{'🟢' if is_active else '🔴'} {account_number}"
     if username:
         label += f" • @{str(username)[:20]}"
     elif first_name:
@@ -869,11 +878,16 @@ def _format_account_list_label(account_number: int, username: str, first_name: s
 
 def _build_sessions_accounts_keyboard(accounts) -> InlineKeyboardMarkup:
     keyboard = []
-    for account_number, _, username, first_name, _ in accounts:
+    for account_number, _, username, first_name, is_active in accounts:
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    text=_format_account_list_label(account_number, username, first_name),
+                    text=_format_account_list_label(
+                        account_number,
+                        username,
+                        first_name,
+                        bool(is_active),
+                    ),
                     callback_data=f"se_account_{account_number}",
                 )
             ]
@@ -1208,8 +1222,6 @@ async def cmd_sessions(message: Message):
 
 @dp.message(Command("proxy"))
 async def cmd_proxy(message: Message):
-    if not await _guard_broadcast_sensitive_action(message):
-        return
     accounts = get_user_accounts(message.from_user.id)
     if not accounts:
         await message.answer("❌ Сначала добавь аккаунт через /login")
@@ -1744,15 +1756,16 @@ async def toggle_account(query: CallbackQuery):
 
         else:
             try:
-                session_file = session_base_path(bot_user_id, account_number)
-
-                if not Path(f"{session_file}.session").exists():
+                session_candidates = build_session_candidates(bot_user_id, account_number)
+                if not session_candidates:
                     await query.answer(
                         "❌ Файл сессии не найден. Используй /login для переподключения",
                         show_alert=True,
                     )
 
                     return
+
+                session_file = session_candidates[0]
 
                 client = build_telegram_client(
                     session_file,
