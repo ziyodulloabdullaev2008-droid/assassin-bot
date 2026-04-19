@@ -113,6 +113,19 @@ async def ignore_telegram_bot_messages(message: Message):
     return
 
 
+@router.message(F.text == BROADCAST_BUTTON_TEXT)
+@router.message(F.text.in_({"Рассылка", "📤 Рассылка"}))
+async def open_broadcast_from_main_menu(message: Message):
+    from handlers.broadcast_shared import show_broadcast_menu
+
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+    await show_broadcast_menu(message, message.from_user.id, is_edit=False)
+
+
 @router.message(
     ~F.text.startswith("/"),
     ~F.text.contains("Мой аккаунт"),
