@@ -33,5 +33,8 @@ class AppState:
     # Runtime references
     bot: Any = None
 
+    # User operations
+    active_operations: Dict[int, str] = field(default_factory=dict)
+
 
 app_state = AppState()
