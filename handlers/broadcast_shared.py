@@ -1191,3 +1191,7 @@ async def _apply_folder_import(
         ),
         parse_mode="HTML",
     )
+
+
+__all__ = [name for name in globals() if not name.startswith('__')]
+
