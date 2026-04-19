@@ -4,6 +4,11 @@ from services.channel_post_service import (
     source_channel_title,
 )
 
+LOGIN_REQUIRED_TEXT = "\u274c \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u043e\u0439\u0434\u0438 \u0447\u0435\u0440\u0435\u0437 /login"
+CANCEL_TEXT = "\u274c \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c"
+COUNT_BUTTON_TEXT = "\u041a\u043e\u043b-\u0432\u043e"
+INTERVAL_BUTTON_TEXT = "\u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b"
+
 
 def is_channel_source(config: dict) -> bool:
     return config.get("text_source_type", "manual") == "channel"
