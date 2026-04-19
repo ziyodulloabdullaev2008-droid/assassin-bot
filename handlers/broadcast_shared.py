@@ -59,7 +59,6 @@ from services.broadcast_runtime_service import (
     format_eta_duration as _format_eta_duration,
     format_chat_error_line as _format_chat_error_line,
     format_chat_error_log as _format_chat_error_log,
-    format_finish_time as _format_finish_time,
     iter_connected_account_numbers as _iter_connected_account_numbers,
     remove_broadcast_chat_with_profile,
 )
@@ -602,7 +601,6 @@ def _build_group_detail_payload(
         if finish_ts is None
         else finish_ts - datetime.now(timezone.utc).timestamp()
     )
-    finish_text = _format_finish_time(finish_ts)
 
     info = f"\U0001f4e6 <b>\u0413\u0440\u0443\u043f\u043f\u0430 #{gid}</b>\n\n"
     info += f"\u0421\u0442\u0430\u0442\u0443\u0441: {status}\n"
@@ -620,7 +618,6 @@ def _build_group_detail_payload(
         )
     if finish_ts is not None:
         info += f"\u23f3 \u0414\u043e \u043a\u043e\u043d\u0446\u0430: {eta_text}\n"
-        info += f"\U0001f551 \u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u0441\u044f: ~ {finish_text}\n"
 
     buttons = [
         [

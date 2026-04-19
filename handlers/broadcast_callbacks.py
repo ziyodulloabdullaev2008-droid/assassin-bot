@@ -466,10 +466,6 @@ async def view_bc_callback(query: CallbackQuery):
             f"\u23f3 \u0414\u043e \u043a\u043e\u043d\u0446\u0430: "
             f"{_format_eta_duration(finish_ts - now_ts)}\n"
         )
-        info += (
-            f"\U0001f551 \u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u0441\u044f: "
-            f"~ {_format_finish_time(finish_ts)}\n"
-        )
 
     error_items = [item for item in chat_items if item.get("last_error")]
 
