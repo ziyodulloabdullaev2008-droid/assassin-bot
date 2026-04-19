@@ -7,7 +7,12 @@ from core.state import app_state
 from database import add_or_update_user, add_user_account_with_number
 from core.config import API_HASH, API_ID
 from services.session_service import ensure_connected_client
-from ui.main_menu_ui import get_main_menu_keyboard
+from ui.main_menu_ui import (
+    ACCOUNT_BUTTON_TEXT,
+    BROADCAST_BUTTON_TEXT,
+    get_main_menu_keyboard,
+)
+from ui.broadcast_texts import COUNT_BUTTON_TEXT, INTERVAL_BUTTON_TEXT
 
 router = Router()
 
@@ -108,28 +113,18 @@ async def ignore_telegram_bot_messages(message: Message):
     return
 
 
-@router.message()
+@router.message(
+    ~F.text.startswith("/"),
+    ~F.text.contains("Мой аккаунт"),
+    ~F.text.contains("Рассылка"),
+    ~(F.text == ACCOUNT_BUTTON_TEXT),
+    ~(F.text == BROADCAST_BUTTON_TEXT),
+    ~(F.text == COUNT_BUTTON_TEXT),
+    ~(F.text == INTERVAL_BUTTON_TEXT),
+    ~(F.text == "📤 Активные"),
+    ~(F.text == "🗑️ Удалить"),
+)
 async def echo_handler(message: Message):
-    known_texts = {
-        "Мой аккаунт",
-        "📱 Мой аккаунт",
-        "Рассылка",
-        "📤 Рассылка",
-        "Отменить",
-        "❌ Отменить",
-        "Количество",
-        "Интервал",
-        "Запустить",
-        "🚀 Запустить",
-        "Активные",
-        "📤 Активные",
-        "Удалить",
-        "Назад",
-    }
-
-    if message.text in known_texts:
-        return
-
     user = message.from_user
     add_or_update_user(user.id, user.username or "unknown", user.first_name)
     await message.answer(
