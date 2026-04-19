@@ -73,6 +73,11 @@ from services.operation_guard_service import (
     get_active_operation,
     try_begin_operation,
 )
+from services.account_events_service import (
+    append_account_event,
+    format_recent_account_events,
+    get_recent_account_events,
+)
 
 from services.broadcast_config_service import load_broadcast_configs
 from services.broadcast_service import delete_broadcast, load_persisted_broadcasts
@@ -977,6 +982,74 @@ async def _sync_account_profiles(
     return synced, total
 
 
+async def _get_account_health_snapshot(user_id: int, account_number: int) -> dict:
+    accounts = get_user_accounts(user_id)
+    account_info = next((acc for acc in accounts if acc[0] == account_number), None)
+    if not account_info:
+        return {
+            "exists": False,
+            "session_exists": False,
+            "proxy_settings": None,
+            "proxy_check": None,
+            "authorized": False,
+            "connected": False,
+        }
+
+    session_candidates = build_session_candidates(user_id, account_number)
+    session_exists = bool(session_candidates)
+    proxy_settings = get_account_proxy(user_id, account_number)
+    proxy_check = get_account_proxy_check_result(user_id, account_number)
+
+    client = None
+    authorized = False
+    connected = False
+    try:
+        client = await ensure_connected_client(
+            user_id,
+            account_number,
+            api_id=API_ID,
+            api_hash=API_HASH,
+        )
+        if client:
+            connected = bool(client.is_connected())
+            authorized = bool(await client.is_user_authorized())
+    except Exception:
+        pass
+
+    return {
+        "exists": True,
+        "session_exists": session_exists,
+        "proxy_settings": proxy_settings,
+        "proxy_check": proxy_check,
+        "authorized": authorized,
+        "connected": connected,
+    }
+
+
+def _build_account_health_summary_lines(health_snapshot: dict) -> list[str]:
+    session_exists = bool(health_snapshot.get("session_exists"))
+    proxy_settings = health_snapshot.get("proxy_settings")
+    proxy_check = health_snapshot.get("proxy_check")
+    authorized = bool(health_snapshot.get("authorized"))
+    connected = bool(health_snapshot.get("connected"))
+
+    proxy_check_status = "не запускалась"
+    if proxy_check:
+        if proxy_check.get("ok") is True:
+            proxy_check_status = "успешно"
+        elif proxy_check.get("ok") is False:
+            proxy_check_status = "ошибка"
+
+    return [
+        "<b>Health</b>",
+        f"Сессия: <b>{'есть' if session_exists else 'нет'}</b>",
+        f"Авторизация: <b>{'ok' if authorized else 'нет'}</b>",
+        f"Подключение: <b>{'активно' if connected else 'lazy'}</b>",
+        f"Прокси: <b>{'есть' if proxy_settings else 'нет'}</b>",
+        f"Проверка прокси: <b>{proxy_check_status}</b>",
+    ]
+
+
 async def _build_session_account_detail_text(user_id: int, account_number: int) -> str:
     accounts = get_user_accounts(user_id)
     account_info = next((acc for acc in accounts if acc[0] == account_number), None)
@@ -984,15 +1057,11 @@ async def _build_session_account_detail_text(user_id: int, account_number: int) 
         return "❌ Аккаунт не найден"
 
     _, telegram_id, username, first_name, is_active = account_info
-    session_exists = bool(build_session_candidates(user_id, account_number))
-    proxy_settings = get_account_proxy(user_id, account_number)
-    proxy_check = get_account_proxy_check_result(user_id, account_number)
-
-    client_obj = user_authenticated.get(user_id, {}).get(account_number)
-    try:
-        client_connected = bool(client_obj and client_obj.is_connected())
-    except Exception:
-        client_connected = False
+    health_snapshot = await _get_account_health_snapshot(user_id, account_number)
+    session_exists = bool(health_snapshot.get("session_exists"))
+    proxy_settings = health_snapshot.get("proxy_settings")
+    proxy_check = health_snapshot.get("proxy_check")
+    client_connected = bool(health_snapshot.get("connected"))
 
     if client_connected:
         connection_text = "подключен"
@@ -1035,6 +1104,8 @@ async def _build_session_account_detail_text(user_id: int, account_number: int) 
         f"Активных рассылок: <b>{active_for_account}</b>",
     ]
 
+    lines.extend([""] + _build_account_health_summary_lines(health_snapshot))
+
     if proxy_settings:
         lines.extend(
             [
@@ -1043,6 +1114,13 @@ async def _build_session_account_detail_text(user_id: int, account_number: int) 
                 f"<code>{html.escape(format_proxy_summary(proxy_settings))}</code>",
             ]
         )
+
+    recent_events = format_recent_account_events(
+        get_recent_account_events(user_id, account_number=account_number, limit=4)
+    )
+    if recent_events:
+        lines.extend(["", "<b>Последние события</b>"])
+        lines.extend([html.escape(event_line) for event_line in recent_events])
 
     return "\n".join(lines)
 
@@ -1068,7 +1146,11 @@ def _build_session_account_detail_keyboard(
                 InlineKeyboardButton(
                     text="🔄 Обновить",
                     callback_data=f"se_refresh_account_{account_number}",
-                )
+                ),
+                InlineKeyboardButton(
+                    text="🩺 Health",
+                    callback_data=f"health_account_{account_number}",
+                ),
             ],
             [
                 InlineKeyboardButton(
@@ -1125,26 +1207,12 @@ async def _build_account_health_text(user_id: int, account_number: int) -> str:
         return "❌ Аккаунт не найден"
 
     _, telegram_id, username, first_name, is_active = account_info
-    session_candidates = build_session_candidates(user_id, account_number)
-    session_exists = bool(session_candidates)
-    proxy_settings = get_account_proxy(user_id, account_number)
-    proxy_check = get_account_proxy_check_result(user_id, account_number)
-
-    client = None
-    authorized = False
-    connected = False
-    try:
-        client = await ensure_connected_client(
-            user_id,
-            account_number,
-            api_id=API_ID,
-            api_hash=API_HASH,
-        )
-        if client:
-            connected = bool(client.is_connected())
-            authorized = bool(await client.is_user_authorized())
-    except Exception:
-        pass
+    health_snapshot = await _get_account_health_snapshot(user_id, account_number)
+    session_exists = bool(health_snapshot.get("session_exists"))
+    proxy_settings = health_snapshot.get("proxy_settings")
+    proxy_check = health_snapshot.get("proxy_check")
+    authorized = bool(health_snapshot.get("authorized"))
+    connected = bool(health_snapshot.get("connected"))
 
     lines = [
         f"🩺 <b>Health аккаунта {account_number}</b>",
@@ -1161,6 +1229,12 @@ async def _build_account_health_text(user_id: int, account_number: int) -> str:
         "",
         f"<code>{html.escape(_format_proxy_check_block(proxy_check))}</code>",
     ]
+    recent_events = format_recent_account_events(
+        get_recent_account_events(user_id, account_number=account_number, limit=5)
+    )
+    if recent_events:
+        lines.extend(["", "<b>Последние события</b>"])
+        lines.extend([html.escape(event_line) for event_line in recent_events])
     return "\n".join(lines)
 
 
@@ -1384,6 +1458,12 @@ async def process_proxy_value(message: Message, state: FSMContext):
         proxy_settings = parse_proxy_input(message.text)
         set_account_proxy(message.from_user.id, account_number, proxy_settings)
         await drop_cached_client(message.from_user.id, account_number)
+        append_account_event(
+            message.from_user.id,
+            account_number=account_number,
+            kind="proxy_updated",
+            text="Прокси обновлен.",
+        )
         await state.clear()
         await message.answer(
             "✅ Прокси сохранён.\n\n"
@@ -1421,6 +1501,12 @@ async def proxy_delete_callback(query: CallbackQuery, state: FSMContext):
     source = "se" if query.data.startswith("se_proxy_delete_") else "proxy"
     clear_account_proxy(query.from_user.id, account_number)
     await drop_cached_client(query.from_user.id, account_number)
+    append_account_event(
+        query.from_user.id,
+        account_number=account_number,
+        kind="proxy_deleted",
+        text="Прокси удален.",
+    )
     await query.message.edit_text(
         _build_proxy_account_text(account_number, None, None),
         parse_mode="HTML",
@@ -1464,6 +1550,16 @@ async def proxy_test_callback(query: CallbackQuery):
             error=None if ok else details,
             ping_ms=ping_ms,
         )
+        append_account_event(
+            query.from_user.id,
+            account_number=account_number,
+            kind="proxy_test",
+            level="info" if ok else "warning",
+            text=(
+                f"Проверка прокси: {'успешно' if ok else 'ошибка'}"
+                + (f", задержка {ping_ms} ms." if ping_ms is not None else ".")
+            ),
+        )
         status_line = "✅ Прокси рабочий" if ok else "❌ Прокси не отвечает"
         await query.message.edit_text(
             _build_proxy_account_text(
@@ -1505,6 +1601,13 @@ async def proxy_reconnect_callback(query: CallbackQuery):
             api_hash=API_HASH,
         )
         if not client:
+            append_account_event(
+                query.from_user.id,
+                account_number=account_number,
+                kind="proxy_reconnect_failed",
+                level="warning",
+                text="Переподключение аккаунта не удалось.",
+            )
             await query.message.edit_text(
                 _build_proxy_account_text(
                     account_number,
@@ -1521,6 +1624,12 @@ async def proxy_reconnect_callback(query: CallbackQuery):
             )
             return
 
+        append_account_event(
+            query.from_user.id,
+            account_number=account_number,
+            kind="proxy_reconnect",
+            text="Аккаунт переподключен вручную.",
+        )
         await query.message.edit_text(
             _build_proxy_account_text(
                 account_number,
@@ -1668,7 +1777,14 @@ async def se_refresh_account_callback(query: CallbackQuery):
     if not try_begin_operation(user_id, "refresh_account"):
         return
     try:
-        await _sync_account_profiles(user_id, [account_number])
+        synced, _ = await _sync_account_profiles(user_id, [account_number])
+        if synced:
+            append_account_event(
+                user_id,
+                account_number=account_number,
+                kind="account_synced",
+                text="Профиль аккаунта синхронизирован.",
+            )
         await _show_session_account_detail(query, account_number)
     finally:
         end_operation(user_id, "refresh_account")
@@ -1752,6 +1868,12 @@ async def toggle_account(query: CallbackQuery):
 
                 del user_authenticated[bot_user_id][account_number]
 
+            append_account_event(
+                bot_user_id,
+                account_number=account_number,
+                kind="account_disabled",
+                text="Аккаунт выключен вручную.",
+            )
             await query.answer("🔴 Аккаунт отключен от рассылки", show_alert=False)
 
         else:
@@ -1808,6 +1930,12 @@ async def toggle_account(query: CallbackQuery):
 
                     user_authenticated[bot_user_id][account_number] = client
 
+                    append_account_event(
+                        bot_user_id,
+                        account_number=account_number,
+                        kind="account_enabled",
+                        text="Аккаунт снова включен и подключен.",
+                    )
                     await query.answer("🟢 Аккаунт включен", show_alert=False)
 
                 else:

@@ -22,6 +22,12 @@ DB_PATH = BASE_DIR / "_common" / "users.db"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
+def _connect_db():
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn.execute("PRAGMA busy_timeout = 30000")
+    return conn
+
+
 def _retry_db_operation(func, max_retries=3, base_delay=0.5):
     """Выполнить DB операцию с retry при database locked"""
 
@@ -40,10 +46,29 @@ def _retry_db_operation(func, max_retries=3, base_delay=0.5):
             raise
 
 
+def _retry_db_write(func, max_retries=5, base_delay=0.25):
+    """Выполнить write-операцию с retry и rollback при lock."""
+
+    def _run():
+        conn = _connect_db()
+        try:
+            cursor = conn.cursor()
+            result = func(conn, cursor)
+            conn.commit()
+            return result
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    return _retry_db_operation(_run, max_retries=max_retries, base_delay=base_delay)
+
+
 def init_db():
     """Инициализация базы данных"""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn = _connect_db()
 
     cursor = conn.cursor()
 
@@ -238,54 +263,37 @@ def init_db():
 
 
 def add_or_update_user(user_id: int, username: str, first_name: str):
-    """Добавить или обновить пользователя"""
+    """???????? ??? ???????? ????????????."""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    def _write(conn, cursor):
+        cursor.execute(
+            """
+            INSERT INTO users (user_id, username, first_name)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                username = excluded.username,
+                first_name = excluded.first_name
+            """,
+            (user_id, username, first_name),
+        )
 
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        INSERT INTO users (user_id, username, first_name)
-        VALUES (?, ?, ?)
-        ON CONFLICT(user_id) DO UPDATE SET
-            username = excluded.username,
-            first_name = excluded.first_name
-
-    """,
-        (user_id, username, first_name),
-    )
-
-    conn.commit()
-
-    conn.close()
-
+    _retry_db_write(_write)
 
 def set_user_logged_in(user_id: int, is_logged_in: bool):
-    """Установить статус логирования пользователя"""
+    """?????????? ?????? ?????? ????????????."""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    def _write(conn, cursor):
+        cursor.execute(
+            "UPDATE users SET is_logged_in = ? WHERE user_id = ?",
+            (is_logged_in, user_id),
+        )
 
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-
-        UPDATE users SET is_logged_in = ? WHERE user_id = ?
-
-    """,
-        (is_logged_in, user_id),
-    )
-
-    conn.commit()
-
-    conn.close()
-
+    _retry_db_write(_write)
 
 def get_user_status(user_id: int) -> Optional[bool]:
     """Получить статус логирования пользователя"""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn = _connect_db()
 
     cursor = conn.cursor()
 
@@ -301,7 +309,7 @@ def get_user_status(user_id: int) -> Optional[bool]:
 def get_all_users() -> List[Tuple]:
     """Получить всех пользователей"""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn = _connect_db()
 
     cursor = conn.cursor()
 
@@ -315,36 +323,24 @@ def get_all_users() -> List[Tuple]:
 
 
 def start_login_session(user_id: int, phone_number: str):
-    """Начать сессию логина"""
+    """?????? ?????? ??????."""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    def _write(conn, cursor):
+        cursor.execute("DELETE FROM login_sessions WHERE user_id = ?", (user_id,))
+        cursor.execute(
+            """
+            INSERT OR REPLACE INTO login_sessions (user_id, phone_number, step)
+            VALUES (?, ?, 'phone')
+            """,
+            (user_id, phone_number),
+        )
 
-    cursor = conn.cursor()
-
-    # Очищаем старую сессию этого пользователя если была (для безопасности)
-
-    cursor.execute("DELETE FROM login_sessions WHERE user_id = ?", (user_id,))
-
-    cursor.execute(
-        """
-
-        INSERT OR REPLACE INTO login_sessions (user_id, phone_number, step)
-
-        VALUES (?, ?, 'phone')
-
-    """,
-        (user_id, phone_number),
-    )
-
-    conn.commit()
-
-    conn.close()
-
+    _retry_db_write(_write)
 
 def get_login_session(user_id: int) -> Optional[Tuple]:
     """Получить сессию логина"""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn = _connect_db()
 
     cursor = conn.cursor()
 
@@ -360,90 +356,56 @@ def get_login_session(user_id: int) -> Optional[Tuple]:
 
 
 def update_login_step(user_id: int, step: str):
-    """Обновить шаг логина"""
+    """???????? ??? ??????."""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    def _write(conn, cursor):
+        cursor.execute(
+            "UPDATE login_sessions SET step = ? WHERE user_id = ?",
+            (step, user_id),
+        )
 
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-
-        UPDATE login_sessions SET step = ? WHERE user_id = ?
-
-    """,
-        (step, user_id),
-    )
-
-    conn.commit()
-
-    conn.close()
-
+    _retry_db_write(_write)
 
 def save_phone_number(user_id: int, phone_number: str):
-    """Сохранить номер телефона"""
+    """????????? ????? ????????."""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    def _write(conn, cursor):
+        cursor.execute(
+            """
+            INSERT OR REPLACE INTO login_sessions (user_id, phone_number)
+            VALUES (?, ?)
+            """,
+            (user_id, phone_number),
+        )
 
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-
-        INSERT OR REPLACE INTO login_sessions (user_id, phone_number)
-
-        VALUES (?, ?)
-
-    """,
-        (user_id, phone_number),
-    )
-
-    conn.commit()
-
-    conn.close()
-
+    _retry_db_write(_write)
 
 def delete_login_session(user_id: int):
-    """Удалить сессию логина"""
+    """??????? ?????? ??????."""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    def _write(conn, cursor):
+        cursor.execute("DELETE FROM login_sessions WHERE user_id = ?", (user_id,))
 
-    cursor = conn.cursor()
-
-    cursor.execute("DELETE FROM login_sessions WHERE user_id = ?", (user_id,))
-
-    conn.commit()
-
-    conn.close()
-
+    _retry_db_write(_write)
 
 def set_phone_code_hash(user_id: int, phone_code_hash: str):
-    """Установить хеш кода подтверждения"""
+    """?????????? ??? ???? ?????????????."""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    def _write(conn, cursor):
+        cursor.execute(
+            """
+            INSERT OR REPLACE INTO phone_code_hashes (user_id, phone_code_hash)
+            VALUES (?, ?)
+            """,
+            (user_id, phone_code_hash),
+        )
 
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-
-        INSERT OR REPLACE INTO phone_code_hashes (user_id, phone_code_hash)
-
-        VALUES (?, ?)
-
-    """,
-        (user_id, phone_code_hash),
-    )
-
-    conn.commit()
-
-    conn.close()
-
+    _retry_db_write(_write)
 
 def get_phone_code_hash(user_id: int) -> Optional[str]:
     """Получить хеш кода подтверждения"""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn = _connect_db()
 
     cursor = conn.cursor()
 
@@ -461,7 +423,7 @@ def get_phone_code_hash(user_id: int) -> Optional[str]:
 def add_tracked_chat(user_id: int, chat_id: int, chat_name: str) -> bool:
     """Добавить чат в отслеживание. Возвращает True если успешно, False если чат уже есть"""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn = _connect_db()
 
     cursor = conn.cursor()
 
@@ -492,7 +454,7 @@ def add_tracked_chat(user_id: int, chat_id: int, chat_name: str) -> bool:
 def remove_tracked_chat(user_id: int, chat_id: int):
     """Удалить чат из отслеживания"""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn = _connect_db()
 
     cursor = conn.cursor()
 
@@ -514,7 +476,7 @@ def get_tracked_chats(user_id: int) -> List[Tuple]:
     """Получить все отслеживаемые чаты пользователя с retry при database locked"""
 
     def _get():
-        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn = _connect_db()
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -532,7 +494,7 @@ def get_tracked_chats(user_id: int) -> List[Tuple]:
 def is_chat_tracked(user_id: int, chat_id: int) -> bool:
     """Проверить, отслеживается ли чат"""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn = _connect_db()
 
     cursor = conn.cursor()
 
@@ -574,86 +536,63 @@ def _normalize_chat_link(chat_link: Optional[str]) -> Optional[str]:
 def add_broadcast_chat(
     user_id: int, chat_id: int, chat_name: str, chat_link: Optional[str] = None
 ) -> bool:
-    """Добавить чат в рассылку. Возвращает True если успешно, False если чат уже есть"""
+    """???????? ??? ? ????????."""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    normalized_link = _normalize_chat_link(chat_link)
 
-    cursor = conn.cursor()
-
-    try:
-        normalized_link = _normalize_chat_link(chat_link)
-
+    def _insert(conn, cursor):
         cursor.execute(
             """
-
             INSERT INTO broadcast_chats (user_id, chat_id, chat_name, chat_link)
-
             VALUES (?, ?, ?, ?)
-
-        """,
+            """,
             (user_id, chat_id, chat_name, normalized_link),
         )
-
-        conn.commit()
-
-        conn.close()
-
         return True
 
+    try:
+        return _retry_db_write(_insert)
     except sqlite3.IntegrityError:
-        normalized_link = _normalize_chat_link(chat_link)
-        if normalized_link:
-            cursor.execute(
-                """
-                UPDATE broadcast_chats
-                SET chat_name = ?, chat_link = ?
-                WHERE user_id = ? AND chat_id = ?
-                """,
-                (chat_name, normalized_link, user_id, chat_id),
-            )
-        else:
-            cursor.execute(
-                """
-                UPDATE broadcast_chats
-                SET chat_name = ?
-                WHERE user_id = ? AND chat_id = ?
-                """,
-                (chat_name, user_id, chat_id),
-            )
+        def _update(conn, cursor):
+            if normalized_link:
+                cursor.execute(
+                    """
+                    UPDATE broadcast_chats
+                    SET chat_name = ?, chat_link = ?
+                    WHERE user_id = ? AND chat_id = ?
+                    """,
+                    (chat_name, normalized_link, user_id, chat_id),
+                )
+            else:
+                cursor.execute(
+                    """
+                    UPDATE broadcast_chats
+                    SET chat_name = ?
+                    WHERE user_id = ? AND chat_id = ?
+                    """,
+                    (chat_name, user_id, chat_id),
+                )
+            return False
 
-        conn.commit()
-        conn.close()
-
-        return False
-
+        return _retry_db_write(_update)
 
 def remove_broadcast_chat(user_id: int, chat_id: int):
-    """Удалить чат из рассылки"""
+    """??????? ??? ?? ????????."""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    def _write(conn, cursor):
+        cursor.execute(
+            "DELETE FROM broadcast_chats WHERE user_id = ? AND chat_id = ?",
+            (user_id, chat_id),
+        )
 
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-
-        DELETE FROM broadcast_chats WHERE user_id = ? AND chat_id = ?
-
-    """,
-        (user_id, chat_id),
-    )
-
-    conn.commit()
-
-    conn.close()
-
+    _retry_db_write(_write)
 
 def get_broadcast_chats(user_id: int) -> List[Tuple]:
     """Получить все чаты рассылки пользователя с retry при database locked"""
 
     def _get():
 
-        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn = _connect_db()
 
         cursor = conn.cursor()
 
@@ -680,7 +619,7 @@ def get_broadcast_chats_with_links(user_id: int) -> List[Tuple]:
 
     def _get():
 
-        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn = _connect_db()
 
         cursor = conn.cursor()
 
@@ -705,7 +644,7 @@ def get_broadcast_chats_with_links(user_id: int) -> List[Tuple]:
 def is_chat_in_broadcast(user_id: int, chat_id: int) -> bool:
     """Проверить, добавлен ли чат в рассылку"""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn = _connect_db()
 
     cursor = conn.cursor()
 
@@ -733,7 +672,7 @@ def add_user_account(
 ) -> int:
     """Добавить новый аккаунт для пользователя. Возвращает номер аккаунта"""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn = _connect_db()
 
     cursor = conn.cursor()
 
@@ -787,68 +726,45 @@ def add_user_account_with_number(
     first_name: str,
     phone: str,
 ) -> bool:
-    """Добавить аккаунт с конкретным номером (для восстановления из файлов)"""
+    """???????? ??????? ? ?????????? ???????."""
 
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=30.0)
-
-        cursor = conn.cursor()
-
-        # Проверяем не существует ли уже такой аккаунт
-
-        cursor.execute(
-            "SELECT account_number FROM user_accounts WHERE bot_user_id = ? AND account_number = ?",
-            (bot_user_id, account_number),
-        )
-
-        if cursor.fetchone():
-            # Аккаунт уже существует, обновляем его
-
+        def _write(conn, cursor):
             cursor.execute(
-                """
-
-                UPDATE user_accounts 
-
-                SET telegram_id = ?, username = ?, first_name = ?, phone = ?
-
-                WHERE bot_user_id = ? AND account_number = ?
-
-            """,
-                (telegram_id, username, first_name, phone, bot_user_id, account_number),
+                "SELECT account_number FROM user_accounts WHERE bot_user_id = ? AND account_number = ?",
+                (bot_user_id, account_number),
             )
 
-        else:
-            # Добавляем новый аккаунт
+            if cursor.fetchone():
+                cursor.execute(
+                    """
+                    UPDATE user_accounts
+                    SET telegram_id = ?, username = ?, first_name = ?, phone = ?
+                    WHERE bot_user_id = ? AND account_number = ?
+                    """,
+                    (telegram_id, username, first_name, phone, bot_user_id, account_number),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO user_accounts (bot_user_id, account_number, telegram_id, username, first_name, phone, is_active, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+                    """,
+                    (bot_user_id, account_number, telegram_id, username, first_name, phone, time.time()),
+                )
+            return True
 
-            cursor.execute(
-                """
-
-                INSERT INTO user_accounts (bot_user_id, account_number, telegram_id, username, first_name, phone, is_active, created_at)
-
-                VALUES (?, ?, ?, ?, ?, ?, 1, ?)
-
-            """,
-                (bot_user_id, account_number, telegram_id, username, first_name, phone, time.time()),
-            )
-
-        conn.commit()
-
-        conn.close()
-
-        return True
-
+        return _retry_db_write(_write)
     except Exception as e:
-        print(f"Ошибка при добавлении аккаунта: {str(e)}")
-
+        print(f"?????? ??? ?????????? ????????: {str(e)}")
         return False
-
 
 def get_user_accounts(bot_user_id: int) -> List[Tuple]:
     """Получить все аккаунты пользователя с retry при database locked"""
 
     def _get():
 
-        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn = _connect_db()
 
         cursor = conn.cursor()
 
@@ -878,7 +794,7 @@ def get_account_proxy(bot_user_id: int, account_number: int) -> Optional[dict]:
     """Получить прокси аккаунта в нормализованном виде."""
 
     def _get():
-        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn = _connect_db()
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -916,7 +832,7 @@ def get_account_proxy(bot_user_id: int, account_number: int) -> Optional[dict]:
 
 
 def set_account_proxy(bot_user_id: int, account_number: int, proxy_data: dict) -> None:
-    """Сохранить прокси за аккаунтом."""
+    """????????? ?????? ?? ?????????."""
 
     proxy_type = str(proxy_data.get("type") or "").strip().lower()
     host = proxy_data.get("host")
@@ -925,50 +841,46 @@ def set_account_proxy(bot_user_id: int, account_number: int, proxy_data: dict) -
     password = proxy_data.get("password")
     secret = proxy_data.get("secret")
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        UPDATE user_accounts
-        SET proxy_type = ?, proxy_host = ?, proxy_port = ?, proxy_login = ?, proxy_password = ?, proxy_secret = ?,
-            proxy_last_check_at = NULL, proxy_last_check_ok = NULL, proxy_last_check_error = NULL,
-            proxy_last_ping_ms = NULL, proxy_last_success_at = NULL
-        WHERE bot_user_id = ? AND account_number = ?
-        """,
-        (
-            proxy_type,
-            host,
-            int(port) if port is not None else None,
-            login,
-            password,
-            secret,
-            bot_user_id,
-            account_number,
-        ),
-    )
-    conn.commit()
-    conn.close()
+    def _write(conn, cursor):
+        cursor.execute(
+            """
+            UPDATE user_accounts
+            SET proxy_type = ?, proxy_host = ?, proxy_port = ?, proxy_login = ?, proxy_password = ?, proxy_secret = ?,
+                proxy_last_check_at = NULL, proxy_last_check_ok = NULL, proxy_last_check_error = NULL,
+                proxy_last_ping_ms = NULL, proxy_last_success_at = NULL
+            WHERE bot_user_id = ? AND account_number = ?
+            """,
+            (
+                proxy_type,
+                host,
+                int(port) if port is not None else None,
+                login,
+                password,
+                secret,
+                bot_user_id,
+                account_number,
+            ),
+        )
 
+    _retry_db_write(_write)
 
 def clear_account_proxy(bot_user_id: int, account_number: int) -> None:
-    """Удалить прокси аккаунта."""
+    """??????? ?????? ????????."""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        UPDATE user_accounts
-        SET proxy_type = NULL, proxy_host = NULL, proxy_port = NULL,
-            proxy_login = NULL, proxy_password = NULL, proxy_secret = NULL,
-            proxy_last_check_at = NULL, proxy_last_check_ok = NULL, proxy_last_check_error = NULL,
-            proxy_last_ping_ms = NULL, proxy_last_success_at = NULL
-        WHERE bot_user_id = ? AND account_number = ?
-        """,
-        (bot_user_id, account_number),
-    )
-    conn.commit()
-    conn.close()
+    def _write(conn, cursor):
+        cursor.execute(
+            """
+            UPDATE user_accounts
+            SET proxy_type = NULL, proxy_host = NULL, proxy_port = NULL,
+                proxy_login = NULL, proxy_password = NULL, proxy_secret = NULL,
+                proxy_last_check_at = NULL, proxy_last_check_ok = NULL, proxy_last_check_error = NULL,
+                proxy_last_ping_ms = NULL, proxy_last_success_at = NULL
+            WHERE bot_user_id = ? AND account_number = ?
+            """,
+            (bot_user_id, account_number),
+        )
 
+    _retry_db_write(_write)
 
 def save_account_proxy_check_result(
     bot_user_id: int,
@@ -982,35 +894,33 @@ def save_account_proxy_check_result(
     checked_value = float(checked_at or time.time())
     success_value = checked_value if ok else None
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        UPDATE user_accounts
-        SET proxy_last_check_at = ?, proxy_last_check_ok = ?, proxy_last_check_error = ?,
-            proxy_last_ping_ms = ?, proxy_last_success_at = COALESCE(?, proxy_last_success_at)
-        WHERE bot_user_id = ? AND account_number = ?
-        """,
-        (
-            checked_value,
-            1 if ok else 0,
-            (error or "")[:1000] if error else None,
-            ping_ms,
-            success_value,
-            bot_user_id,
-            account_number,
-        ),
-    )
-    conn.commit()
-    conn.close()
+    def _write(conn, cursor):
+        cursor.execute(
+            """
+            UPDATE user_accounts
+            SET proxy_last_check_at = ?, proxy_last_check_ok = ?, proxy_last_check_error = ?,
+                proxy_last_ping_ms = ?, proxy_last_success_at = COALESCE(?, proxy_last_success_at)
+            WHERE bot_user_id = ? AND account_number = ?
+            """,
+            (
+                checked_value,
+                1 if ok else 0,
+                (error or "")[:1000] if error else None,
+                ping_ms,
+                success_value,
+                bot_user_id,
+                account_number,
+            ),
+        )
 
+    _retry_db_write(_write)
 
 def get_account_proxy_check_result(
     bot_user_id: int,
     account_number: int,
 ) -> Optional[dict]:
     def _get():
-        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn = _connect_db()
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -1041,7 +951,7 @@ def get_user_account_created_at(bot_user_id: int, account_number: int) -> Option
     """Получить время добавления аккаунта в бота как unix timestamp."""
 
     def _get():
-        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn = _connect_db()
         cursor = conn.cursor()
         cursor.execute("PRAGMA table_info(user_accounts)")
         account_columns = {row[1] for row in cursor.fetchall()}
@@ -1063,7 +973,7 @@ def get_user_account_created_at(bot_user_id: int, account_number: int) -> Option
 def get_active_account(bot_user_id: int) -> Optional[Tuple]:
     """Получить активный аккаунт пользователя"""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn = _connect_db()
 
     cursor = conn.cursor()
 
@@ -1088,7 +998,7 @@ def get_active_account(bot_user_id: int) -> Optional[Tuple]:
 def set_active_account(bot_user_id: int, account_number: int):
     """Установить активный аккаунт"""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn = _connect_db()
 
     cursor = conn.cursor()
 
@@ -1117,7 +1027,7 @@ def set_active_account(bot_user_id: int, account_number: int):
 def copy_account_data(bot_user_id: int, from_account: int, to_account: int):
     """Скопировать данные (чаты) от одного аккаунта к другому"""
 
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn = _connect_db()
 
     cursor = conn.cursor()
 
@@ -1237,7 +1147,7 @@ def add_vip_user(user_id: int, days: int = 0) -> bool:
     """Добавить или обновить VIP. days=0 означает навсегда."""
 
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn = _connect_db()
         cursor = conn.cursor()
         _ensure_vip_expires_column(cursor)
         expires_at = None if days <= 0 else time.time() + days * 86400
@@ -1267,7 +1177,7 @@ def remove_vip_user(user_id: int) -> bool:
     """Удалить пользователя из VIP."""
 
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn = _connect_db()
         cursor = conn.cursor()
         _ensure_vip_expires_column(cursor)
         cursor.execute("DELETE FROM vip_users WHERE user_id = ?", (user_id,))
@@ -1289,7 +1199,7 @@ def is_vip_user(user_id: int) -> bool:
     """Проверить, есть ли у пользователя активный VIP."""
 
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn = _connect_db()
         cursor = conn.cursor()
         _ensure_vip_expires_column(cursor)
         _cleanup_expired_vip_users(cursor)
@@ -1311,7 +1221,7 @@ def get_all_vip_users() -> List[int]:
     """Получить список всех активных VIP пользователей."""
 
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn = _connect_db()
         cursor = conn.cursor()
         _ensure_vip_expires_column(cursor)
         _cleanup_expired_vip_users(cursor)
@@ -1333,7 +1243,7 @@ def get_all_vip_users_with_expiry() -> List[Tuple[int, Optional[float]]]:
     """Получить активных VIP пользователей вместе со сроком действия."""
 
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn = _connect_db()
         cursor = conn.cursor()
         _ensure_vip_expires_column(cursor)
         _cleanup_expired_vip_users(cursor)

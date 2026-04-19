@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from core.state import app_state
+from services.account_events_service import append_account_event
 from services.user_paths import BASE_DIR, active_broadcasts_path
 
 
@@ -105,9 +106,19 @@ def next_broadcast_id() -> int:
 
 
 def create_broadcast(bid: int, payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Создает запись рассылки."""
+    """Create in-memory broadcast payload and persist it."""
     app_state.active_broadcasts[bid] = payload
     _save_user_broadcasts(payload["user_id"])
+    append_account_event(
+        payload["user_id"],
+        account_number=payload.get("account"),
+        kind="broadcast_started",
+        broadcast_id=bid,
+        text=(
+            f"Broadcast #{bid} started: {payload.get('planned_count', 0)} messages, "
+            f"{payload.get('total_chats', 0)} chats."
+        ),
+    )
     return app_state.active_broadcasts[bid]
 
 
@@ -146,10 +157,25 @@ def list_user_broadcasts(
 async def set_status(bid: int, status: str) -> None:
     async with app_state.broadcast_update_lock:
         if bid in app_state.active_broadcasts:
-            app_state.active_broadcasts[bid]["status"] = status
+            broadcast = app_state.active_broadcasts[bid]
+            broadcast["status"] = status
             if status != "paused":
-                app_state.active_broadcasts[bid].pop("resume_required", None)
-            _save_user_broadcasts(app_state.active_broadcasts[bid]["user_id"])
+                broadcast.pop("resume_required", None)
+            _save_user_broadcasts(broadcast["user_id"])
+            if status in {"paused", "running", "completed", "cancelled"}:
+                status_text = {
+                    "paused": "Broadcast paused.",
+                    "running": "Broadcast resumed.",
+                    "completed": "Broadcast completed.",
+                    "cancelled": "Broadcast stopped.",
+                }[status]
+                append_account_event(
+                    broadcast["user_id"],
+                    account_number=broadcast.get("account"),
+                    kind=f"broadcast_{status}",
+                    broadcast_id=bid,
+                    text=f"{status_text} (#{bid})",
+                )
 
 
 async def update_progress(
@@ -182,6 +208,14 @@ async def mark_error(
             broadcast["error_message"] = error_message
             broadcast["error_type"] = error_type
             _save_user_broadcasts(broadcast["user_id"])
+            append_account_event(
+                broadcast["user_id"],
+                account_number=broadcast.get("account"),
+                kind="broadcast_error",
+                level="error",
+                broadcast_id=bid,
+                text=f"Broadcast error #{bid}: {error_message}",
+            )
 
 
 def delete_broadcast(bid: int) -> None:

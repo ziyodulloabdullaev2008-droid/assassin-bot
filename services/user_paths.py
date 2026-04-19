@@ -72,6 +72,12 @@ def user_broadcast_dir(user_id: int) -> Path:
     return broadcast_dir
 
 
+def user_events_dir(user_id: int) -> Path:
+    events_dir = ensure_user_dir(user_id) / "events"
+    events_dir.mkdir(parents=True, exist_ok=True)
+    return events_dir
+
+
 def session_base_path(user_id: int, account_number: int) -> Path:
     return user_sessions_dir(user_id) / f"session_{user_id}_{account_number}"
 
@@ -94,3 +100,7 @@ def broadcast_profiles_path(user_id: int) -> Path:
 
 def active_broadcasts_path(user_id: int) -> Path:
     return user_broadcast_dir(user_id) / "active_broadcasts.json"
+
+
+def account_events_path(user_id: int) -> Path:
+    return user_events_dir(user_id) / "account_events.jsonl"

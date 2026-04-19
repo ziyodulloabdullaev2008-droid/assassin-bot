@@ -113,3 +113,192 @@ def active_chat_counts(broadcast: dict) -> tuple[int, int, int]:
         else:
             active += 1
     return active, paused, disabled
+
+
+def _parse_int_range(value, default_min: int, default_max: int) -> tuple[int, int]:
+    if isinstance(value, int):
+        return value, value
+
+    text = str(value).strip()
+    if "-" in text:
+        try:
+            left, right = text.split("-", 1)
+            low = int(left.strip())
+            high = int(right.strip())
+            if low > 0 and high >= low:
+                return low, high
+        except Exception:
+            pass
+    else:
+        try:
+            parsed = int(text)
+            if parsed > 0:
+                return parsed, parsed
+        except Exception:
+            pass
+
+    return default_min, default_max
+
+
+def _parse_float_range(
+    value, default_min: float, default_max: float
+) -> tuple[float, float]:
+    text = str(value).strip()
+    if "-" in text:
+        try:
+            left, right = text.split("-", 1)
+            low = float(left.strip())
+            high = float(right.strip())
+            if low >= 0 and high >= low:
+                return low, high
+        except Exception:
+            pass
+    else:
+        try:
+            parsed = float(text)
+            if parsed >= 0:
+                return parsed, parsed
+        except Exception:
+            pass
+
+    return default_min, default_max
+
+
+def estimate_broadcast_finish_timestamp(
+    broadcast: dict,
+    *,
+    now_ts: float | None = None,
+) -> float | None:
+    now_ts = float(now_ts if now_ts is not None else datetime.now(timezone.utc).timestamp())
+    count = int(broadcast.get("count", 0) or 0)
+    sent = int(broadcast.get("sent_chats", 0) or 0)
+    failed = int(broadcast.get("failed_count", 0) or 0)
+    processed = int(broadcast.get("processed_count", sent + failed) or 0)
+    remaining = max(count - processed, 0)
+    if remaining <= 0:
+        return now_ts
+
+    active_items = [
+        item
+        for item in broadcast_chat_runtime_items(broadcast)
+        if str(item.get("status") or "active") == "active"
+    ]
+    if not active_items:
+        return None
+
+    interval_min, interval_max = _parse_int_range(
+        broadcast.get("interval_value", broadcast.get("interval_minutes", 30)),
+        30,
+        90,
+    )
+    pause_min, pause_max = _parse_float_range(
+        broadcast.get("chat_pause", "20-60"),
+        20.0,
+        60.0,
+    )
+    average_interval_seconds = ((interval_min + interval_max) / 2.0) * 60.0
+    average_pause_seconds = (pause_min + pause_max) / 2.0
+
+    chat_next_times = []
+    for item in active_items:
+        next_send_at = float(item.get("next_send_at", 0.0) or 0.0)
+        chat_next_times.append(max(next_send_at, now_ts))
+
+    global_next_at = max(float(broadcast.get("next_global_send_at", 0.0) or 0.0), now_ts)
+    last_send_at = now_ts
+
+    for _ in range(remaining):
+        index = min(range(len(chat_next_times)), key=lambda idx: chat_next_times[idx])
+        send_at = max(chat_next_times[index], global_next_at)
+        last_send_at = send_at
+        chat_next_times[index] = send_at + average_interval_seconds
+        global_next_at = send_at + average_pause_seconds
+
+    return last_send_at
+
+
+def estimate_next_send_timestamp(
+    broadcast: dict,
+    *,
+    now_ts: float | None = None,
+) -> float | None:
+    now_ts = float(now_ts if now_ts is not None else datetime.now(timezone.utc).timestamp())
+    active_items = [
+        item
+        for item in broadcast_chat_runtime_items(broadcast)
+        if str(item.get("status") or "active") == "active"
+    ]
+    if not active_items:
+        return None
+
+    next_chat_ready_at = min(
+        max(float(item.get("next_send_at", 0.0) or 0.0), now_ts) for item in active_items
+    )
+    global_next_at = max(float(broadcast.get("next_global_send_at", 0.0) or 0.0), now_ts)
+    return max(next_chat_ready_at, global_next_at)
+
+
+def estimate_group_next_send_timestamp(
+    items: list[tuple[int, dict]],
+    *,
+    now_ts: float | None = None,
+) -> float | None:
+    now_ts = float(now_ts if now_ts is not None else datetime.now(timezone.utc).timestamp())
+    timestamps = [
+        ts
+        for _, broadcast in items
+        for ts in [estimate_next_send_timestamp(broadcast, now_ts=now_ts)]
+        if ts is not None
+    ]
+    if not timestamps:
+        return None
+    return min(timestamps)
+
+
+def estimate_group_finish_timestamp(
+    items: list[tuple[int, dict]],
+    *,
+    now_ts: float | None = None,
+) -> float | None:
+    now_ts = float(now_ts if now_ts is not None else datetime.now(timezone.utc).timestamp())
+    timestamps = [
+        ts
+        for _, broadcast in items
+        for ts in [estimate_broadcast_finish_timestamp(broadcast, now_ts=now_ts)]
+        if ts is not None
+    ]
+    if not timestamps:
+        return None
+    return max(timestamps)
+
+
+def format_eta_duration(seconds: float | None) -> str:
+    if seconds is None:
+        return "-"
+
+    total_seconds = max(int(round(seconds)), 0)
+    if total_seconds < 60:
+        return f"~ {total_seconds} сек"
+
+    minutes, seconds_left = divmod(total_seconds, 60)
+    hours, minutes_left = divmod(minutes, 60)
+    days, hours_left = divmod(hours, 24)
+
+    parts: list[str] = []
+    if days:
+        parts.append(f"{days}д")
+    if hours_left:
+        parts.append(f"{hours_left}ч")
+    if minutes_left:
+        parts.append(f"{minutes_left}м")
+    elif not parts and seconds_left:
+        parts.append("1м")
+
+    return "~ " + " ".join(parts[:2])
+
+
+def format_finish_time(timestamp: float | None) -> str:
+    if timestamp is None:
+        return "-"
+    finish_time = datetime.fromtimestamp(timestamp, tz=timezone.utc).astimezone()
+    return finish_time.strftime("%H:%M")
