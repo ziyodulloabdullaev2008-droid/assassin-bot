@@ -23,8 +23,10 @@ from datetime import datetime, timezone
 from core.state import app_state
 
 from database import (
+    add_broadcast_chat,
     get_broadcast_chats,
     get_user_accounts,
+    remove_broadcast_chat,
     save_broadcast_config,
 )
 
@@ -61,15 +63,18 @@ from services.broadcast_profiles_service import (
     sync_active_config_from_db,
 )
 from services.channel_post_service import (
+    count_source_items,
     fetch_channel_posts,
     format_source_channel_link,
     normalize_channel_reference,
     parse_numeric_reference,
     post_preview_text,
     resolve_entity_reference,
+    source_channel_title,
 )
 from services.session_service import ensure_connected_client
 from core.config import API_HASH, API_ID
+from telethon.utils import get_peer_id
 
 from services.mention_utils import delete_message_after_delay
 
