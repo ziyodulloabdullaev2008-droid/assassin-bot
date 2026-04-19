@@ -19,14 +19,10 @@ import asyncio
 import html
 
 from datetime import datetime, timezone
-from telethon.tl.functions.messages import GetDialogFiltersRequest
-from telethon.utils import get_peer_id
 
 from core.state import app_state
 
 from database import (
-    add_broadcast_chat,
-    remove_broadcast_chat,
     get_broadcast_chats,
     get_user_accounts,
     save_broadcast_config,
@@ -46,21 +42,31 @@ from services.broadcast_service import (
 from services.broadcast_config_service import get_broadcast_config
 
 from services.broadcast_sender import schedule_broadcast_send
+from services.broadcast_runtime_service import (
+    account_label as _account_label,
+    active_chat_counts as _active_chat_counts,
+    add_broadcast_chat_with_profile,
+    broadcast_chat_runtime_items as _broadcast_chat_runtime_items,
+    broadcast_chat_short_name as _broadcast_chat_short_name,
+    broadcast_chat_status_label as _broadcast_chat_status_label,
+    find_chat_runtime_item as _find_chat_runtime_item,
+    format_chat_error_line as _format_chat_error_line,
+    format_chat_error_log as _format_chat_error_log,
+    iter_connected_account_numbers as _iter_connected_account_numbers,
+    remove_broadcast_chat_with_profile,
+)
 
 from services.broadcast_profiles_service import (
     ensure_active_config,
     sync_active_config_from_db,
 )
 from services.channel_post_service import (
-    build_text_source_label,
-    count_source_items,
     fetch_channel_posts,
     format_source_channel_link,
     normalize_channel_reference,
     parse_numeric_reference,
     post_preview_text,
     resolve_entity_reference,
-    source_channel_title,
 )
 from services.session_service import ensure_connected_client
 from core.config import API_HASH, API_ID
@@ -68,10 +74,24 @@ from core.config import API_HASH, API_ID
 from services.mention_utils import delete_message_after_delay
 
 from ui.broadcast_ui import build_broadcast_keyboard, build_broadcast_menu_text
+from ui.broadcast_texts import (
+    build_text_list_info as _build_text_list_info,
+    build_text_settings_info as _build_text_settings_info,
+    is_channel_source as _is_channel_source,
+)
 
 from ui.texts_ui import build_texts_keyboard, build_text_settings_keyboard
 
 from ui.main_menu_ui import get_main_menu_keyboard
+from handlers.broadcast_folder_import import (
+    build_folder_account_picker as _build_folder_account_picker,
+    build_folder_list_view as _build_folder_list_view,
+    build_folder_preview_view as _build_folder_preview_view,
+    folder_title as _folder_title,
+    load_account_folders as _load_account_folders,
+    load_folder_chats as _load_folder_chats,
+    parse_folder_callback as _parse_folder_callback,
+)
 
 router = Router()
 
@@ -94,46 +114,6 @@ def save_broadcast_config_with_profile(user_id: int, config: dict) -> None:
     save_broadcast_config(user_id, config)
 
     sync_active_config_from_db(user_id)
-
-
-def _is_channel_source(config: dict) -> bool:
-    return config.get("text_source_type", "manual") == "channel"
-
-
-def _build_text_settings_info(config: dict) -> str:
-    info = "📝 <b>НАСТРОЙКИ КОНТЕНТА</b>\n\n"
-    info += f"Источник текста: {build_text_source_label(config)}\n"
-    info += f"Вариантов: {count_source_items(config)}\n"
-    info += (
-        f"Режим: {'Random ✅' if config.get('text_mode') == 'random' else 'No Random ❌'}\n"
-    )
-    if _is_channel_source(config):
-        info += f"Канал: {source_channel_title(config)}\n"
-    else:
-        info += f"Формат: {config.get('parse_mode', 'HTML')}\n"
-    return info
-
-
-def _build_text_list_info(config: dict) -> str:
-    if _is_channel_source(config):
-        count = len(config.get("source_posts") or [])
-        info = "📚 <b>ПОСТЫ ИЗ КАНАЛА</b>\n\n"
-        info += f"Канал: {source_channel_title(config)}\n"
-        info += f"Постов доступно: {count}\n\n"
-        if not count:
-            info += "Сначала укажи канал-источник и загрузи посты."
-        else:
-            info += "Выбери пост для просмотра."
-        return info
-
-    count = len(config.get("texts") or [])
-    info = "📚 <b>СПИСОК ТЕКСТОВ</b>\n\n"
-    info += f"Всего текстов: {count}\n\n"
-    if not count:
-        info += "Еще не добавлено ни одного текста."
-    else:
-        info += "Выбери текст для просмотра или редактирования."
-    return info
 
 
 async def _load_channel_source_for_user(
@@ -174,20 +154,6 @@ async def _load_channel_source_for_user(
     raise RuntimeError("Не удалось загрузить посты канала ни с одного подключенного аккаунта")
 
 
-def _iter_connected_account_numbers(user_id: int) -> list[int]:
-    active_accounts = [
-        acc_num
-        for acc_num, _, _, _, is_active in get_user_accounts(user_id)
-        if is_active
-    ]
-    if active_accounts:
-        return sorted(active_accounts)
-
-    fallback_accounts = [acc_num for acc_num, _, _, _, _ in get_user_accounts(user_id)]
-    fallback_accounts.sort()
-    return fallback_accounts
-
-
 async def _ensure_account_ready(user_id: int, account_number: int):
     return await ensure_connected_client(
         user_id,
@@ -195,143 +161,6 @@ async def _ensure_account_ready(user_id: int, account_number: int):
         api_id=API_ID,
         api_hash=API_HASH,
     )
-
-
-def _account_label(account_number: int, username: str | None, first_name: str | None) -> str:
-    title = (first_name or username or f"Аккаунт {account_number}").strip()
-    return title
-
-
-def _folder_title(dialog_filter) -> str:
-    title = getattr(dialog_filter, "title", None)
-    text = getattr(title, "text", None)
-    if text:
-        return str(text)
-    if isinstance(title, str) and title.strip():
-        return title.strip()
-    return f"Папка {getattr(dialog_filter, 'id', '?')}"
-
-
-def _folder_peer_ids(peers) -> set[int]:
-    result: set[int] = set()
-    for peer in peers or []:
-        try:
-            result.add(int(get_peer_id(peer)))
-        except Exception:
-            continue
-    return result
-
-
-def _dialog_matches_folder(dialog, dialog_filter) -> bool:
-    entity = getattr(dialog, "entity", None)
-    if entity is None:
-        return False
-
-    try:
-        dialog_peer_id = int(get_peer_id(entity))
-    except Exception:
-        return False
-
-    include_ids = _folder_peer_ids(getattr(dialog_filter, "include_peers", None))
-    exclude_ids = _folder_peer_ids(getattr(dialog_filter, "exclude_peers", None))
-    pinned_ids = _folder_peer_ids(getattr(dialog_filter, "pinned_peers", None))
-
-    if dialog_peer_id in exclude_ids:
-        return False
-
-    if include_ids or pinned_ids:
-        return dialog_peer_id in include_ids or dialog_peer_id in pinned_ids
-
-    if getattr(dialog_filter, "exclude_archived", False) and getattr(dialog, "archived", False):
-        return False
-    if getattr(dialog_filter, "exclude_muted", False):
-        notify_settings = getattr(dialog, "notify_settings", None)
-        if getattr(notify_settings, "mute_until", 0):
-            return False
-    if getattr(dialog_filter, "exclude_read", False) and getattr(dialog, "unread_count", 0) == 0:
-        return False
-    if getattr(dialog_filter, "groups", False) and not getattr(dialog, "is_group", False):
-        return False
-    if getattr(dialog_filter, "broadcasts", False):
-        if not getattr(dialog, "is_channel", False) or getattr(dialog, "is_group", False):
-            return False
-    if getattr(dialog_filter, "bots", False) and not bool(getattr(entity, "bot", False)):
-        return False
-    if getattr(dialog_filter, "contacts", False) and not bool(getattr(entity, "contact", False)):
-        return False
-    if getattr(dialog_filter, "non_contacts", False) and bool(getattr(entity, "contact", False)):
-        return False
-
-    return True
-
-
-async def _load_account_folders(user_id: int, account_number: int) -> tuple[object, list]:
-    client = await _ensure_account_ready(user_id, account_number)
-    if not client:
-        raise RuntimeError("Не удалось подключить аккаунт")
-
-    try:
-        filters = await asyncio.wait_for(client(GetDialogFiltersRequest()), timeout=8.0)
-    except asyncio.TimeoutError as exc:
-        raise RuntimeError("Telegram слишком долго отвечает при загрузке папок") from exc
-
-    filter_items = getattr(filters, "filters", None)
-    if filter_items is None:
-        filter_items = filters or []
-
-    folders = [
-        item
-        for item in filter_items
-        if getattr(item, "id", None) is not None and hasattr(item, "include_peers")
-    ]
-    return client, folders
-
-
-async def _load_folder_chats(user_id: int, account_number: int, folder_id: int) -> tuple[object, object, list[dict]]:
-    client, folders = await _load_account_folders(user_id, account_number)
-    folder = next((item for item in folders if int(getattr(item, "id", -1)) == folder_id), None)
-    if folder is None:
-        raise RuntimeError("Папка не найдена")
-
-    try:
-        dialogs = await asyncio.wait_for(client.get_dialogs(limit=None), timeout=20.0)
-    except asyncio.TimeoutError as exc:
-        raise RuntimeError("Telegram слишком долго отвечает при загрузке чатов папки") from exc
-    result: list[dict] = []
-    seen_chat_ids: set[int] = set()
-
-    for dialog in dialogs:
-        if not _dialog_matches_folder(dialog, folder):
-            continue
-
-        entity = getattr(dialog, "entity", None)
-        if entity is None:
-            continue
-
-        try:
-            chat_id = int(get_peer_id(entity))
-        except Exception:
-            chat_id = int(getattr(entity, "id", 0) or 0)
-        if not chat_id or chat_id in seen_chat_ids:
-            continue
-
-        title = getattr(entity, "title", None) or getattr(entity, "first_name", None)
-        if not title and hasattr(entity, "username") and entity.username:
-            title = f"@{entity.username}"
-        if not title:
-            title = f"Чат {chat_id}"
-
-        seen_chat_ids.add(chat_id)
-        result.append(
-            {
-                "chat_id": chat_id,
-                "chat_name": str(title),
-                "chat_link": _detect_chat_link(None, entity),
-            }
-        )
-
-    result.sort(key=lambda item: item["chat_name"].lower())
-    return client, folder, result
 
 
 def _preferred_account_number(user_id: int) -> int | None:
@@ -499,75 +328,6 @@ def cleanup_old_broadcasts(max_age_minutes: int = 120):
     return deleted
 
 
-def _broadcast_chat_runtime_items(broadcast: dict) -> list[dict]:
-    items = list(broadcast.get("chat_runtime") or [])
-    return sorted(
-        [item for item in items if isinstance(item, dict)],
-        key=lambda item: int(item.get("order", 0) or 0),
-    )
-
-
-def _broadcast_chat_status_label(chat_item: dict) -> str:
-    status = str(chat_item.get("status") or "active")
-    if status == "paused":
-        return "\u23f8\ufe0f \u041f\u0430\u0443\u0437\u0430"
-    if status == "disabled":
-        return "\u26d4 \u041e\u0442\u043a\u043b\u044e\u0447\u0435\u043d"
-    return "\u25b6\ufe0f \u0410\u043a\u0442\u0438\u0432\u0435\u043d"
-
-
-def _broadcast_chat_short_name(chat_item: dict) -> str:
-    return str(chat_item.get("name") or chat_item.get("chat_id") or "?")
-
-
-def _format_chat_error_line(chat_item: dict) -> str:
-    error_text = str(chat_item.get("last_error") or "").strip()
-    if not error_text:
-        return ""
-    trimmed = error_text if len(error_text) <= 120 else f"{error_text[:117]}..."
-    return trimmed
-
-
-def _format_chat_error_log(chat_item: dict) -> str:
-    number = int(chat_item.get("order", 0) or 0) + 1
-    name = _broadcast_chat_short_name(chat_item)
-    chat_id = chat_item.get("chat_id")
-    error_text = str(chat_item.get("last_error") or "").strip() or "-"
-    error_time = float(chat_item.get("last_error_at", 0.0) or 0.0)
-    if error_time > 0:
-        timestamp = datetime.fromtimestamp(error_time, tz=timezone.utc).astimezone()
-        timestamp_text = timestamp.strftime("%Y-%m-%d %H:%M:%S")
-    else:
-        timestamp_text = "-"
-    return (
-        f"[{number}] {name}\n"
-        f"id: {chat_id}\n"
-        f"time: {timestamp_text}\n"
-        f"error: {error_text}"
-    )
-
-
-def _find_chat_runtime_item(broadcast: dict, order: int) -> dict | None:
-    for item in _broadcast_chat_runtime_items(broadcast):
-        item_order = item.get("order", -1)
-        if int(item_order if item_order is not None else -1) == order:
-            return item
-    return None
-
-
-def _active_chat_counts(broadcast: dict) -> tuple[int, int, int]:
-    active = paused = disabled = 0
-    for item in _broadcast_chat_runtime_items(broadcast):
-        status = str(item.get("status") or "active")
-        if status == "paused":
-            paused += 1
-        elif status == "disabled":
-            disabled += 1
-        else:
-            active += 1
-    return active, paused, disabled
-
-
 class BroadcastConfigState(StatesGroup):
     waiting_for_count = State()
 
@@ -578,25 +338,21 @@ class BroadcastConfigState(StatesGroup):
     waiting_for_text = State()
     waiting_for_source_channel = State()
 
-    waiting_for_chat_id = (
-        State()
-    )  # Р вЂќР В»РЎРЏ Р Т‘Р С•Р В±Р В°Р Р†Р В»Р ВµР Р…Р С‘РЎРЏ РЎвЂЎР В°РЎвЂљР В°
+    waiting_for_chat_id = State()  # cleaned comment
 
-    waiting_for_chat_name = State()  # Р вЂќР В»РЎРЏ Р Р†Р Р†Р С•Р Т‘Р В° Р С‘Р СР ВµР Р…Р С‘ РЎвЂЎР В°РЎвЂљР В° Р ВµРЎРѓР В»Р С‘ ID Р Р…Р ВµР Т‘Р С•РЎРѓРЎвЂљРЎС“Р С—Р ВµР Р…
+    waiting_for_chat_name = State()  # cleaned comment
 
-    waiting_for_chat_delete = (
-        State()
-    )  # Р вЂќР В»РЎРЏ РЎС“Р Т‘Р В°Р В»Р ВµР Р…Р С‘РЎРЏ РЎвЂЎР В°РЎвЂљР В°
+    waiting_for_chat_delete = State()  # cleaned comment
 
-    viewing_active_broadcast = State()  # Р вЂќР В»РЎРЏ Р С—РЎР‚Р С•РЎРѓР СР С•РЎвЂљРЎР‚Р В° Р В°Р С”РЎвЂљР С‘Р Р†Р Р…Р С•Р в„– РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р С‘
+    viewing_active_broadcast = State()  # cleaned comment
 
-    waiting_for_text_add = State()  # Р вЂќР В»РЎРЏ Р Т‘Р С•Р В±Р В°Р Р†Р В»Р ВµР Р…Р С‘РЎРЏ Р Р…Р С•Р Р†Р С•Р С–Р С• РЎвЂљР ВµР С”РЎРѓРЎвЂљР В°
+    waiting_for_text_add = State()  # cleaned comment
 
-    waiting_for_text_edit = State()  # Р вЂќР В»РЎРЏ РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘РЎРЏ РЎвЂљР ВµР С”РЎРѓРЎвЂљР В°
+    waiting_for_text_edit = State()  # cleaned comment
 
 
 class FakeMessage:
-    """Р вЂ™РЎРѓР С—Р С•Р СР С•Р С–Р В°РЎвЂљР ВµР В»РЎРЉР Р…РЎвЂ№Р в„– Р С”Р В»Р В°РЎРѓРЎРѓ Р Т‘Р В»РЎРЏ РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘РЎРЏ РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р в„– РЎвЂЎР ВµРЎР‚Р ВµР В· callback"""
+    """Helper class FakeMessage."""
 
     def __init__(self, user_id, query=None):
 
@@ -605,7 +361,7 @@ class FakeMessage:
         self.query = query
 
     async def answer(self, text, **kwargs):
-        """\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u0443\u0435\u0442 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435 \u0438\u043b\u0438 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u0442 \u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u0435."""
+        """Handle answer."""
 
         if not self.query:
             return
@@ -628,19 +384,18 @@ class FakeMessage:
                 )
 
         except Exception as e:
-            # Р вЂўРЎРѓР В»Р С‘ РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р Вµ Р Р…Р Вµ Р С‘Р В·Р СР ВµР Р…Р С‘Р В»Р С•РЎРѓРЎРЉ, Р С—РЎР‚Р С•РЎРѓРЎвЂљР С• Р С•РЎвЂљР С—РЎР‚Р В°Р Р†Р В»РЎРЏР ВµР С РЎС“Р Р†Р ВµР Т‘Р С•Р СР В»Р ВµР Р…Р С‘Р Вµ
-
+  # cleaned comment
             if "not modified" in str(e).lower():
-                await self.query.answer("РІСљвЂ¦", show_alert=False)
+                await self.query.answer("Уже открыто", show_alert=False)
 
             else:
                 print(
-                    f"РІС™В РїС‘РЏ  Р С›РЎв‚¬Р С‘Р В±Р С”Р В° Р С—РЎР‚Р С‘ РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘Р С‘ РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘РЎРЏ: {str(e)}"
+                    f"Ошибка при обработке callback-сообщения: {str(e)}"
                 )
 
 
 async def show_broadcast_menu(message_or_query, user_id: int, is_edit: bool = False):
-    """Р СџР С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°Р ВµРЎвЂљ Р СР ВµР Р…РЎР‹ РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р С‘ (Р С•РЎвЂљР С—РЎР‚Р В°Р Р†Р В»РЎРЏР ВµРЎвЂљ Р С‘Р В»Р С‘ РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚РЎС“Р ВµРЎвЂљ РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р Вµ)"""
+    """Handle show broadcast menu."""
 
     config = get_broadcast_config(user_id)
 
@@ -797,131 +552,10 @@ async def bc_chats_back_callback(query: CallbackQuery):
     await show_broadcast_chats_menu(query, query.from_user.id)
 
 
-def _build_folder_account_picker(user_id: int) -> tuple[str, InlineKeyboardMarkup]:
-    accounts = get_user_accounts(user_id)
-    available_accounts = [
-        (acc_num, username, first_name)
-        for acc_num, _, username, first_name, is_active in accounts
-        if is_active
-    ] or [
-        (acc_num, username, first_name)
-        for acc_num, _, username, first_name, _ in accounts
-    ]
-
-    text = "📂 <b>ИМПОРТ ЧАТОВ ИЗ ПАПКИ</b>\n\nВыбери аккаунт, с которого читать папки Telegram."
-    keyboard_rows = [
-        [
-            InlineKeyboardButton(
-                text=f"👤 {_account_label(acc_num, username, first_name)}",
-                callback_data=f"bc_folder_acc_{acc_num}",
-            )
-        ]
-        for acc_num, username, first_name in available_accounts
-    ]
-    keyboard_rows.append(
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="bc_chats_back")]
-    )
-    return text, InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
-
-
-def _build_folder_list_view(account_number: int, folders: list) -> tuple[str, InlineKeyboardMarkup]:
-    lines = [
-        "📂 <b>ПАПКИ TELEGRAM</b>",
-        "",
-        f"Аккаунт: <b>{account_number}</b>",
-        "",
-    ]
-
-    keyboard_rows = []
-    for folder in folders:
-        folder_id = int(getattr(folder, "id", 0))
-        title = _folder_title(folder)
-        lines.append(f"• <b>{html.escape(title)}</b> — ID {folder_id}")
-        keyboard_rows.append(
-            [
-                InlineKeyboardButton(
-                    text=title[:32],
-                    callback_data=f"bc_folder_pick_{account_number}_{folder_id}",
-                )
-            ]
-        )
-
-    if not folders:
-        lines.append("У этого аккаунта нет пользовательских папок.")
-
-    keyboard_rows.append(
-        [InlineKeyboardButton(text="⬅️ К аккаунтам", callback_data="bc_chats_import")]
-    )
-    keyboard_rows.append(
-        [InlineKeyboardButton(text="⬅️ К чатам", callback_data="bc_chats_back")]
-    )
-    return "\n".join(lines), InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
-
-
-def _build_folder_preview_view(
-    account_number: int,
-    folder,
-    folder_chats: list[dict],
-) -> tuple[str, InlineKeyboardMarkup]:
-    title = _folder_title(folder)
-    lines = [
-        "📂 <b>ПРЕДПРОСМОТР ПАПКИ</b>",
-        "",
-        f"Аккаунт: <b>{account_number}</b>",
-        f"Папка: <b>{html.escape(title)}</b>",
-        f"Найдено чатов: <b>{len(folder_chats)}</b>",
-        "",
-    ]
-
-    preview_items = folder_chats[:12]
-    for idx, item in enumerate(preview_items, 1):
-        name = html.escape(str(item.get("chat_name") or item.get("chat_id")))
-        lines.append(f"{idx}. {name} <code>{item['chat_id']}</code>")
-    if len(folder_chats) > len(preview_items):
-        lines.append(f"... ещё {len(folder_chats) - len(preview_items)}")
-
-    keyboard_rows = []
-    if folder_chats:
-        keyboard_rows.append(
-            [
-                InlineKeyboardButton(
-                    text="➕ Добавить",
-                    callback_data=f"bc_folder_add_{account_number}_{int(folder.id)}",
-                ),
-                InlineKeyboardButton(
-                    text="♻️ Заменить",
-                    callback_data=f"bc_folder_replace_{account_number}_{int(folder.id)}",
-                ),
-            ]
-        )
-    keyboard_rows.append(
-        [
-            InlineKeyboardButton(
-                text="⬅️ К папкам",
-                callback_data=f"bc_folder_acc_{account_number}",
-            )
-        ]
-    )
-    keyboard_rows.append(
-        [InlineKeyboardButton(text="⬅️ К чатам", callback_data="bc_chats_back")]
-    )
-    return "\n".join(lines), InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
-
-
-def _parse_folder_callback(data: str, action: str) -> tuple[int, int]:
-    prefix = f"bc_folder_{action}_"
-    if not data.startswith(prefix):
-        raise ValueError("Неверный callback папки")
-
-    tail = data[len(prefix):]
-    account_text, folder_text = tail.split("_", 1)
-    return int(account_text), int(folder_text)
-
-
 @router.message(Command("broadcast"))
 @router.message(F.text.contains("Рассылка"))
 async def cmd_broadcast_menu(message: Message):
-    """Р вЂњР В»Р В°Р Р†Р Р…Р С•Р Вµ Р СР ВµР Р…РЎР‹ РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р С‘ - Р С‘Р Р…РЎвЂћР С•РЎР‚Р СР В°РЎвЂ Р С‘РЎРЏ Р С‘ РЎС“Р С—РЎР‚Р В°Р Р†Р В»Р ВµР Р…Р С‘Р Вµ"""
+    """Handle cmd broadcast menu."""
 
     user_id = message.from_user.id
 
@@ -2597,7 +2231,7 @@ async def back_to_broadcast_menu_callback(query: CallbackQuery):
 
 @router.callback_query(F.data.startswith("bc_edit_count_"))
 async def bc_edit_count_callback(query: CallbackQuery, state: FSMContext):
-    """Р ВР В·Р СР ВµР Р…Р С‘РЎвЂљРЎРЉ Р С”Р С•Р В»-Р Р†Р С• Р В°Р С”РЎвЂљР С‘Р Р†Р Р…Р С•Р в„– РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р С‘"""
+    """Handle bc edit count callback."""
 
     await query.answer()
 
@@ -2607,13 +2241,13 @@ async def bc_edit_count_callback(query: CallbackQuery, state: FSMContext):
         bid = int(query.data.split("_")[3])
 
     except Exception:
-        await query.answer("Р С›РЎв‚¬Р С‘Р В±Р С”Р В°", show_alert=True)
+        await query.answer("Ошибка", show_alert=True)
 
         return
 
     if bid not in active_broadcasts or active_broadcasts[bid]["user_id"] != user_id:
         await query.answer(
-            "Р В Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р В° Р Р…Р Вµ Р Р…Р В°Р в„–Р Т‘Р ВµР Р…Р В°",
+            "Рассылка не найдена",
             show_alert=True,
         )
 
@@ -2627,13 +2261,13 @@ async def bc_edit_count_callback(query: CallbackQuery, state: FSMContext):
         chat_id=query.message.chat.id,
     )
 
-    info = "Р вЂ™Р Р†Р ВµР Т‘Р С‘ Р Р…Р С•Р Р†Р С•Р Вµ Р С”Р С•Р В»-Р Р†Р С• РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р в„– (1-1000, Р С‘Р В»Р С‘ Р Р…Р В°Р В¶Р СР С‘ Р С›РЎвЂљР СР ВµР Р…Р С‘РЎвЂљРЎРЉ):"
+    info = "Введи новое общее количество сообщений (1-1000) или нажми Отменить:"
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Р С›РЎвЂљР СР ВµР Р…Р С‘РЎвЂљРЎРЉ",
+                    text="Отменить",
                     callback_data=f"view_bc_{bid}",
                 )
             ]
@@ -2645,7 +2279,7 @@ async def bc_edit_count_callback(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("bc_edit_interval_"))
 async def bc_edit_interval_callback(query: CallbackQuery, state: FSMContext):
-    """Р ВР В·Р СР ВµР Р…Р С‘РЎвЂљРЎРЉ Р С‘Р Р…РЎвЂљР ВµРЎР‚Р Р†Р В°Р В» Р В°Р С”РЎвЂљР С‘Р Р†Р Р…Р С•Р в„– РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р С‘"""
+    """Handle bc edit interval callback."""
 
     await query.answer()
 
@@ -2655,13 +2289,13 @@ async def bc_edit_interval_callback(query: CallbackQuery, state: FSMContext):
         bid = int(query.data.split("_")[3])
 
     except Exception:
-        await query.answer("Р С›РЎв‚¬Р С‘Р В±Р С”Р В°", show_alert=True)
+        await query.answer("Ошибка", show_alert=True)
 
         return
 
     if bid not in active_broadcasts or active_broadcasts[bid]["user_id"] != user_id:
         await query.answer(
-            "Р В Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р В° Р Р…Р Вµ Р Р…Р В°Р в„–Р Т‘Р ВµР Р…Р В°",
+            "Рассылка не найдена",
             show_alert=True,
         )
 
@@ -2675,13 +2309,13 @@ async def bc_edit_interval_callback(query: CallbackQuery, state: FSMContext):
         chat_id=query.message.chat.id,
     )
 
-    info = "Р вЂ™Р Р†Р ВµР Т‘Р С‘ Р Р…Р С•Р Р†РЎвЂ№Р в„– Р С‘Р Р…РЎвЂљР ВµРЎР‚Р Р†Р В°Р В» Р Р† Р СР С‘Р Р…РЎС“РЎвЂљР В°РЎвЂ¦ (1-60, Р С‘Р В»Р С‘ Р Р…Р В°Р В¶Р СР С‘ Р С›РЎвЂљР СР ВµР Р…Р С‘РЎвЂљРЎРЉ):"
+    info = "Введи новый интервал в минутах (1-60) или нажми Отменить:"
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Р С›РЎвЂљР СР ВµР Р…Р С‘РЎвЂљРЎРЉ",
+                    text="Отменить",
                     callback_data=f"view_bc_{bid}",
                 )
             ]
@@ -2745,43 +2379,18 @@ async def process_source_channel_input(message: Message, state: FSMContext):
 
 @router.message(BroadcastConfigState.waiting_for_text_add)
 async def process_text_add(message: Message, state: FSMContext):
-    """Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р Т‘Р С•Р В±Р В°Р Р†Р В»Р ВµР Р…Р С‘РЎРЏ Р Р…Р С•Р Р†Р С•Р С–Р С• РЎвЂљР ВµР С”РЎРѓРЎвЂљР В° Р Р† РЎРѓР С—Р С‘РЎРѓР С•Р С”"""
+    """Handle process text add."""
 
     user_id = message.from_user.id
 
-    # Р СџРЎР‚Р С•Р Р†Р ВµРЎР‚РЎРЏР ВµР С РЎвЂЎРЎвЂљР С• РЎРЊРЎвЂљР С• Р Р…Р Вµ Р С•РЎвЂљР СР ВµР Р…Р В°
-
-    if message.text and message.text.startswith("РІвЂ В©РїС‘РЏ"):
+    if message.text == CANCEL_TEXT:
         await state.clear()
-
-        # Р СџР С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°Р ВµР С РЎРѓР С—Р С‘РЎРѓР С•Р С” РЎвЂљР ВµР С”РЎРѓРЎвЂљР С•Р Р†
-
         config = get_broadcast_config(user_id)
-
-        if not config["texts"]:
-            info = (
-                "СЂСџвЂњвЂћ Р РЋР СџР ВР РЋР С›Р С™ Р СћР вЂўР С™Р РЋР СћР С›Р вЂ™\n\n"
-            )
-
-            info += "Р СњР ВµРЎвЂљ Р Т‘Р С•Р В±Р В°Р Р†Р В»Р ВµР Р…Р Р…РЎвЂ№РЎвЂ¦ РЎвЂљР ВµР С”РЎРѓРЎвЂљР С•Р Р†.\n\n"
-
-            info += "Р СњР В°Р В¶Р СР С‘ 'Р вЂќР С•Р В±Р В°Р Р†Р С‘РЎвЂљРЎРЉ Р Р…Р С•Р Р†РЎвЂ№Р в„–' РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ Р Т‘Р С•Р В±Р В°Р Р†Р С‘РЎвЂљРЎРЉ РЎвЂљР ВµР С”РЎРѓРЎвЂљ Р Т‘Р В»РЎРЏ РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р С‘."
-
-        else:
-            info = (
-                "СЂСџвЂњвЂћ Р РЋР СџР ВР РЋР С›Р С™ Р СћР вЂўР С™Р РЋР СћР С›Р вЂ™\n\n"
-            )
-
-            info += f"Р вЂ™РЎРѓР ВµР С–Р С• РЎвЂљР ВµР С”РЎРѓРЎвЂљР С•Р Р†: {len(config['texts'])}\n"
-
-            info += "Р вЂ™РЎвЂ№Р В±Р ВµРЎР‚Р С‘ РЎвЂљР ВµР С”РЎРѓРЎвЂљ Р Т‘Р В»РЎРЏ Р С—РЎР‚Р С•РЎРѓР СР С•РЎвЂљРЎР‚Р В° Р С‘Р В»Р С‘ РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘РЎРЏ.\n"
-
         kb = build_texts_keyboard(config["texts"], back_callback="bc_text")
+        info = _build_text_list_info(config)
 
         data = await state.get_data()
-
         chat_id = data.get("chat_id")
-
         edit_message_id = data.get("edit_message_id")
 
         if edit_message_id and chat_id:
@@ -2793,46 +2402,26 @@ async def process_text_add(message: Message, state: FSMContext):
                     reply_markup=kb,
                     parse_mode="HTML",
                 )
-
             except Exception:
                 await message.answer(info, reply_markup=kb, parse_mode="HTML")
-
         return
 
-    # Р вЂќР С•Р В±Р В°Р Р†Р В»РЎРЏР ВµР С Р Р…Р С•Р Р†РЎвЂ№Р в„– РЎвЂљР ВµР С”РЎРѓРЎвЂљ
-
     config = get_broadcast_config(user_id)
-
     config["texts"].append(message.text)
-
     save_broadcast_config_with_profile(user_id, config)
 
     await state.clear()
 
-    await message.delete()
-
-    # Р СџР С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°Р ВµР С Р С•Р В±Р Р…Р С•Р Р†Р В»Р ВµР Р…Р Р…РЎвЂ№Р в„– РЎРѓР С—Р С‘РЎРѓР С•Р С”
-
-    if not config["texts"]:
-        info = "СЂСџвЂњвЂћ Р РЋР СџР ВР РЋР С›Р С™ Р СћР вЂўР С™Р РЋР СћР С›Р вЂ™\n\n"
-
-        info += "Р СњР ВµРЎвЂљ Р Т‘Р С•Р В±Р В°Р Р†Р В»Р ВµР Р…Р Р…РЎвЂ№РЎвЂ¦ РЎвЂљР ВµР С”РЎРѓРЎвЂљР С•Р Р†.\n\n"
-
-        info += "Р СњР В°Р В¶Р СР С‘ 'Р вЂќР С•Р В±Р В°Р Р†Р С‘РЎвЂљРЎРЉ Р Р…Р С•Р Р†РЎвЂ№Р в„–' РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ Р Т‘Р С•Р В±Р В°Р Р†Р С‘РЎвЂљРЎРЉ РЎвЂљР ВµР С”РЎРѓРЎвЂљ Р Т‘Р В»РЎРЏ РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р С‘."
-
-    else:
-        info = "СЂСџвЂњвЂћ Р РЋР СџР ВР РЋР С›Р С™ Р СћР вЂўР С™Р РЋР СћР С›Р вЂ™\n\n"
-
-        info += f"Р вЂ™РЎРѓР ВµР С–Р С• РЎвЂљР ВµР С”РЎРѓРЎвЂљР С•Р Р†: {len(config['texts'])}\n"
-
-        info += "Р вЂ™РЎвЂ№Р В±Р ВµРЎР‚Р С‘ РЎвЂљР ВµР С”РЎРѓРЎвЂљ Р Т‘Р В»РЎРЏ Р С—РЎР‚Р С•РЎРѓР СР С•РЎвЂљРЎР‚Р В° Р С‘Р В»Р С‘ РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘РЎРЏ.\n"
+    try:
+        await message.delete()
+    except Exception:
+        pass
 
     kb = build_texts_keyboard(config["texts"], back_callback="bc_text")
+    info = _build_text_list_info(config)
 
     data = await state.get_data()
-
     chat_id = data.get("chat_id")
-
     edit_message_id = data.get("edit_message_id")
 
     if edit_message_id and chat_id:
@@ -2844,84 +2433,60 @@ async def process_text_add(message: Message, state: FSMContext):
                 reply_markup=kb,
                 parse_mode="HTML",
             )
-
         except Exception:
             await message.answer(info, reply_markup=kb, parse_mode="HTML")
-
     else:
         await message.answer(info, reply_markup=kb, parse_mode="HTML")
 
-
 @router.message(BroadcastConfigState.waiting_for_text_edit)
 async def process_text_edit(message: Message, state: FSMContext):
-    """Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘РЎРЏ РЎвЂљР ВµР С”РЎРѓРЎвЂљР В°"""
+    """Handle process text edit."""
 
     user_id = message.from_user.id
 
-    # Р СџРЎР‚Р С•Р Р†Р ВµРЎР‚РЎРЏР ВµР С РЎвЂЎРЎвЂљР С• РЎРЊРЎвЂљР С• Р Р…Р Вµ Р С•РЎвЂљР СР ВµР Р…Р В°
-
-    if message.text and message.text.startswith("РІвЂ В©РїС‘РЏ"):
+    if message.text == CANCEL_TEXT:
         data = await state.get_data()
-
         text_index = data.get("text_index", 0)
-
         await state.clear()
 
-        # Р СџР С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°Р ВµР С Р С‘Р В·Р СР ВµР Р…Р ВµР Р…Р Р…РЎвЂ№Р в„– РЎвЂљР ВµР С”РЎРѓРЎвЂљ
-
         config = get_broadcast_config(user_id)
+        texts = config.get("texts") or []
+        if texts:
+            text_index = min(text_index, len(texts) - 1)
+            current_text = str(texts[text_index])
+            parse_mode = config.get("parse_mode", "HTML")
+            preview_text = html.escape(current_text[:3500])
+            suffix = ""
+            if len(current_text) > 3500:
+                suffix = f"\n<i>... обрезано, всего {len(current_text)} символов</i>"
 
-        if text_index >= len(config["texts"]):
-            text_index = len(config["texts"]) - 1
-
-        current_text = config["texts"][text_index]
-
-        parse_mode = config.get("parse_mode", "HTML")
-
-        info = f"СЂСџвЂњвЂ№ Р СћР вЂўР С™Р РЋР Сћ #{text_index + 1}\n\n"
-
-        info += f"СЂСџвЂњСњ <b>Р В¤Р С•РЎР‚Р СР В°РЎвЂљ:</b> {parse_mode}\n"
-
-        info += "РІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓ\n"
-
-        max_text_length = 3500
-
-        if len(current_text) > max_text_length:
-            display_text = current_text[:max_text_length]
-
-            info += f"<code>{display_text}</code>\n"
-
-            info += f"<i>... (РЎвЂљР ВµР С”РЎРѓРЎвЂљ Р С•Р В±РЎР‚Р ВµР В·Р В°Р Р…, Р Р†РЎРѓР ВµР С–Р С• {len(current_text)} РЎРѓР С‘Р СР Р†Р С•Р В»Р С•Р Р†)</i>\n"
-
+            info = (
+                f"✏️ <b>Текст #{text_index + 1}</b>\n\n"
+                f"Формат: <b>{html.escape(parse_mode)}</b>\n"
+                f"{'-' * 24}\n"
+                f"<code>{preview_text}</code>{suffix}\n"
+                f"{'-' * 24}"
+            )
+            kb = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="Изменить",
+                            callback_data=f"text_edit_{text_index}",
+                        ),
+                        InlineKeyboardButton(
+                            text="Удалить",
+                            callback_data=f"text_delete_{text_index}",
+                        ),
+                    ],
+                    [InlineKeyboardButton(text="Назад", callback_data="text_list")],
+                ]
+            )
         else:
-            info += f"<code>{current_text}</code>\n"
-
-        info += "РІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓ\n"
-
-        kb = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="Р ВР В·Р СР ВµР Р…Р С‘РЎвЂљРЎРЉ",
-                        callback_data=f"text_edit_{text_index}",
-                    ),
-                    InlineKeyboardButton(
-                        text="Р Р€Р Т‘Р В°Р В»Р С‘РЎвЂљРЎРЉ",
-                        callback_data=f"text_delete_{text_index}",
-                    ),
-                ],
-                [
-                    InlineKeyboardButton(
-                        text="Р СњР В°Р В·Р В°Р Т‘", callback_data="text_list"
-                    )
-                ],
-            ]
-        )
-
-        data = await state.get_data()
+            info = _build_text_list_info(config)
+            kb = build_texts_keyboard(config["texts"], back_callback="bc_text")
 
         chat_id = data.get("chat_id")
-
         edit_message_id = data.get("edit_message_id")
 
         if edit_message_id and chat_id:
@@ -2933,80 +2498,62 @@ async def process_text_edit(message: Message, state: FSMContext):
                     reply_markup=kb,
                     parse_mode="HTML",
                 )
-
             except Exception:
                 await message.answer(info, reply_markup=kb, parse_mode="HTML")
-
         return
 
-    # Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚РЎС“Р ВµР С РЎвЂљР ВµР С”РЎРѓРЎвЂљ
-
     data = await state.get_data()
-
     text_index = data.get("text_index", 0)
-
     config = get_broadcast_config(user_id)
 
     if text_index < len(config["texts"]):
         config["texts"][text_index] = message.text
-
         save_broadcast_config_with_profile(user_id, config)
 
     await state.clear()
 
-    await message.delete()
+    try:
+        await message.delete()
+    except Exception:
+        pass
 
-    # Р СџР С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°Р ВµР С Р С•Р В±Р Р…Р С•Р Р†Р В»Р ВµР Р…Р Р…РЎвЂ№Р в„– РЎвЂљР ВµР С”РЎРѓРЎвЂљ
+    texts = config.get("texts") or []
+    if texts:
+        text_index = min(text_index, len(texts) - 1)
+        current_text = str(texts[text_index])
+        parse_mode = config.get("parse_mode", "HTML")
+        preview_text = html.escape(current_text[:3500])
+        suffix = ""
+        if len(current_text) > 3500:
+            suffix = f"\n<i>... обрезано, всего {len(current_text)} символов</i>"
 
-    if text_index >= len(config["texts"]):
-        text_index = len(config["texts"]) - 1
-
-    current_text = config["texts"][text_index]
-
-    parse_mode = config.get("parse_mode", "HTML")
-
-    info = f"СЂСџвЂњвЂ№ Р СћР вЂўР С™Р РЋР Сћ #{text_index + 1}\n\n"
-
-    info += f"СЂСџвЂњСњ <b>Р В¤Р С•РЎР‚Р СР В°РЎвЂљ:</b> {parse_mode}\n"
-
-    info += "РІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓ\n"
-
-    max_text_length = 3500
-
-    if len(current_text) > max_text_length:
-        display_text = current_text[:max_text_length]
-
-        info += f"<code>{display_text}</code>\n"
-
-        info += f"<i>... (РЎвЂљР ВµР С”РЎРѓРЎвЂљ Р С•Р В±РЎР‚Р ВµР В·Р В°Р Р…, Р Р†РЎРѓР ВµР С–Р С• {len(current_text)} РЎРѓР С‘Р СР Р†Р С•Р В»Р С•Р Р†)</i>\n"
-
+        info = (
+            f"✏️ <b>Текст #{text_index + 1}</b>\n\n"
+            f"Формат: <b>{html.escape(parse_mode)}</b>\n"
+            f"{'-' * 24}\n"
+            f"<code>{preview_text}</code>{suffix}\n"
+            f"{'-' * 24}"
+        )
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="Изменить",
+                        callback_data=f"text_edit_{text_index}",
+                    ),
+                    InlineKeyboardButton(
+                        text="Удалить",
+                        callback_data=f"text_delete_{text_index}",
+                    ),
+                ],
+                [InlineKeyboardButton(text="Назад", callback_data="text_list")],
+            ]
+        )
     else:
-        info += f"<code>{current_text}</code>\n"
-
-    info += "РІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓРІвЂќРѓ\n"
-
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="Р ВР В·Р СР ВµР Р…Р С‘РЎвЂљРЎРЉ",
-                    callback_data=f"text_edit_{text_index}",
-                ),
-                InlineKeyboardButton(
-                    text="Р Р€Р Т‘Р В°Р В»Р С‘РЎвЂљРЎРЉ",
-                    callback_data=f"text_delete_{text_index}",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="Р СњР В°Р В·Р В°Р Т‘", callback_data="text_list"
-                )
-            ],
-        ]
-    )
+        info = _build_text_list_info(config)
+        kb = build_texts_keyboard(config["texts"], back_callback="bc_text")
 
     chat_id = data.get("chat_id")
-
     edit_message_id = data.get("edit_message_id")
 
     if edit_message_id and chat_id:
@@ -3018,17 +2565,14 @@ async def process_text_edit(message: Message, state: FSMContext):
                 reply_markup=kb,
                 parse_mode="HTML",
             )
-
         except Exception:
             await message.answer(info, reply_markup=kb, parse_mode="HTML")
-
     else:
         await message.answer(info, reply_markup=kb, parse_mode="HTML")
 
-
 @router.message(F.text == COUNT_BUTTON_TEXT)
 async def broadcast_count_button(message: Message, state: FSMContext):
-    """Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р С”Р Р…Р С•Р С—Р С”Р С‘ Р Р†РЎвЂ№Р В±Р С•РЎР‚Р В° Р С”Р С•Р В»Р С‘РЎвЂЎР ВµРЎРѓРЎвЂљР Р†Р В° РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р в„–"""
+    """Handle broadcast count button."""
 
     user_id = message.from_user.id
 
@@ -3056,11 +2600,11 @@ async def broadcast_count_button(message: Message, state: FSMContext):
 
 @router.message(BroadcastConfigState.waiting_for_count)
 async def process_broadcast_count(message: Message, state: FSMContext):
-    """Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р С—Р С•Р В»РЎС“РЎвЂЎР ВµР Р…Р С‘РЎРЏ Р С”Р С•Р В»Р С‘РЎвЂЎР ВµРЎРѓРЎвЂљР Р†Р В° РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р в„–"""
+    """Handle process broadcast count."""
 
     user_id = message.from_user.id
 
-    # Р СџРЎР‚Р С•Р Р†Р ВµРЎР‚РЎРЏР ВµР С РЎвЂЎРЎвЂљР С• РЎРЊРЎвЂљР С• Р Р…Р Вµ Р С”Р Р…Р С•Р С—Р С”Р В° Р С•РЎвЂљР СР ВµР Р…РЎвЂ№
+  # cleaned comment
 
     if message.text == CANCEL_TEXT:
         await return_to_previous_menu(message, state)
@@ -3110,7 +2654,7 @@ async def process_broadcast_count(message: Message, state: FSMContext):
 
         await state.clear()
 
-        # Р Р€Р Т‘Р В°Р В»РЎРЏР ВµР С РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р Вµ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ
+  # cleaned comment
 
         try:
             await message.delete()
@@ -3118,7 +2662,7 @@ async def process_broadcast_count(message: Message, state: FSMContext):
         except Exception:
             pass
 
-        # Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚РЎС“Р ВµР С РЎвЂљР С• Р В¶Р Вµ РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р Вµ РЎРѓ Р С‘Р Р…РЎвЂћР С•РЎР‚Р СР В°РЎвЂ Р С‘Р ВµР в„– Р С• РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р Вµ Р С‘Р В»Р С‘ Р С•РЎвЂљР С—РЎР‚Р В°Р Р†Р В»РЎРЏР ВµР С Р Р…Р С•Р Р†Р С•Р Вµ
+        # Refresh the same menu message or send a new one if editing fails.
 
         chats = get_broadcast_chats(user_id)
 
@@ -3162,7 +2706,7 @@ async def process_broadcast_count(message: Message, state: FSMContext):
 
             except Exception as e:
                 print(
-                    f"Р С›РЎв‚¬Р С‘Р В±Р С”Р В° РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘РЎРЏ: {e}"
+                    f"Broadcast menu refresh error: {e}"
                 )
 
                 import traceback
@@ -3182,7 +2726,7 @@ async def process_broadcast_count(message: Message, state: FSMContext):
 
 @router.message(F.text == INTERVAL_BUTTON_TEXT)
 async def broadcast_interval_button(message: Message, state: FSMContext):
-    """Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р С”Р Р…Р С•Р С—Р С”Р С‘ Р Р†РЎвЂ№Р В±Р С•РЎР‚Р В° Р С‘Р Р…РЎвЂљР ВµРЎР‚Р Р†Р В°Р В»Р В°"""
+    """Handle the interval button."""
 
     user_id = message.from_user.id
 
@@ -3212,11 +2756,11 @@ async def broadcast_interval_button(message: Message, state: FSMContext):
 
 @router.message(BroadcastConfigState.waiting_for_interval)
 async def process_broadcast_interval(message: Message, state: FSMContext):
-    """Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р С—Р С•Р В»РЎС“РЎвЂЎР ВµР Р…Р С‘РЎРЏ Р С‘Р Р…РЎвЂљР ВµРЎР‚Р Р†Р В°Р В»Р В°"""
+    """Handle process broadcast interval."""
 
     user_id = message.from_user.id
 
-    # Р СџРЎР‚Р С•Р Р†Р ВµРЎР‚РЎРЏР ВµР С РЎвЂЎРЎвЂљР С• РЎРЊРЎвЂљР С• Р Р…Р Вµ Р С”Р Р…Р С•Р С—Р С”Р В° Р С•РЎвЂљР СР ВµР Р…РЎвЂ№
+    # If this is not the cancel button, expect a number or a range.
 
     if message.text == CANCEL_TEXT:
         await return_to_previous_menu(message, state)
@@ -3226,10 +2770,10 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
     try:
         text = message.text.strip()
 
-        # Р СџР В°РЎР‚РЎРѓР С‘Р С РЎвЂћР С•РЎР‚Р СР В°РЎвЂљ: Р СР С•Р В¶Р ВµРЎвЂљ Р В±РЎвЂ№РЎвЂљРЎРЉ РЎвЂЎР С‘РЎРѓР В»Р С• Р С‘Р В»Р С‘ Р Т‘Р С‘Р В°Р С—Р В°Р В·Р С•Р Р… Р СР С‘Р Р…-Р СР В°Р С”РЎРѓ
+        # Accept either a single number or a min-max range.
 
         if "-" in text:
-            # Р В¤Р С•РЎР‚Р СР В°РЎвЂљ: Р СР С‘Р Р…-Р СР В°Р С”РЎРѓ
+            # Range format: min-max.
 
             parts = text.split("-")
 
@@ -3259,7 +2803,7 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
 
                     return
 
-                interval_value = text  # Р РЋР С•РЎвЂ¦РЎР‚Р В°Р Р…РЎРЏР ВµР С Р С”Р В°Р С” РЎРѓРЎвЂљРЎР‚Р С•Р С”РЎС“ "Р СР С‘Р Р…-Р СР В°Р С”РЎРѓ"
+                interval_value = text  # Keep the range as a raw string.
 
             except ValueError:
                 await message.answer(
@@ -3269,7 +2813,7 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
                 return
 
         else:
-            # Р С›Р Т‘Р Р…Р С• РЎвЂЎР С‘РЎРѓР В»Р С•
+            # Single number.
 
             try:
                 interval_int = int(text)
@@ -3290,7 +2834,7 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
 
                 return
 
-        # Р РЋР С•РЎвЂ¦РЎР‚Р В°Р Р…РЎРЏР ВµР С Р С”Р С•Р Р…РЎвЂћР С‘Р С–
+        # Save the config.
 
         config = get_broadcast_config(user_id)
 
@@ -3327,7 +2871,7 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
 
         await state.clear()
 
-        # Р Р€Р Т‘Р В°Р В»РЎРЏР ВµР С РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р Вµ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ
+        # Remove the user message.
 
         try:
             await message.delete()
@@ -3335,7 +2879,7 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
         except Exception:
             pass
 
-        # Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚РЎС“Р ВµР С РЎвЂљР С• Р В¶Р Вµ РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р Вµ РЎРѓ Р С‘Р Р…РЎвЂћР С•РЎР‚Р СР В°РЎвЂ Р С‘Р ВµР в„– Р С• РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р Вµ
+        # Refresh the same menu message or send a new one if editing fails.
 
         chats = get_broadcast_chats(user_id)
 
@@ -3379,7 +2923,7 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
 
             except Exception as e:
                 print(
-                    f"Р С›РЎв‚¬Р С‘Р В±Р С”Р В° РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘РЎРЏ: {e}"
+                    f"Broadcast menu refresh error: {e}"
                 )
 
                 import traceback
@@ -3399,11 +2943,11 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
 
 @router.message(BroadcastConfigState.waiting_for_chat_pause)
 async def process_broadcast_chat_pause(message: Message, state: FSMContext):
-    """Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р С—Р С•Р В»РЎС“РЎвЂЎР ВµР Р…Р С‘РЎРЏ Р В·Р В°Р Т‘Р ВµРЎР‚Р В¶Р С”Р С‘ Р СР ВµР В¶Р Т‘РЎС“ РЎвЂЎР В°РЎвЂљР В°Р СР С‘"""
+    """Handle the pause between chats input."""
 
     user_id = message.from_user.id
 
-    # Р СџРЎР‚Р С•Р Р†Р ВµРЎР‚РЎРЏР ВµР С РЎвЂЎРЎвЂљР С• РЎРЊРЎвЂљР С• Р Р…Р Вµ Р С”Р Р…Р С•Р С—Р С”Р В° Р С•РЎвЂљР СР ВµР Р…РЎвЂ№
+    # If this is not the cancel button, expect a number or a range.
 
     if message.text == CANCEL_TEXT:
         await return_to_previous_menu(message, state)
@@ -3413,10 +2957,10 @@ async def process_broadcast_chat_pause(message: Message, state: FSMContext):
     try:
         text = message.text.strip()
 
-        # Р СџРЎР‚Р С•Р Р†Р ВµРЎР‚РЎРЏР ВµР С РЎвЂћР С•РЎР‚Р СР В°РЎвЂљ: Р СР С•Р В¶Р ВµРЎвЂљ Р В±РЎвЂ№РЎвЂљРЎРЉ РЎвЂЎР С‘РЎРѓР В»Р С• Р С‘Р В»Р С‘ Р Т‘Р С‘Р В°Р С—Р В°Р В·Р С•Р Р… Р СР С‘Р Р…-Р СР В°Р С”РЎРѓ
+  # cleaned comment
 
         if "-" in text:
-            # Р В¤Р С•РЎР‚Р СР В°РЎвЂљ: Р СР С‘Р Р…-Р СР В°Р С”РЎРѓ
+  # cleaned comment
 
             parts = text.split("-")
 
@@ -3446,7 +2990,7 @@ async def process_broadcast_chat_pause(message: Message, state: FSMContext):
 
                     return
 
-                pause_value = text  # Р РЋР С•РЎвЂ¦РЎР‚Р В°Р Р…РЎРЏР ВµР С Р С”Р В°Р С” РЎРѓРЎвЂљРЎР‚Р С•Р С”РЎС“ "Р СР С‘Р Р…-Р СР В°Р С”РЎРѓ"
+                pause_value = text  # cleaned comment
 
             except ValueError:
                 await message.answer(
@@ -3456,7 +3000,7 @@ async def process_broadcast_chat_pause(message: Message, state: FSMContext):
                 return
 
         else:
-            # Р С›Р Т‘Р Р…Р С• РЎвЂЎР С‘РЎРѓР В»Р С•
+  # cleaned comment
 
             try:
                 pause_int = int(text)
@@ -3477,7 +3021,7 @@ async def process_broadcast_chat_pause(message: Message, state: FSMContext):
 
                 return
 
-        # Р РЋР С•РЎвЂ¦РЎР‚Р В°Р Р…РЎРЏР ВµР С Р С”Р С•Р Р…РЎвЂћР С‘Р С–
+  # cleaned comment
 
         config = get_broadcast_config(user_id)
 
@@ -3494,7 +3038,7 @@ async def process_broadcast_chat_pause(message: Message, state: FSMContext):
 
         await state.clear()
 
-        # Р Р€Р Т‘Р В°Р В»РЎРЏР ВµР С РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘Р Вµ Р С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљР ВµР В»РЎРЏ
+  # cleaned comment
 
         try:
             await message.delete()
@@ -3502,7 +3046,7 @@ async def process_broadcast_chat_pause(message: Message, state: FSMContext):
         except Exception:
             pass
 
-        # Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚РЎС“Р ВµР С Р СР ВµР Р…РЎР‹ РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р С‘
+  # cleaned comment
 
         if edit_group_id is not None:
             for bid, broadcast in list(active_broadcasts.items()):
@@ -3554,9 +3098,7 @@ async def process_broadcast_chat_pause(message: Message, state: FSMContext):
                 )
 
             except Exception as e:
-                print(
-                    f"Р С›РЎв‚¬Р С‘Р В±Р С”Р В° РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘РЎРЏ: {e}"
-                )
+                print(f"Error refreshing broadcast menu: {e}")
 
                 await message.answer(
                     "\u274c \u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u043c\u0435\u043d\u044e"
@@ -3566,9 +3108,7 @@ async def process_broadcast_chat_pause(message: Message, state: FSMContext):
             await cmd_broadcast_menu(message)
 
     except Exception as e:
-        print(
-            f"Р С›РЎв‚¬Р С‘Р В±Р С”Р В° Р С•Р В±РЎР‚Р В°Р В±Р С•РЎвЂљР С”Р С‘ Р В·Р В°Р Т‘Р ВµРЎР‚Р В¶Р С”Р С‘ Р СР ВµР В¶Р Т‘РЎС“ РЎвЂЎР В°РЎвЂљР В°Р СР С‘: {e}"
-        )
+        print(f"Error processing inter-chat pause: {e}")
 
         await message.answer(
             "\u274c \u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0442\u0435\u043c\u043f"
@@ -3735,7 +3275,12 @@ async def execute_broadcast(
 
     await _send_broadcast_notice(
         message_or_query,
-        f"✅ Рассылка #{broadcast_id} запущена",
+        (
+            "✅ Рассылка запущена\n\n"
+            f"Аккаунт: {payload['account_name']}\n"
+            f"Чатов: {len(chat_ids)}\n"
+            f"Сообщений: {payload['planned_count']}"
+        ),
     )
 
 
@@ -3895,11 +3440,11 @@ async def start_bc_callback(query: CallbackQuery):
     )
 )
 async def start_broadcast_button(message: Message):
-    """Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р С”Р Р…Р С•Р С—Р С”Р С‘ Р В·Р В°Р С—РЎС“РЎРѓР С”Р В° РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р С‘"""
+    """Handle start broadcast button."""
 
     user_id = message.from_user.id
 
-    # Р СџРЎР‚Р С•Р Р†Р ВµРЎР‚РЎРЏР ВµР С Р В·Р В°Р В»Р С•Р С–Р С‘РЎР‚Р С•Р Р†Р В°Р Р… Р В»Р С‘
+  # cleaned comment
 
     accounts = get_user_accounts(user_id)
     available_accounts = [
@@ -3916,13 +3461,13 @@ async def start_broadcast_button(message: Message):
 
         return
 
-    # Р СџР С•Р В»РЎС“РЎвЂЎР В°Р ВµР С Р С”Р С•Р Р…РЎвЂћР С‘Р С– РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р С‘
+  # cleaned comment
 
     config = get_broadcast_config(user_id)
 
     chats = get_broadcast_chats(user_id)
 
-    # Р СџРЎР‚Р С•Р Р†Р ВµРЎР‚РЎРЏР ВµР С РЎвЂЎРЎвЂљР С• Р ВµРЎРѓРЎвЂљРЎРЉ РЎвЂљР ВµР С”РЎРѓРЎвЂљ
+  # cleaned comment
 
     if not _broadcast_content_ready(config):
         await message.answer(_build_missing_content_notice(config))
@@ -3936,13 +3481,13 @@ async def start_broadcast_button(message: Message):
 
         return
 
-    # Р вЂўРЎРѓР В»Р С‘ РЎвЂљР С•Р В»РЎРЉР С”Р С• Р С•Р Т‘Р С‘Р Р… Р В°Р С”Р С”Р В°РЎС“Р Р…РЎвЂљ - Р С‘РЎРѓР С—Р С•Р В»РЎРЉР В·РЎС“Р ВµР С Р ВµР С–Р С•
+  # cleaned comment
 
     if len(available_accounts) == 1:
         account_number = available_accounts[0][0]
 
     else:
-        # Р вЂўРЎРѓР В»Р С‘ Р Р…Р ВµРЎРѓР С”Р С•Р В»РЎРЉР С”Р С• - Р С—Р С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°Р ВµР С Р Р†РЎвЂ№Р В±Р С•РЎР‚
+  # cleaned comment
 
         buttons = []
 
@@ -3976,12 +3521,12 @@ async def start_broadcast_button(message: Message):
 
         return
 
-    # Р вЂ”Р В°Р С—РЎС“РЎРѓР С”Р В°Р ВµР С РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”РЎС“
+  # cleaned comment
 
     await execute_broadcast(message, user_id, account_number, config, chats)
 
 
-# Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р С”Р Р…Р С•Р С—Р С”Р С‘ "Р С’Р С”РЎвЂљР С‘Р Р†Р Р…РЎвЂ№Р Вµ" Р Т‘Р В»РЎРЏ Р С—РЎР‚Р С•РЎРѓР СР С•РЎвЂљРЎР‚Р В° Р В°Р С”РЎвЂљР С‘Р Р†Р Р…РЎвЂ№РЎвЂ¦ РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С•Р С”
+  # cleaned comment
 
 
 @router.message(F.text == "\U0001f4e4 \u0410\u043a\u0442\u0438\u0432\u043d\u044b\u0435")
@@ -4083,7 +3628,7 @@ async def active_broadcasts_button(message: Message):
 
 @router.callback_query(F.data == "bc_chats_add")
 async def bc_chats_add_callback(query: CallbackQuery, state: FSMContext):
-    """Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р С”Р Р…Р С•Р С—Р С”Р С‘ Р Т‘Р С•Р В±Р В°Р Р†Р В»Р ВµР Р…Р С‘РЎРЏ РЎвЂЎР В°РЎвЂљР В° Р С‘Р В· Р СР ВµР Р…РЎР‹"""
+    """Handle bc chats add callback."""
 
     await query.answer()
 
@@ -4499,7 +4044,7 @@ async def process_add_broadcast_chat_with_profile(message: Message, state: FSMCo
 
 @router.callback_query(F.data.startswith("select_chat_"))
 async def select_chat_callback(query: CallbackQuery, state: FSMContext):
-    """Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р Р†РЎвЂ№Р В±Р С•РЎР‚Р В° РЎвЂЎР В°РЎвЂљР В° Р С‘Р В· Р С—Р С•РЎвЂ¦Р С•Р В¶Р С‘РЎвЂ¦"""
+    """Handle chat selection from the intermediate list."""
 
     user_id = query.from_user.id
 
@@ -4521,7 +4066,7 @@ async def select_chat_callback(query: CallbackQuery, state: FSMContext):
             )
             return
 
-        # Р СџР С•Р В»РЎС“РЎвЂЎР В°Р ВµР С Р С‘Р Р…РЎвЂћР С•РЎР‚Р СР В°РЎвЂ Р С‘РЎР‹ Р С• Р Р†РЎвЂ№Р В±РЎР‚Р В°Р Р…Р Р…Р С•Р С РЎвЂЎР В°РЎвЂљР Вµ
+  # cleaned comment
 
         dialogs = await client.get_dialogs(limit=None)
 
@@ -4536,7 +4081,7 @@ async def select_chat_callback(query: CallbackQuery, state: FSMContext):
                 )
                 chat_link = _detect_chat_link(None, entity)
 
-                # Р вЂќР С•Р В±Р В°Р Р†Р В»РЎРЏР ВµР С РЎвЂЎР В°РЎвЂљ
+  # cleaned comment
 
                 add_broadcast_chat_with_profile(
                     user_id, chat_id, chat_name, chat_link=chat_link
@@ -4567,7 +4112,7 @@ async def select_chat_callback(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("manual_chat_"))
 async def manual_chat_callback(query: CallbackQuery, state: FSMContext):
-    """Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р Р†Р Р†Р С•Р Т‘Р В° Р С‘Р СР ВµР Р…Р С‘ РЎвЂЎР В°РЎвЂљР В° Р Р†РЎР‚РЎС“РЎвЂЎР Р…РЎС“РЎР‹"""
+    """Handle manual chat callback."""
 
     try:
         chat_id = int(query.data.split("_")[2])
@@ -4596,11 +4141,11 @@ async def manual_chat_callback(query: CallbackQuery, state: FSMContext):
 
 @router.message(BroadcastConfigState.waiting_for_chat_name)
 async def process_broadcast_chat_name(message: Message, state: FSMContext):
-    """Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р Р†Р Р†Р С•Р Т‘Р В° Р С‘Р СР ВµР Р…Р С‘ РЎвЂЎР В°РЎвЂљР В° Р С—РЎР‚Р С‘ Р Т‘Р С•Р В±Р В°Р Р†Р В»Р ВµР Р…Р С‘Р С‘"""
+    """Handle process broadcast chat name."""
 
     user_id = message.from_user.id
 
-    # Р СџРЎР‚Р С•Р Р†Р ВµРЎР‚РЎРЏР ВµР С Р С•РЎвЂљР СР ВµР Р…РЎС“
+  # cleaned comment
 
     if message.text == CANCEL_TEXT:
         await return_to_previous_menu(message, state)
@@ -4629,11 +4174,11 @@ async def process_broadcast_chat_name(message: Message, state: FSMContext):
 
             return
 
-        # Р вЂќР С•Р В±Р В°Р Р†Р В»РЎРЏР ВµР С РЎвЂЎР В°РЎвЂљ РЎРѓ Р Р†Р Р†Р ВµР Т‘РЎвЂР Р…Р Р…РЎвЂ№Р С Р С‘Р СР ВµР Р…Р ВµР С
+  # cleaned comment
 
         added = add_broadcast_chat_with_profile(user_id, chat_id, chat_name)
 
-        # Р С›РЎвЂљР С—РЎР‚Р В°Р Р†Р В»РЎРЏР ВµР С РЎС“Р Р†Р ВµР Т‘Р С•Р СР В»Р ВµР Р…Р С‘Р Вµ Р С‘ РЎРѓРЎР‚Р В°Р В·РЎС“ РЎС“Р Т‘Р В°Р В»РЎРЏР ВµР С (Р В±РЎвЂ№РЎРѓРЎвЂљРЎР‚Р С•Р Вµ Р Р†РЎРѓР С—Р В»РЎвЂ№Р Р†Р В°РЎР‹РЎвЂ°Р ВµР Вµ РЎС“Р Р†Р ВµР Т‘Р С•Р СР В»Р ВµР Р…Р С‘Р Вµ)
+  # cleaned comment
 
         if added:
             notify_msg = await message.answer(
@@ -4645,7 +4190,7 @@ async def process_broadcast_chat_name(message: Message, state: FSMContext):
                 "\u26a0\ufe0f \u0427\u0430\u0442 \u0441 \u044d\u0442\u0438\u043c ID \u0443\u0436\u0435 \u0435\u0441\u0442\u044c \u0432 \u0441\u043f\u0438\u0441\u043a\u0435"
             )
 
-        # Р Р€Р Т‘Р В°Р В»РЎРЏР ВµР С РЎС“Р Р†Р ВµР Т‘Р С•Р СР В»Р ВµР Р…Р С‘Р Вµ Р С—Р С•РЎвЂЎРЎвЂљР С‘ РЎРѓРЎР‚Р В°Р В·РЎС“ (500Р СРЎРѓ) Р Т‘Р В»РЎРЏ РЎРЊРЎвЂћРЎвЂћР ВµР С”РЎвЂљР В° Р Р†РЎРѓР С—Р В»РЎвЂ№Р Р†Р В°РЎР‹РЎвЂ°Р ВµР С–Р С• РЎРѓР С•Р С•Р В±РЎвЂ°Р ВµР Р…Р С‘РЎРЏ
+  # cleaned comment
 
         import asyncio
 
@@ -4658,7 +4203,7 @@ async def process_broadcast_chat_name(message: Message, state: FSMContext):
         )
 
     except Exception as e:
-        print(f"Р С›РЎв‚¬Р С‘Р В±Р С”Р В° Р Р† process_broadcast_chat_name: {str(e)}")
+        print(f"Error in process_broadcast_chat_name: {str(e)}")
 
         await message.answer(f"\u274c \u041e\u0448\u0438\u0431\u043a\u0430: {str(e)}")
 
@@ -4746,9 +4291,9 @@ async def bc_chats_delete_all_callback(query: CallbackQuery, state: FSMContext):
 
 @router.message(F.text == "\U0001f5d1\ufe0f \u0423\u0434\u0430\u043b\u0438\u0442\u044c")
 async def delete_broadcast_chat_button(message: Message, state: FSMContext):
-    """Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р С”Р Р…Р С•Р С—Р С”Р С‘ РЎС“Р Т‘Р В°Р В»Р ВµР Р…Р С‘РЎРЏ РЎвЂЎР В°РЎвЂљР В° Р С‘Р В· РЎР‚Р В°РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р С‘ - Р РЋР СћР С’Р В Р В«Р в„ў Р С›Р вЂР В Р С’Р вЂР С›Р СћР В§Р ВР С™ (Р Р€Р вЂР В Р С’Р СћР В¬)"""
+    """Handle delete broadcast chat button."""
 
-    # Р В­РЎвЂљР С•РЎвЂљ Р С•Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р В±Р С•Р В»РЎРЉРЎв‚¬Р Вµ Р Р…Р Вµ Р С‘РЎРѓР С—Р С•Р В»РЎРЉР В·РЎС“Р ВµРЎвЂљРЎРѓРЎРЏ
+  # cleaned comment
 
     pass
 
@@ -4840,4 +4385,4 @@ async def return_to_previous_menu(message: Message, state: FSMContext):
     )
 
 
-# Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р С”Р С•Р СР В°Р Р…Р Т‘РЎвЂ№ /se - РЎС“Р С—РЎР‚Р В°Р Р†Р В»Р ВµР Р…Р С‘Р Вµ Р Р†РЎРѓР ВµР СР С‘ РЎРѓР ВµРЎРѓРЎРѓР С‘РЎРЏР СР С‘
+  # cleaned comment

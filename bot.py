@@ -68,6 +68,11 @@ from services.mention_service import (
 )
 
 from services.mention_utils import normalize_chat_id
+from services.operation_guard_service import (
+    end_operation,
+    get_active_operation,
+    try_begin_operation,
+)
 
 from services.broadcast_config_service import load_broadcast_configs
 from services.broadcast_service import delete_broadcast, load_persisted_broadcasts
@@ -144,6 +149,10 @@ ACTIVE_BROADCAST_GUARD_TEXT = (
     "❌ Сейчас у тебя идет активная рассылка.\n\n"
     "Сначала останови её в разделе активных рассылок, а уже потом меняй "
     "сессии, логин, прокси или состояние аккаунтов."
+)
+ACTIVE_OPERATION_GUARD_TEXT = (
+    "⏳ Сейчас уже выполняется другая операция.\n\n"
+    "Дождись её завершения и попробуй ещё раз."
 )
 
 mention_monitors = app_state.mention_monitors
@@ -280,10 +289,42 @@ def _has_running_broadcasts(user_id: int) -> bool:
     )
 
 
+async def _guard_user_operation(target) -> bool:
+    user = getattr(target, "from_user", None)
+    user_id = getattr(user, "id", None)
+    if not user_id:
+        return True
+
+    active_operation = get_active_operation(user_id)
+    if not active_operation:
+        return True
+
+    text = ACTIVE_OPERATION_GUARD_TEXT
+    if isinstance(target, CallbackQuery):
+        try:
+            await target.answer(text, show_alert=True)
+        except Exception:
+            try:
+                await target.message.answer(text)
+            except Exception:
+                pass
+        return False
+
+    try:
+        await target.answer(text)
+    except Exception:
+        pass
+    return False
+
+
 async def _guard_broadcast_sensitive_action(target) -> bool:
     user = getattr(target, "from_user", None)
     user_id = getattr(user, "id", None)
-    if not user_id or not _has_running_broadcasts(user_id):
+    if not user_id:
+        return True
+    if not await _guard_user_operation(target):
+        return False
+    if not _has_running_broadcasts(user_id):
         return True
 
     text = ACTIVE_BROADCAST_GUARD_TEXT
@@ -637,19 +678,38 @@ def _build_proxy_accounts_keyboard(accounts) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def _build_proxy_account_keyboard(account_number: int, has_proxy: bool) -> InlineKeyboardMarkup:
+def _build_proxy_account_keyboard(
+    account_number: int,
+    has_proxy: bool,
+    source: str = "proxy",
+) -> InlineKeyboardMarkup:
+    if source == "se":
+        menu_callback = f"se_proxy_menu_{account_number}"
+        test_callback = f"se_proxy_test_{account_number}"
+        reconnect_callback = f"se_proxy_reconnect_{account_number}"
+        set_callback = f"se_proxy_set_{account_number}"
+        delete_callback = f"se_proxy_delete_{account_number}"
+        back_callback = f"se_account_{account_number}"
+    else:
+        menu_callback = f"proxy_account_{account_number}"
+        test_callback = f"proxy_test_{account_number}"
+        reconnect_callback = f"proxy_reconnect_{account_number}"
+        set_callback = f"proxy_set_{account_number}"
+        delete_callback = f"proxy_delete_{account_number}"
+        back_callback = "proxy_back_accounts"
+
     keyboard = [
         [
             InlineKeyboardButton(
-                text="📡 Проверить", callback_data=f"proxy_test_{account_number}"
+                text="📡 Проверить", callback_data=test_callback
             ),
             InlineKeyboardButton(
-                text="🔌 Переподключить", callback_data=f"proxy_reconnect_{account_number}"
+                text="🔌 Переподключить", callback_data=reconnect_callback
             ),
         ],
         [
             InlineKeyboardButton(
-                text="✏️ Изменить", callback_data=f"proxy_set_{account_number}"
+                text="✏️ Изменить", callback_data=set_callback
             ),
         ]
     ]
@@ -657,22 +717,30 @@ def _build_proxy_account_keyboard(account_number: int, has_proxy: bool) -> Inlin
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    text="🗑 Удалить", callback_data=f"proxy_delete_{account_number}"
+                    text="🗑 Удалить", callback_data=delete_callback
                 )
             ]
         )
     keyboard.append(
-        [InlineKeyboardButton(text="⬅️ К аккаунтам", callback_data="proxy_back_accounts")]
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback)]
     )
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def _build_proxy_input_cancel_keyboard(account_number: int) -> InlineKeyboardMarkup:
+def _build_proxy_input_cancel_keyboard(
+    account_number: int,
+    source: str = "proxy",
+) -> InlineKeyboardMarkup:
+    cancel_callback = (
+        f"se_proxy_menu_{account_number}"
+        if source == "se"
+        else f"proxy_account_{account_number}"
+    )
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="❌ Отмена", callback_data=f"proxy_account_{account_number}"
+                    text="❌ Отмена", callback_data=cancel_callback
                 )
             ]
         ]
@@ -772,6 +840,243 @@ def _build_proxy_account_text(account_number: int, proxy_settings, check_result=
         f"<code>{proxy_block}</code>\n\n"
         f"<code>{check_block}</code>"
     )
+
+
+def _build_empty_sessions_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="➕ Добавить аккаунт", callback_data="add_new_account"
+                )
+            ],
+            [InlineKeyboardButton(text="🔄 Обновить", callback_data="refresh_sessions_menu")],
+            [InlineKeyboardButton(text="⬅️ Назад", callback_data="close_sessions_menu")],
+        ]
+    )
+
+
+def _format_account_list_label(account_number: int, username: str, first_name: str) -> str:
+    label = f"{account_number}"
+    if username:
+        label += f" • @{str(username)[:20]}"
+    elif first_name:
+        label += f" • {str(first_name)[:20]}"
+    else:
+        label += " • Без ника"
+    return label
+
+
+def _build_sessions_accounts_keyboard(accounts) -> InlineKeyboardMarkup:
+    keyboard = []
+    for account_number, _, username, first_name, _ in accounts:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=_format_account_list_label(account_number, username, first_name),
+                    callback_data=f"se_account_{account_number}",
+                )
+            ]
+        )
+
+    keyboard.extend(
+        [
+            [InlineKeyboardButton(text="➕ Добавить аккаунт", callback_data="add_new_account")],
+            [InlineKeyboardButton(text="🔄 Обновить", callback_data="refresh_sessions_menu")],
+            [InlineKeyboardButton(text="⬅️ Назад", callback_data="close_sessions_menu")],
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def _build_sessions_list_text(accounts) -> str:
+    return (
+        "📱 <b>АККАУНТЫ</b>\n\n"
+        "Выбери аккаунт из списка ниже.\n"
+        f"Всего аккаунтов: <b>{len(accounts)}</b>"
+    )
+
+
+async def _sync_account_profiles(
+    user_id: int,
+    account_numbers: list[int] | None = None,
+) -> tuple[int, int]:
+    accounts = get_user_accounts(user_id)
+    if account_numbers is not None:
+        allowed = set(account_numbers)
+        accounts = [account for account in accounts if account[0] in allowed]
+
+    synced = 0
+    total = 0
+
+    for account_number, _, _, _, _ in accounts:
+        total += 1
+        client = None
+        disconnect_after = False
+
+        try:
+            existing = user_authenticated.get(user_id, {}).get(account_number)
+            if existing:
+                try:
+                    if existing.is_connected():
+                        client = existing
+                except Exception:
+                    client = None
+
+            if client is None:
+                candidates = build_session_candidates(user_id, account_number)
+                if not candidates:
+                    continue
+                client = build_telegram_client(
+                    candidates[0],
+                    API_ID,
+                    API_HASH,
+                    get_account_proxy(user_id, account_number),
+                )
+                disconnect_after = True
+                await asyncio.wait_for(client.connect(), timeout=8.0)
+                if not await client.is_user_authorized():
+                    continue
+
+            me = await asyncio.wait_for(client.get_me(), timeout=8.0)
+            if not me:
+                continue
+
+            add_user_account_with_number(
+                user_id,
+                account_number,
+                me.id,
+                me.username or "",
+                me.first_name or "User",
+                me.phone or "",
+            )
+            synced += 1
+        except Exception:
+            continue
+        finally:
+            if disconnect_after and client:
+                try:
+                    await client.disconnect()
+                except Exception:
+                    pass
+
+    return synced, total
+
+
+async def _build_session_account_detail_text(user_id: int, account_number: int) -> str:
+    accounts = get_user_accounts(user_id)
+    account_info = next((acc for acc in accounts if acc[0] == account_number), None)
+    if not account_info:
+        return "❌ Аккаунт не найден"
+
+    _, telegram_id, username, first_name, is_active = account_info
+    session_exists = bool(build_session_candidates(user_id, account_number))
+    proxy_settings = get_account_proxy(user_id, account_number)
+    proxy_check = get_account_proxy_check_result(user_id, account_number)
+
+    client_obj = user_authenticated.get(user_id, {}).get(account_number)
+    try:
+        client_connected = bool(client_obj and client_obj.is_connected())
+    except Exception:
+        client_connected = False
+
+    if client_connected:
+        connection_text = "подключен"
+    elif session_exists:
+        connection_text = "готов к запуску"
+    else:
+        connection_text = "сессия не найдена"
+
+    proxy_status = "есть" if proxy_settings else "нет"
+    proxy_check_status = "не запускалась"
+    if proxy_check:
+        if proxy_check.get("ok") is True:
+            proxy_check_status = "успешно"
+        elif proxy_check.get("ok") is False:
+            proxy_check_status = "ошибка"
+
+    active_for_account = sum(
+        1
+        for broadcast in active_broadcasts.values()
+        if broadcast.get("user_id") == user_id
+        and broadcast.get("account") == account_number
+        and broadcast.get("status") in ("running", "paused")
+    )
+
+    lines = [
+        f"📌 <b>Аккаунт {account_number}</b>",
+        "",
+        f"Имя: <b>{html.escape(str(first_name or 'Неизвестно'))}</b>",
+        (
+            f"Username: <code>@{html.escape(str(username))}</code>"
+            if username
+            else "Username: -"
+        ),
+        f"Telegram ID: <code>{telegram_id}</code>",
+        f"Статус: <b>{'в работе' if is_active else 'выключен'}</b>",
+        f"Подключение: <b>{connection_text}</b>",
+        f"Сессия в боте: <b>{_format_account_added_age(user_id, account_number)}</b>",
+        f"Прокси: <b>{proxy_status}</b>",
+        f"Проверка прокси: <b>{proxy_check_status}</b>",
+        f"Активных рассылок: <b>{active_for_account}</b>",
+    ]
+
+    if proxy_settings:
+        lines.extend(
+            [
+                "",
+                "<b>Прокси</b>",
+                f"<code>{html.escape(format_proxy_summary(proxy_settings))}</code>",
+            ]
+        )
+
+    return "\n".join(lines)
+
+
+def _build_session_account_detail_keyboard(
+    account_number: int,
+    is_active: bool,
+) -> InlineKeyboardMarkup:
+    toggle_text = "⏸️ Отключить" if is_active else "▶️ Включить"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=toggle_text,
+                    callback_data=f"se_toggle_account_{account_number}",
+                ),
+                InlineKeyboardButton(
+                    text="🌐 Прокси",
+                    callback_data=f"se_proxy_menu_{account_number}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔄 Обновить",
+                    callback_data=f"se_refresh_account_{account_number}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🗑️ Удалить",
+                    callback_data=f"se_delete_account_{account_number}",
+                )
+            ],
+            [InlineKeyboardButton(text="⬅️ К аккаунтам", callback_data="se_back_accounts")],
+        ]
+    )
+
+
+async def _show_session_account_detail(query: CallbackQuery, account_number: int) -> None:
+    accounts = get_user_accounts(query.from_user.id)
+    account_info = next((acc for acc in accounts if acc[0] == account_number), None)
+    if not account_info:
+        await query.answer("❌ Аккаунт не найден", show_alert=True)
+        return
+
+    text = await _build_session_account_detail_text(query.from_user.id, account_number)
+    keyboard = _build_session_account_detail_keyboard(account_number, bool(account_info[4]))
+    await query.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
 
 
 def _build_health_accounts_keyboard(accounts) -> InlineKeyboardMarkup:
@@ -888,22 +1193,17 @@ async def check_required_subscription_callback(query: CallbackQuery):
 
 @dp.message(Command("se"))
 async def cmd_sessions(message: Message):
-
     bot_user_id = message.from_user.id
-
     info, inline_keyboard = await get_sessions_text_and_keyboard(bot_user_id)
-
     if not info:
-        await message.answer("❌ Нет добавленных аккаунтов")
-
+        await message.answer(
+            "📱 <b>АККАУНТЫ</b>\n\nПока что тут пусто. Добавь первый аккаунт.",
+            parse_mode="HTML",
+            reply_markup=_build_empty_sessions_keyboard(),
+        )
         return
 
-    await message.answer(
-        info,
-        reply_markup=inline_keyboard,
-        parse_mode="HTML",
-        disable_web_page_preview=True,
-    )
+    await message.answer(info, reply_markup=inline_keyboard, parse_mode="HTML")
 
 
 @dp.message(Command("proxy"))
@@ -998,15 +1298,21 @@ async def proxy_back_accounts_callback(query: CallbackQuery, state: FSMContext):
 
 
 @dp.callback_query(F.data.startswith("proxy_account_"))
+@dp.callback_query(F.data.startswith("se_proxy_menu_"))
 async def proxy_account_callback(query: CallbackQuery, state: FSMContext):
     try:
         await query.answer()
         await state.clear()
         account_number = int(query.data.rsplit("_", 1)[1])
+        source = "se" if query.data.startswith("se_proxy_menu_") else "proxy"
         proxy_settings = get_account_proxy(query.from_user.id, account_number)
         check_result = get_account_proxy_check_result(query.from_user.id, account_number)
         text = _build_proxy_account_text(account_number, proxy_settings, check_result)
-        kb = _build_proxy_account_keyboard(account_number, bool(proxy_settings))
+        kb = _build_proxy_account_keyboard(
+            account_number,
+            bool(proxy_settings),
+            source=source,
+        )
         try:
             await query.message.edit_text(
                 text,
@@ -1028,13 +1334,15 @@ async def proxy_account_callback(query: CallbackQuery, state: FSMContext):
 
 
 @dp.callback_query(F.data.startswith("proxy_set_"))
+@dp.callback_query(F.data.startswith("se_proxy_set_"))
 async def proxy_set_callback(query: CallbackQuery, state: FSMContext):
     if not await _guard_broadcast_sensitive_action(query):
         return
     await query.answer()
     account_number = int(query.data.rsplit("_", 1)[1])
+    source = "se" if query.data.startswith("se_proxy_set_") else "proxy"
     await state.set_state(ProxyStates.waiting_proxy_value)
-    await state.update_data(proxy_account_number=account_number)
+    await state.update_data(proxy_account_number=account_number, proxy_source=source)
     await query.message.edit_text(
         "🌐 <b>Новый прокси</b>\n\n"
         "Отправь прокси одним сообщением.\n"
@@ -1044,7 +1352,7 @@ async def proxy_set_callback(query: CallbackQuery, state: FSMContext):
         "<code>host:port:secret</code>\n"
         "<code>https://t.me/proxy?server=...</code>",
         parse_mode="HTML",
-        reply_markup=_build_proxy_input_cancel_keyboard(account_number),
+        reply_markup=_build_proxy_input_cancel_keyboard(account_number, source=source),
     )
 
 
@@ -1054,6 +1362,7 @@ async def process_proxy_value(message: Message, state: FSMContext):
         return
     data = await state.get_data()
     account_number = data.get("proxy_account_number")
+    source = data.get("proxy_source", "proxy")
     if not account_number:
         await state.clear()
         await message.answer("❌ Потерян аккаунт для настройки прокси.")
@@ -1077,7 +1386,11 @@ async def process_proxy_value(message: Message, state: FSMContext):
                 get_account_proxy_check_result(message.from_user.id, account_number),
             ),
             parse_mode="HTML",
-            reply_markup=_build_proxy_account_keyboard(account_number, True),
+            reply_markup=_build_proxy_account_keyboard(
+                account_number,
+                True,
+                source=source,
+            ),
         )
     except Exception as exc:
         await message.answer(
@@ -1086,97 +1399,132 @@ async def process_proxy_value(message: Message, state: FSMContext):
 
 
 @dp.callback_query(F.data.startswith("proxy_delete_"))
+@dp.callback_query(F.data.startswith("se_proxy_delete_"))
 async def proxy_delete_callback(query: CallbackQuery, state: FSMContext):
     if not await _guard_broadcast_sensitive_action(query):
         return
     await query.answer()
     await state.clear()
     account_number = int(query.data.rsplit("_", 1)[1])
+    source = "se" if query.data.startswith("se_proxy_delete_") else "proxy"
     clear_account_proxy(query.from_user.id, account_number)
     await drop_cached_client(query.from_user.id, account_number)
     await query.message.edit_text(
         _build_proxy_account_text(account_number, None, None),
         parse_mode="HTML",
-        reply_markup=_build_proxy_account_keyboard(account_number, False),
+        reply_markup=_build_proxy_account_keyboard(
+            account_number,
+            False,
+            source=source,
+        ),
     )
 
 
 @dp.callback_query(F.data.startswith("proxy_test_"))
+@dp.callback_query(F.data.startswith("se_proxy_test_"))
 async def proxy_test_callback(query: CallbackQuery):
     if not await _guard_broadcast_sensitive_action(query):
         return
     await query.answer("Проверяю прокси...")
     account_number = int(query.data.rsplit("_", 1)[1])
+    source = "se" if query.data.startswith("se_proxy_test_") else "proxy"
+    user_id = query.from_user.id
+    if not try_begin_operation(user_id, "proxy_test"):
+        return
     proxy_settings = get_account_proxy(query.from_user.id, account_number)
     if not proxy_settings:
+        end_operation(user_id, "proxy_test")
         await query.answer("❌ У этого аккаунта прокси не задан", show_alert=True)
         return
 
-    ok, details, ping_ms = await test_session_proxy(
-        query.from_user.id,
-        account_number,
-        API_ID,
-        API_HASH,
-        proxy_settings,
-    )
-    save_account_proxy_check_result(
-        query.from_user.id,
-        account_number,
-        ok=ok,
-        error=None if ok else details,
-        ping_ms=ping_ms,
-    )
-    status_line = "✅ Прокси рабочий" if ok else "❌ Прокси не отвечает"
-    await query.message.edit_text(
-        _build_proxy_account_text(
+    try:
+        ok, details, ping_ms = await test_session_proxy(
+            query.from_user.id,
             account_number,
+            API_ID,
+            API_HASH,
             proxy_settings,
-            get_account_proxy_check_result(query.from_user.id, account_number),
         )
-        + f"\n\n<b>Проверка:</b>\n<code>{html.escape(status_line)}\n{html.escape(details)}</code>",
-        parse_mode="HTML",
-        reply_markup=_build_proxy_account_keyboard(account_number, True),
-    )
-
-
-@dp.callback_query(F.data.startswith("proxy_reconnect_"))
-async def proxy_reconnect_callback(query: CallbackQuery):
-    if not await _guard_broadcast_sensitive_action(query):
-        return
-    await query.answer("Переподключаю аккаунт...")
-    account_number = int(query.data.rsplit("_", 1)[1])
-    proxy_settings = get_account_proxy(query.from_user.id, account_number)
-
-    await drop_cached_client(query.from_user.id, account_number)
-    client = await ensure_connected_client(
-        query.from_user.id,
-        account_number,
-        api_id=API_ID,
-        api_hash=API_HASH,
-    )
-    if not client:
+        save_account_proxy_check_result(
+            query.from_user.id,
+            account_number,
+            ok=ok,
+            error=None if ok else details,
+            ping_ms=ping_ms,
+        )
+        status_line = "✅ Прокси рабочий" if ok else "❌ Прокси не отвечает"
         await query.message.edit_text(
             _build_proxy_account_text(
                 account_number,
                 proxy_settings,
                 get_account_proxy_check_result(query.from_user.id, account_number),
             )
-            + "\n\n<b>Переподключение:</b>\n<code>❌ Не удалось подключить аккаунт.</code>",
+            + f"\n\n<b>Проверка:</b>\n<code>{html.escape(status_line)}\n{html.escape(details)}</code>",
             parse_mode="HTML",
-            reply_markup=_build_proxy_account_keyboard(account_number, bool(proxy_settings)),
+            reply_markup=_build_proxy_account_keyboard(
+                account_number,
+                True,
+                source=source,
+            ),
         )
-        return
+    finally:
+        end_operation(user_id, "proxy_test")
 
-    await query.message.edit_text(
-        _build_proxy_account_text(
+
+@dp.callback_query(F.data.startswith("proxy_reconnect_"))
+@dp.callback_query(F.data.startswith("se_proxy_reconnect_"))
+async def proxy_reconnect_callback(query: CallbackQuery):
+    if not await _guard_broadcast_sensitive_action(query):
+        return
+    await query.answer("Переподключаю аккаунт...")
+    account_number = int(query.data.rsplit("_", 1)[1])
+    source = "se" if query.data.startswith("se_proxy_reconnect_") else "proxy"
+    user_id = query.from_user.id
+    if not try_begin_operation(user_id, "proxy_reconnect"):
+        return
+    proxy_settings = get_account_proxy(query.from_user.id, account_number)
+
+    try:
+        await drop_cached_client(query.from_user.id, account_number)
+        client = await ensure_connected_client(
+            query.from_user.id,
             account_number,
-            proxy_settings,
-            get_account_proxy_check_result(query.from_user.id, account_number),
+            api_id=API_ID,
+            api_hash=API_HASH,
         )
-        + "\n\n<b>Переподключение:</b>\n<code>✅ Аккаунт снова в памяти и готов к работе.</code>",
-        parse_mode="HTML",
-        reply_markup=_build_proxy_account_keyboard(account_number, bool(proxy_settings)),
-    )
+        if not client:
+            await query.message.edit_text(
+                _build_proxy_account_text(
+                    account_number,
+                    proxy_settings,
+                    get_account_proxy_check_result(query.from_user.id, account_number),
+                )
+                + "\n\n<b>Переподключение:</b>\n<code>❌ Не удалось подключить аккаунт.</code>",
+                parse_mode="HTML",
+                reply_markup=_build_proxy_account_keyboard(
+                    account_number,
+                    bool(proxy_settings),
+                    source=source,
+                ),
+            )
+            return
+
+        await query.message.edit_text(
+            _build_proxy_account_text(
+                account_number,
+                proxy_settings,
+                get_account_proxy_check_result(query.from_user.id, account_number),
+            )
+            + "\n\n<b>Переподключение:</b>\n<code>✅ Аккаунт снова в памяти и готов к работе.</code>",
+            parse_mode="HTML",
+            reply_markup=_build_proxy_account_keyboard(
+                account_number,
+                bool(proxy_settings),
+                source=source,
+            ),
+        )
+    finally:
+        end_operation(user_id, "proxy_reconnect")
 
 
 @dp.callback_query(F.data == "add_new_account")
@@ -1197,81 +1545,37 @@ async def add_new_account_callback(query: CallbackQuery, state: FSMContext):
 
 @dp.callback_query(F.data == "refresh_sessions_menu")
 async def refresh_sessions_menu_callback(query: CallbackQuery, state: FSMContext):
-
+    if not await _guard_user_operation(query):
+        return
     await query.answer("Обновляю...")
-
     await state.clear()
-
     user_id = query.from_user.id
-    synced = 0
-    total = 0
+    if not try_begin_operation(user_id, "refresh_sessions"):
+        return
+    try:
+        synced, total = await _sync_account_profiles(user_id)
 
-    user_clients = app_state.user_authenticated.get(user_id, {}) or {}
-    for account_number in list(user_clients.keys()):
-        total += 1
-        try:
-            client = await ensure_connected_client(
-                user_id,
-                account_number,
-                api_id=API_ID,
-                api_hash=API_HASH,
+        info, inline_keyboard = await get_sessions_text_and_keyboard(user_id)
+
+        refresh_text = "🔄 <b>Список аккаунтов обновлён</b>"
+        if total > 0:
+            refresh_text += f"\nСинхронизировано: <b>{synced}/{total}</b>"
+
+        if not info:
+            await query.message.edit_text(
+                refresh_text + "\n\nПока нет добавленных аккаунтов.",
+                reply_markup=_build_empty_sessions_keyboard(),
+                parse_mode="HTML",
             )
-            if not client:
-                continue
+            return
 
-            me = await client.get_me()
-            if me:
-                add_user_account_with_number(
-                    user_id,
-                    account_number,
-                    me.id,
-                    me.username or "",
-                    me.first_name or "User",
-                    me.phone or "",
-                )
-                synced += 1
-        except Exception:
-            continue
-
-    info, inline_keyboard = await get_sessions_text_and_keyboard(user_id)
-
-    refresh_text = "🔄 <b>Список аккаунтов обновлён</b>"
-    if total > 0:
-        refresh_text += f"\nСинхронизировано: <b>{synced}/{total}</b>"
-
-    if not info:
-        kb = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="➕ Добавить аккаунт", callback_data="add_new_account"
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text="🔄 Обновить", callback_data="refresh_sessions_menu"
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text="⬅️ Назад", callback_data="close_sessions_menu"
-                    )
-                ],
-            ]
-        )
         await query.message.edit_text(
-            refresh_text + "\n\n❌ Нет добавленных аккаунтов",
-            reply_markup=kb,
+            refresh_text + "\n\n" + info,
+            reply_markup=inline_keyboard,
             parse_mode="HTML",
         )
-        return
-
-    await query.message.edit_text(
-        refresh_text + "\n\n" + info,
-        reply_markup=inline_keyboard,
-        parse_mode="HTML",
-        disable_web_page_preview=True,
-    )
+    finally:
+        end_operation(user_id, "refresh_sessions")
 
 
 async def get_sessions_text_and_keyboard(user_id):
@@ -1332,98 +1636,62 @@ async def get_sessions_text_and_keyboard(user_id):
 
     if not accounts:
         return None, None
+    return _build_sessions_list_text(accounts), _build_sessions_accounts_keyboard(accounts)
 
-    info = f"👤 <b>МОИ АККАУНТЫ</b> • {len(accounts)}\n"
-    info += "━━━━━━━━━━━━━━━━━━━━━━\n\n"
 
-    keyboard_buttons = []
-    for account_number, telegram_id, username, first_name, is_active in accounts:
-        session_candidates = [
-            Path(f"{session_base_path(user_id, account_number)}.session"),
-            Path(__file__).resolve().parent
-            / f"session_{user_id}_{account_number}.session",
-        ]
-        session_exists = any(path.exists() for path in session_candidates)
-        client_obj = (
-            user_authenticated.get(user_id, {}).get(account_number)
-            if user_id in user_authenticated
-            else None
+@dp.callback_query(F.data.startswith("se_account_"))
+async def se_account_callback(query: CallbackQuery):
+    await query.answer("Открываю аккаунт...")
+    account_number = int(query.data.rsplit("_", 1)[1])
+    await _show_session_account_detail(query, account_number)
+
+
+@dp.callback_query(F.data.startswith("se_refresh_account_"))
+async def se_refresh_account_callback(query: CallbackQuery):
+    if not await _guard_user_operation(query):
+        return
+    await query.answer("Синхронизирую аккаунт...")
+    account_number = int(query.data.rsplit("_", 1)[1])
+    user_id = query.from_user.id
+    if not try_begin_operation(user_id, "refresh_account"):
+        return
+    try:
+        await _sync_account_profiles(user_id, [account_number])
+        await _show_session_account_detail(query, account_number)
+    finally:
+        end_operation(user_id, "refresh_account")
+
+
+@dp.callback_query(F.data == "se_back_accounts")
+async def se_back_accounts_callback(query: CallbackQuery):
+    await query.answer()
+    info, inline_keyboard = await get_sessions_text_and_keyboard(query.from_user.id)
+    if not info:
+        await query.message.edit_text(
+            "📱 <b>АККАУНТЫ</b>\n\nПока что тут пусто. Добавь первый аккаунт.",
+            parse_mode="HTML",
+            reply_markup=_build_empty_sessions_keyboard(),
         )
-        try:
-            client_in_memory = bool(client_obj and client_obj.is_connected())
-        except Exception:
-            client_in_memory = False
-
-        status_icon = "🟢" if is_active else "🔴"
-        mode_text = "в работе" if is_active else "выключен"
-        if client_in_memory:
-            conn_text = "подключен"
-        elif session_exists:
-            conn_text = "готов к запуску"
-        else:
-            conn_text = "нет сессии"
-
-        first_name_safe = (
-            first_name.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            if first_name
-            else "Неизвестно"
-        )
-        username_safe = (
-            username.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            if username
-            else ""
-        )
-
-        info += f"{status_icon} <b>Аккаунт #{account_number}</b>\n"
-        info += f"👤 <b>Имя:</b> {first_name_safe}\n"
-        info += f"🆔 <b>ID:</b> <code>{telegram_id}</code>\n"
-        if username_safe:
-            info += f"🔗 <b>Username:</b> @{username_safe}\n"
-        info += f"⚙️ <b>Статус:</b> {mode_text}\n"
-        info += f"📡 <b>Подключение:</b> {conn_text}\n"
-        info += f"\u23f3 <b>\u0421\u0435\u0441\u0441\u0438\u044f:</b> {_format_account_added_age(user_id, account_number)}\n"
-        info += "──────────────────────\n\n"
-
-        toggle_text = "⏸️ Отключить" if is_active else "▶️ Включить"
-        keyboard_buttons.append(
-            [
-                InlineKeyboardButton(
-                    text=toggle_text,
-                    callback_data=f"toggle_account_{account_number}",
-                ),
-                InlineKeyboardButton(
-                    text="🗑️ Удалить",
-                    callback_data=f"delete_account_{account_number}",
-                ),
-            ]
-        )
-
-    keyboard_buttons.append(
-        [
-            InlineKeyboardButton(
-                text="➕ Добавить аккаунт", callback_data="add_new_account"
-            )
-        ]
+        return
+    await query.message.edit_text(
+        info,
+        parse_mode="HTML",
+        reply_markup=inline_keyboard,
     )
-    keyboard_buttons.append(
-        [InlineKeyboardButton(text="🔄 Обновить", callback_data="refresh_sessions_menu")]
-    )
-    keyboard_buttons.append(
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="close_sessions_menu")]
-    )
-
-    inline_keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-    return info, inline_keyboard
 
 
 @dp.callback_query(F.data.startswith("toggle_account_"))
+@dp.callback_query(F.data.startswith("se_toggle_account_"))
 async def toggle_account(query: CallbackQuery):
     if not await _guard_broadcast_sensitive_action(query):
         return
 
     bot_user_id = query.from_user.id
 
-    account_number = int(query.data.split("_")[2])
+    account_number = int(query.data.rsplit("_", 1)[1])
+    from_se_detail = query.data.startswith("se_toggle_account_")
+    if not try_begin_operation(bot_user_id, "toggle_account"):
+        return
 
     try:
         accounts = get_user_accounts(bot_user_id)
@@ -1543,24 +1811,30 @@ async def toggle_account(query: CallbackQuery):
 
                 return
 
-        info, inline_keyboard = await get_sessions_text_and_keyboard(bot_user_id)
-
-        if info and inline_keyboard:
-            try:
-                await query.message.edit_text(
-                    info, reply_markup=inline_keyboard, parse_mode="HTML"
-                )
-
-            except Exception:
-                pass
-
+        if from_se_detail:
+            await _show_session_account_detail(query, account_number)
         else:
-            await query.message.edit_text("❌ Нет добавленных аккаунтов")
+            info, inline_keyboard = await get_sessions_text_and_keyboard(bot_user_id)
+            if info and inline_keyboard:
+                try:
+                    await query.message.edit_text(
+                        info, reply_markup=inline_keyboard, parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
+            else:
+                await query.message.edit_text(
+                    "📱 <b>АККАУНТЫ</b>\n\nПока нет добавленных аккаунтов.",
+                    parse_mode="HTML",
+                    reply_markup=_build_empty_sessions_keyboard(),
+                )
 
     except Exception as e:
         print(f"❌ Ошибка в toggle_account: {str(e)}")
 
         await query.answer(f"❌ Ошибка: {str(e)}", show_alert=True)
+    finally:
+        end_operation(bot_user_id, "toggle_account")
 
 
 @dp.callback_query(F.data == "close_sessions_menu")
@@ -1577,13 +1851,16 @@ async def close_sessions_menu_callback(query: CallbackQuery):
 
 
 @dp.callback_query(F.data.startswith("delete_account_"))
+@dp.callback_query(F.data.startswith("se_delete_account_"))
 async def delete_account(query: CallbackQuery):
     if not await _guard_broadcast_sensitive_action(query):
         return
 
     bot_user_id = query.from_user.id
 
-    account_number = int(query.data.split("_")[2])
+    account_number = int(query.data.rsplit("_", 1)[1])
+    if not try_begin_operation(bot_user_id, "delete_account"):
+        return
 
     try:
         if (
@@ -1720,19 +1997,23 @@ async def delete_account(query: CallbackQuery):
         conn.close()
 
         info, inline_keyboard = await get_sessions_text_and_keyboard(bot_user_id)
-
         if info and inline_keyboard:
             await query.message.edit_text(
                 info, reply_markup=inline_keyboard, parse_mode="HTML"
             )
-
         else:
-            await query.message.edit_text("❌ Нет добавленных аккаунтов")
+            await query.message.edit_text(
+                "📱 <b>АККАУНТЫ</b>\n\nПока нет добавленных аккаунтов.",
+                parse_mode="HTML",
+                reply_markup=_build_empty_sessions_keyboard(),
+            )
 
     except Exception as e:
         print(f"❌ Ошибка в delete_account: {str(e)}")
 
         await query.answer(f"❌ Ошибка: {str(e)}", show_alert=True)
+    finally:
+        end_operation(bot_user_id, "delete_account")
 
 
 @dp.message(Command("login"))
