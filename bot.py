@@ -117,6 +117,7 @@ from database import (
     set_account_proxy,
     get_tracked_chats,
     get_broadcast_chats,
+    get_vip_session_limit,
 )
 
 # Ensure console can print Unicode logs (emoji/cyrillic) on Windows terminals.
@@ -661,31 +662,22 @@ def _build_login_proxy_choice_keyboard() -> InlineKeyboardMarkup:
 
 def _build_proxy_accounts_keyboard(accounts) -> InlineKeyboardMarkup:
     keyboard = []
-    for account_number, _, username, first_name, _ in accounts:
-        label_suffix = ""
-        if username:
-            label_suffix = f"@{username}"
-        elif first_name:
-            label_suffix = str(first_name)
-
-        button_text = f"Аккаунт {account_number}"
-        if label_suffix:
-            shortened = label_suffix[:20]
-            if len(label_suffix) > 20:
-                shortened += "..."
-            button_text += f" • {shortened}"
-
+    for account_number, _, username, first_name, is_active in accounts:
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    text=button_text,
+                    text=_format_account_list_label(
+                        account_number,
+                        username,
+                        first_name,
+                        bool(is_active),
+                    ),
                     callback_data=f"proxy_account_{account_number}",
                 )
             ]
         )
-    keyboard.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="close_proxy_menu")])
+    keyboard.append([InlineKeyboardButton(text="?????? ??????????", callback_data="close_proxy_menu")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
 
 def _build_proxy_account_keyboard(
     account_number: int,
@@ -782,6 +774,32 @@ async def _send_phone_prompt(target_message):
     )
 
 
+def _get_user_session_limit_status(user_id: int) -> tuple[int | None, int, bool]:
+    session_limit = get_vip_session_limit(user_id)
+    current_accounts = len(get_user_accounts(user_id))
+    limit_reached = (
+        session_limit is not None
+        and session_limit > 0
+        and current_accounts >= session_limit
+    )
+    return session_limit, current_accounts, limit_reached
+
+
+async def _notify_session_limit_reached(target_message: Message, user_id: int) -> bool:
+    session_limit, current_accounts, limit_reached = _get_user_session_limit_status(user_id)
+    if not limit_reached:
+        return False
+
+    await target_message.answer(
+        "❌ Лимит сессий исчерпан.\n\n"
+        f"Сейчас подключено: <b>{current_accounts}</b>\n"
+        f"Лимит: <b>{session_limit}</b>\n\n"
+        "Удалите лишний аккаунт или увеличьте лимит через VIP-настройки.",
+        parse_mode="HTML",
+    )
+    return True
+
+
 async def _start_login_with_optional_proxy(
     target_message: Message,
     state: FSMContext,
@@ -789,6 +807,10 @@ async def _start_login_with_optional_proxy(
     username: str | None,
     first_name: str | None,
 ):
+    if await _notify_session_limit_reached(target_message, user_id):
+        await state.clear()
+        return
+
     add_or_update_user(user_id, username or "unknown", first_name)
     await state.clear()
     await state.set_state(LoginStates.waiting_proxy_choice)
@@ -1177,28 +1199,27 @@ async def _show_session_account_detail(query: CallbackQuery, account_number: int
 
 def _build_health_accounts_keyboard(accounts) -> InlineKeyboardMarkup:
     keyboard = []
-    for account_number, _, username, first_name, _ in accounts:
-        label = f"Аккаунт {account_number}"
-        if username:
-            label += f" • @{str(username)[:18]}"
-        elif first_name:
-            label += f" • {str(first_name)[:18]}"
+    for account_number, _, username, first_name, is_active in accounts:
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    text=label,
+                    text=_format_account_list_label(
+                        account_number,
+                        username,
+                        first_name,
+                        bool(is_active),
+                    ),
                     callback_data=f"health_account_{account_number}",
                 )
             ]
         )
     keyboard.append(
-        [InlineKeyboardButton(text="🔄 Обновить", callback_data="health_refresh")]
+        [InlineKeyboardButton(text="???? ????????????????", callback_data="health_refresh")]
     )
     keyboard.append(
-        [InlineKeyboardButton(text="⬅️ Закрыть", callback_data="health_close")]
+        [InlineKeyboardButton(text="?????? ??????????????", callback_data="health_close")]
     )
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
 
 async def _build_account_health_text(user_id: int, account_number: int) -> str:
     accounts = get_user_accounts(user_id)
@@ -2162,6 +2183,9 @@ async def cmd_login(message: Message, state: FSMContext):
     if not await _guard_broadcast_sensitive_action(message):
         return
 
+    if await _notify_session_limit_reached(message, message.from_user.id):
+        return
+
     user = message.from_user
 
     print(f"📱 ЛОГИН: Пользователь {user.id} ({user.first_name}) нажал /login")
@@ -2259,6 +2283,10 @@ async def process_phone(message: Message, state: FSMContext):
     phone = f"+{digits_only}" if digits_only else phone_input
 
     user_id = message.from_user.id
+
+    if await _notify_session_limit_reached(message, user_id):
+        await state.clear()
+        return
 
     print(f"???? ??????????: ?????????????? ?????????? {phone} ???? {user_id}")
 
@@ -2705,6 +2733,23 @@ async def process_password(message: Message, state: FSMContext):
                 f"✅ Получена информация об аккаунте (без пароля): {me.first_name} (ID: {me.id})"
             )
 
+            session_limit, current_accounts, limit_reached = _get_user_session_limit_status(user_id)
+            if limit_reached:
+                await message.answer(
+                    "❌ Лимит сессий исчерпан.\n\n"
+                    f"Сейчас подключено: <b>{current_accounts}</b>\n"
+                    f"Лимит: <b>{session_limit}</b>\n\n"
+                    "Удалите лишний аккаунт или увеличьте лимит через VIP-настройки.",
+                    parse_mode="HTML",
+                )
+                await state.clear()
+                try:
+                    await client.disconnect()
+                except Exception:
+                    pass
+                delete_login_session(user_id)
+                return
+
             account_number = add_user_account(
                 user_id, me.id, me.username or "", me.first_name or "User", ""
             )
@@ -2837,6 +2882,23 @@ async def process_password(message: Message, state: FSMContext):
         me = await client.get_me()
 
         print(f"✅ Получена информация об аккаунте: {me.first_name} (ID: {me.id})")
+
+        session_limit, current_accounts, limit_reached = _get_user_session_limit_status(user_id)
+        if limit_reached:
+            await message.answer(
+                "❌ Лимит сессий исчерпан.\n\n"
+                f"Сейчас подключено: <b>{current_accounts}</b>\n"
+                f"Лимит: <b>{session_limit}</b>\n\n"
+                "Удалите лишний аккаунт или увеличьте лимит через VIP-настройки.",
+                parse_mode="HTML",
+            )
+            await state.clear()
+            try:
+                await client.disconnect()
+            except Exception:
+                pass
+            delete_login_session(user_id)
+            return
 
         account_number = add_user_account(
             user_id, me.id, me.username or "", me.first_name or "User", ""

@@ -458,7 +458,7 @@ async def view_bc_callback(query: CallbackQuery):
     finish_ts = _estimate_broadcast_finish_timestamp(b, now_ts=now_ts)
     if next_send_ts is not None:
         info += (
-            f"\u23ed\ufe0f \u0421\u043b\u0435\u0434. \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0430: "
+            f"\u23ed\ufe0f \u0421\u043b\u0435\u0434. \u0448\u0430\u0433 \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0438: "
             f"{_format_eta_duration(next_send_ts - now_ts)}\n"
         )
     if finish_ts is not None:

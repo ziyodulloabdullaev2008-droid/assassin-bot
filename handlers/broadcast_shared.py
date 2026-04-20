@@ -613,7 +613,7 @@ def _build_group_detail_payload(
     info += f"\u0422\u0435\u043c\u043f: {html.escape(pause_text)} \u0441\u0435\u043a\n"
     if next_send_ts is not None:
         info += (
-            f"\u23ed\ufe0f \u0421\u043b\u0435\u0434. \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0430: "
+            f"\u23ed\ufe0f \u0421\u043b\u0435\u0434. \u0448\u0430\u0433 \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0438: "
             f"{_format_eta_duration(next_send_ts - datetime.now(timezone.utc).timestamp())}\n"
         )
     if finish_ts is not None:
@@ -880,7 +880,7 @@ async def _render_broadcast_chat_detail(query: CallbackQuery, bid: int, order: i
     next_send_at = float(item.get("next_send_at", 0.0) or 0.0)
     if next_send_at > 0:
         eta = max(0, int(next_send_at - datetime.now(timezone.utc).timestamp()))
-        info.append(f"\u0421\u043b\u0435\u0434. \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0430: \u0447\u0435\u0440\u0435\u0437 {eta} \u0441\u0435\u043a")
+        info.append(f"\u041f\u043e\u0432\u0442\u043e\u0440 \u0432 \u044d\u0442\u043e\u0442 \u0447\u0430\u0442: \u0447\u0435\u0440\u0435\u0437 {eta} \u0441\u0435\u043a")
 
     error_line = _format_chat_error_line(item)
     if error_line:

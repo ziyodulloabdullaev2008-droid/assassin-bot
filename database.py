@@ -256,6 +256,8 @@ def init_db():
     vip_columns = {row[1] for row in cursor.fetchall()}
     if "expires_at" not in vip_columns:
         cursor.execute("ALTER TABLE vip_users ADD COLUMN expires_at REAL")
+    if "session_limit" not in vip_columns:
+        cursor.execute("ALTER TABLE vip_users ADD COLUMN session_limit INTEGER")
 
     conn.commit()
 
@@ -1134,6 +1136,8 @@ def _ensure_vip_expires_column(cursor):
     vip_columns = {row[1] for row in cursor.fetchall()}
     if "expires_at" not in vip_columns:
         cursor.execute("ALTER TABLE vip_users ADD COLUMN expires_at REAL")
+    if "session_limit" not in vip_columns:
+        cursor.execute("ALTER TABLE vip_users ADD COLUMN session_limit INTEGER")
 
 
 def _cleanup_expired_vip_users(cursor):
@@ -1143,7 +1147,11 @@ def _cleanup_expired_vip_users(cursor):
     )
 
 
-def add_vip_user(user_id: int, days: int = 0) -> bool:
+def add_vip_user(
+    user_id: int,
+    days: int = 0,
+    session_limit: Optional[int] = None,
+) -> bool:
     """Добавить или обновить VIP. days=0 означает навсегда."""
 
     try:
@@ -1151,17 +1159,18 @@ def add_vip_user(user_id: int, days: int = 0) -> bool:
         cursor = conn.cursor()
         _ensure_vip_expires_column(cursor)
         expires_at = None if days <= 0 else time.time() + days * 86400
+        normalized_limit = None if session_limit is None or session_limit <= 0 else int(session_limit)
 
         cursor.execute("SELECT user_id FROM vip_users WHERE user_id = ?", (user_id,))
         if cursor.fetchone():
             cursor.execute(
-                "UPDATE vip_users SET added_at = CURRENT_TIMESTAMP, expires_at = ? WHERE user_id = ?",
-                (expires_at, user_id),
+                "UPDATE vip_users SET added_at = CURRENT_TIMESTAMP, expires_at = ?, session_limit = ? WHERE user_id = ?",
+                (expires_at, normalized_limit, user_id),
             )
         else:
             cursor.execute(
-                "INSERT INTO vip_users (user_id, expires_at) VALUES (?, ?)",
-                (user_id, expires_at),
+                "INSERT INTO vip_users (user_id, expires_at, session_limit) VALUES (?, ?, ?)",
+                (user_id, expires_at, normalized_limit),
             )
 
         conn.commit()
@@ -1259,3 +1268,72 @@ def get_all_vip_users_with_expiry() -> List[Tuple[int, Optional[float]]]:
     except Exception as e:
         print(f"Ошибка при получении VIP пользователей со сроком: {str(e)}")
         return []
+
+def get_all_vip_users_with_details() -> List[Tuple[int, Optional[float], Optional[int]]]:
+    """Return active VIP users with expiry and session limit."""
+
+    try:
+        conn = _connect_db()
+        cursor = conn.cursor()
+        _ensure_vip_expires_column(cursor)
+        _cleanup_expired_vip_users(cursor)
+        conn.commit()
+        cursor.execute(
+            "SELECT user_id, expires_at, session_limit FROM vip_users WHERE expires_at IS NULL OR expires_at > ? ORDER BY user_id",
+            (time.time(),),
+        )
+        vip_list = [(row[0], row[1], row[2]) for row in cursor.fetchall()]
+        conn.close()
+        return vip_list
+
+    except Exception as e:
+        print(f"Error fetching VIP details: {str(e)}")
+        return []
+
+
+def get_vip_session_limit(user_id: int) -> Optional[int]:
+    """Return session limit for a VIP user. None means unlimited."""
+
+    try:
+        conn = _connect_db()
+        cursor = conn.cursor()
+        _ensure_vip_expires_column(cursor)
+        _cleanup_expired_vip_users(cursor)
+        conn.commit()
+        cursor.execute(
+            "SELECT session_limit FROM vip_users WHERE user_id = ? AND (expires_at IS NULL OR expires_at > ?)",
+            (user_id, time.time()),
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        return row[0]
+
+    except Exception as e:
+        print(f"Error fetching VIP session limit: {str(e)}")
+        return None
+
+
+def set_vip_session_limit(user_id: int, session_limit: Optional[int]) -> bool:
+    """Update session limit for an existing VIP user."""
+
+    try:
+        conn = _connect_db()
+        cursor = conn.cursor()
+        _ensure_vip_expires_column(cursor)
+        normalized_limit = None if session_limit is None or session_limit <= 0 else int(session_limit)
+        cursor.execute(
+            "UPDATE vip_users SET session_limit = ? WHERE user_id = ?",
+            (normalized_limit, user_id),
+        )
+        if cursor.rowcount == 0:
+            conn.close()
+            return False
+        conn.commit()
+        conn.close()
+        return True
+
+    except Exception as e:
+        print(f"Error updating VIP session limit: {str(e)}")
+        return False

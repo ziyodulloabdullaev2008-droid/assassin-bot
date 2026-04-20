@@ -230,6 +230,80 @@ async def _notify_broadcast_error(
         pass
 
 
+def _format_duration_brief(total_seconds: float) -> str:
+    seconds = max(int(total_seconds), 0)
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    if hours > 0:
+        return f"{hours}ч {minutes}м"
+    if minutes > 0:
+        return f"{minutes}м {secs}с"
+    return f"{secs}с"
+
+
+async def _notify_broadcast_finished(
+    user_id: int,
+    broadcast_id: int,
+    broadcast: dict,
+    *,
+    sent_count: int,
+    failed_count: int,
+    processed_count: int,
+    chat_runtime: list[dict],
+) -> None:
+    bot = app_state.bot
+    if not bot:
+        return
+
+    account_name = str(
+        broadcast.get("account_name")
+        or f"Аккаунт {broadcast.get('account')}"
+    )
+    total_chats = int(broadcast.get("total_chats", len(chat_runtime)) or len(chat_runtime))
+    successful_chats = sum(1 for item in chat_runtime if int(item.get("sent_count", 0) or 0) > 0)
+    error_items = [
+        item for item in chat_runtime if str(item.get("last_error") or "").strip()
+    ]
+    interval_value = broadcast.get("interval_value", broadcast.get("interval_minutes", "-"))
+    chat_pause_value = broadcast.get("chat_pause", "-")
+    start_time = broadcast.get("start_time")
+    if isinstance(start_time, datetime):
+        duration_text = _format_duration_brief(
+            datetime.now(timezone.utc).timestamp() - start_time.timestamp()
+        )
+    else:
+        duration_text = "-"
+
+    lines = [
+        "✅ <b>Рассылка завершена</b>",
+        "",
+        f"ID: <code>{broadcast_id}</code>",
+        f"Аккаунт: <b>{html.escape(account_name)}</b>",
+        f"Успешно отправлено: <b>{sent_count}</b>",
+        f"Ошибок: <b>{failed_count}</b>",
+        f"Обработано шагов: <b>{processed_count}</b>",
+        f"Чатов с успешной отправкой: <b>{successful_chats}/{total_chats}</b>",
+        f"Интервал: <b>{html.escape(str(interval_value))}</b> мин на чат",
+        f"Темп: <b>{html.escape(str(chat_pause_value))}</b> сек",
+        f"Длительность: <b>{duration_text}</b>",
+    ]
+
+    if error_items:
+        lines.extend(["", "<b>Чаты с ошибками:</b>"])
+        for item in error_items[:10]:
+            chat_name = html.escape(str(item.get("name") or item.get("chat_id")))
+            chat_error = html.escape(str(item.get("last_error") or "")[:120])
+            lines.append(f"• {chat_name}: <code>{chat_error}</code>")
+        if len(error_items) > 10:
+            lines.append(f"• и ещё {len(error_items) - 10}")
+
+    try:
+        await bot.send_message(user_id, "\n".join(lines), parse_mode="HTML")
+    except Exception:
+        pass
+
+
 async def schedule_broadcast_send(
     user_id: int,
     account_number: int,
@@ -338,7 +412,27 @@ async def schedule_broadcast_send(
             )
 
             if processed_count >= count:
+                await update_broadcast_fields(
+                    broadcast_id,
+                    sent_chats=sent_count,
+                    planned_count=count,
+                    failed_count=failed_count,
+                    processed_count=processed_count,
+                    text_index=text_index,
+                    chat_runtime=chat_runtime,
+                    next_global_send_at=next_global_send_at,
+                )
                 await set_status(broadcast_id, "completed")
+                final_broadcast = get_broadcast(broadcast_id) or broadcast
+                await _notify_broadcast_finished(
+                    user_id,
+                    broadcast_id,
+                    final_broadcast,
+                    sent_count=sent_count,
+                    failed_count=failed_count,
+                    processed_count=processed_count,
+                    chat_runtime=chat_runtime,
+                )
                 return
 
             chat_entry = _pick_next_chat_entry(chat_runtime)
@@ -348,7 +442,27 @@ async def schedule_broadcast_send(
                     if sleep_status in {"cancelled", "missing"}:
                         return
                     continue
+                await update_broadcast_fields(
+                    broadcast_id,
+                    sent_chats=sent_count,
+                    planned_count=count,
+                    failed_count=failed_count,
+                    processed_count=processed_count,
+                    text_index=text_index,
+                    chat_runtime=chat_runtime,
+                    next_global_send_at=next_global_send_at,
+                )
                 await set_status(broadcast_id, "completed")
+                final_broadcast = get_broadcast(broadcast_id) or broadcast
+                await _notify_broadcast_finished(
+                    user_id,
+                    broadcast_id,
+                    final_broadcast,
+                    sent_count=sent_count,
+                    failed_count=failed_count,
+                    processed_count=processed_count,
+                    chat_runtime=chat_runtime,
+                )
                 return
 
             wait_until = max(
