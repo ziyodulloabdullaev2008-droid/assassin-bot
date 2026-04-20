@@ -283,14 +283,14 @@ async def cfg_delete_prompt(query: CallbackQuery):
     await query.answer()
     config_id = int(query.data.split("_")[3])
     await query.message.edit_text(
-        "?? <b>??????????? ???????? ???????</b>\n\n"
-        f"??????: <code>{config_id}</code>\n\n"
-        "????? ???????? ??????? ??? ??? ?? ?????????.",
+        "⚠️ <b>Подтвердите удаление конфига</b>\n\n"
+        f"Конфиг: <code>{config_id}</code>\n\n"
+        "После удаления вернуть этот конфиг уже не получится.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[
-                InlineKeyboardButton(text="? ??, ???????", callback_data=f"cfg_delete_{config_id}"),
-                InlineKeyboardButton(text="?? ?????", callback_data=f"cfg_view_{config_id}"),
+                InlineKeyboardButton(text="🗑️ Да, удалить", callback_data=f"cfg_delete_{config_id}"),
+                InlineKeyboardButton(text="⬅️ Назад", callback_data=f"cfg_view_{config_id}"),
             ]]
         ),
     )
