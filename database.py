@@ -265,7 +265,7 @@ def init_db():
 
 
 def add_or_update_user(user_id: int, username: str, first_name: str):
-    """???????? ??? ???????? ????????????."""
+    """Add or update a bot user."""
 
     def _write(conn, cursor):
         cursor.execute(
@@ -282,7 +282,7 @@ def add_or_update_user(user_id: int, username: str, first_name: str):
     _retry_db_write(_write)
 
 def set_user_logged_in(user_id: int, is_logged_in: bool):
-    """?????????? ?????? ?????? ????????????."""
+    """Update login status for a bot user."""
 
     def _write(conn, cursor):
         cursor.execute(
@@ -325,7 +325,7 @@ def get_all_users() -> List[Tuple]:
 
 
 def start_login_session(user_id: int, phone_number: str):
-    """?????? ?????? ??????."""
+    """Create or replace a login session."""
 
     def _write(conn, cursor):
         cursor.execute("DELETE FROM login_sessions WHERE user_id = ?", (user_id,))
@@ -358,7 +358,7 @@ def get_login_session(user_id: int) -> Optional[Tuple]:
 
 
 def update_login_step(user_id: int, step: str):
-    """???????? ??? ??????."""
+    """Update the current login step."""
 
     def _write(conn, cursor):
         cursor.execute(
@@ -369,7 +369,7 @@ def update_login_step(user_id: int, step: str):
     _retry_db_write(_write)
 
 def save_phone_number(user_id: int, phone_number: str):
-    """????????? ????? ????????."""
+    """Save phone number for the login flow."""
 
     def _write(conn, cursor):
         cursor.execute(
@@ -383,7 +383,7 @@ def save_phone_number(user_id: int, phone_number: str):
     _retry_db_write(_write)
 
 def delete_login_session(user_id: int):
-    """??????? ?????? ??????."""
+    """Delete an active login session."""
 
     def _write(conn, cursor):
         cursor.execute("DELETE FROM login_sessions WHERE user_id = ?", (user_id,))
@@ -391,7 +391,7 @@ def delete_login_session(user_id: int):
     _retry_db_write(_write)
 
 def set_phone_code_hash(user_id: int, phone_code_hash: str):
-    """?????????? ??? ???? ?????????????."""
+    """Persist Telegram phone code hash."""
 
     def _write(conn, cursor):
         cursor.execute(
@@ -538,7 +538,7 @@ def _normalize_chat_link(chat_link: Optional[str]) -> Optional[str]:
 def add_broadcast_chat(
     user_id: int, chat_id: int, chat_name: str, chat_link: Optional[str] = None
 ) -> bool:
-    """???????? ??? ? ????????."""
+    """Add or update a broadcast chat."""
 
     normalized_link = _normalize_chat_link(chat_link)
 
@@ -579,7 +579,7 @@ def add_broadcast_chat(
         return _retry_db_write(_update)
 
 def remove_broadcast_chat(user_id: int, chat_id: int):
-    """??????? ??? ?? ????????."""
+    """Remove a broadcast chat by id."""
 
     def _write(conn, cursor):
         cursor.execute(
@@ -728,7 +728,7 @@ def add_user_account_with_number(
     first_name: str,
     phone: str,
 ) -> bool:
-    """???????? ??????? ? ?????????? ???????."""
+    """Add or update a numbered user account."""
 
     try:
         def _write(conn, cursor):
@@ -758,7 +758,7 @@ def add_user_account_with_number(
 
         return _retry_db_write(_write)
     except Exception as e:
-        print(f"?????? ??? ?????????? ????????: {str(e)}")
+        print(f"Error saving user account: {str(e)}")
         return False
 
 def get_user_accounts(bot_user_id: int) -> List[Tuple]:
@@ -834,7 +834,7 @@ def get_account_proxy(bot_user_id: int, account_number: int) -> Optional[dict]:
 
 
 def set_account_proxy(bot_user_id: int, account_number: int, proxy_data: dict) -> None:
-    """????????? ?????? ?? ?????????."""
+    """Set proxy settings for an account."""
 
     proxy_type = str(proxy_data.get("type") or "").strip().lower()
     host = proxy_data.get("host")
@@ -867,7 +867,7 @@ def set_account_proxy(bot_user_id: int, account_number: int, proxy_data: dict) -
     _retry_db_write(_write)
 
 def clear_account_proxy(bot_user_id: int, account_number: int) -> None:
-    """??????? ?????? ????????."""
+    """Clear proxy settings for an account."""
 
     def _write(conn, cursor):
         cursor.execute(
