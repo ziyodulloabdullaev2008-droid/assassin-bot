@@ -1,0 +1,25 @@
+{
+  "texts": [],
+  "text_mode": "random",
+  "text_index": 0,
+  "count": 32,
+  "interval": "15-35",
+  "parse_mode": "HTML",
+  "chat_pause": "600-900",
+  "text_source_type": "channel",
+  "source_channel_ref": "@bzjsjsjsjsiddalsosbanzkxidbamzk",
+  "source_channel_title": "stryxrekru2",
+  "source_posts": [
+    {
+      "message_id": 2,
+      "preview": "ⲡⲣⲟⲇⲁⲉⲙ: ⲁⲕⲕⲁⲩⲏⲧы ⲃ ⲧⲅ ⲗюⳝⲟⲅⲟ ⲣⲉⲅυⲟⲏⲁ ⲡⲟ ⲇⲉɯⲉⲃыⲙ ⳡⲉⲏⲁⲙ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⳅⲃⲉⳅⲇы ⭐ ⲟɥⲉ…"
+    },
+    {
+      "message_id": 3,
+      "preview": "ⲡⲣⲟⲇⲁⲉⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕυ ⲗюⳝⲟⲅⲟ ⲣⲉⲅυⲟⲏⲁ. ⲥⲟφⲧυⲕ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⳅⲃⲉⳅⲇы ⭐ 100 ⳅⲃⲉⳅⲇ 50ⲣ, ⲃы…"
+    }
+  ],
+  "plan_limit_count": 0,
+  "plan_limit_rest": 0,
+  "source_account": 3
+}

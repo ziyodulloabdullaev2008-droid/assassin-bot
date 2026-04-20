@@ -1,0 +1,1272 @@
+{
+  "1": {
+    "user_id": 8519406281,
+    "account": 1,
+    "account_name": "Artem",
+    "chat_ids": [
+      -5273567430
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 2,
+        "preview": "test",
+        "source_ref": "@stryxposti"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "@stryxposti",
+    "source_channel_title": "dev",
+    "chat_pause": "1-3",
+    "total_chats": 1,
+    "sent_chats": 10,
+    "planned_count": 10,
+    "count": 10,
+    "interval_minutes": 1,
+    "interval_value": 1,
+    "start_time": "2026-04-06T17:52:34.978384+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "current_round": 10,
+    "current_chat_index": 0,
+    "text_index": 0,
+    "sent_since_rest": 0
+  },
+  "2": {
+    "user_id": 8519406281,
+    "account": 1,
+    "account_name": "Artem",
+    "chat_ids": [
+      -5273567430
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 2,
+        "preview": "test",
+        "source_ref": "@stryxposti"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "@stryxposti",
+    "source_channel_title": "dev",
+    "chat_pause": "1-3",
+    "total_chats": 1,
+    "sent_chats": 3,
+    "planned_count": 3,
+    "count": 3,
+    "interval_minutes": "1-3",
+    "interval_value": "1-3",
+    "start_time": "2026-04-06T18:59:14.715703+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "current_round": 3,
+    "current_chat_index": 0,
+    "text_index": 0,
+    "sent_since_rest": 0
+  },
+  "3": {
+    "user_id": 8519406281,
+    "account": 1,
+    "account_name": "stryx",
+    "chat_ids": [
+      -1002885992639
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 2,
+        "preview": "ПРОДАЕМ ТЕЛЕГРАМ АККАУНТЫ, БЫСТРО И НАДЁЖНО! В наличии: США 🇺🇸 – 100 рублей Казахстан 🇰🇿 …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "1-3",
+    "total_chats": 1,
+    "sent_chats": 1,
+    "planned_count": 10,
+    "count": 10,
+    "interval_minutes": "10-15",
+    "interval_value": "10-15",
+    "start_time": "2026-04-07T10:01:55.029402+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "current_round": 1,
+    "current_chat_index": 0,
+    "text_index": 0,
+    "sent_since_rest": 0
+  },
+  "4": {
+    "user_id": 8519406281,
+    "account": 1,
+    "account_name": "stryx",
+    "chat_ids": [
+      -1002885992639
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "1-3",
+    "total_chats": 1,
+    "sent_chats": 7,
+    "planned_count": 10,
+    "count": 10,
+    "interval_minutes": "10-15",
+    "interval_value": "10-15",
+    "start_time": "2026-04-07T10:07:41.318358+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "current_round": 7,
+    "current_chat_index": 0,
+    "text_index": 0,
+    "sent_since_rest": 0
+  },
+  "5": {
+    "user_id": 8519406281,
+    "account": 1,
+    "account_name": "stryx",
+    "chat_ids": [
+      -1001373122859
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "1-3",
+    "total_chats": 1,
+    "sent_chats": 1,
+    "planned_count": 10,
+    "count": 10,
+    "interval_minutes": "10-15",
+    "interval_value": "10-15",
+    "start_time": "2026-04-07T11:34:29.289120+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "current_round": 1,
+    "current_chat_index": 0,
+    "text_index": 0,
+    "sent_since_rest": 0
+  },
+  "6": {
+    "user_id": 8519406281,
+    "account": 1,
+    "account_name": "stryx",
+    "chat_ids": [
+      -1001373122859
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "1-3",
+    "total_chats": 1,
+    "sent_chats": 6,
+    "planned_count": 10,
+    "count": 10,
+    "interval_minutes": "10-15",
+    "interval_value": "10-15",
+    "start_time": "2026-04-07T11:34:46.209896+00:00",
+    "status": "cancelled",
+    "failed_count": 1,
+    "current_round": 7,
+    "current_chat_index": 0,
+    "text_index": 0,
+    "sent_since_rest": 0,
+    "last_error": "The channel specified is private and you lack permission to access it. Another reason may be that you were banned from it (caused by SendMessageRequest)"
+  },
+  "7": {
+    "user_id": 8519406281,
+    "account": 2,
+    "account_name": "Stryx shop admin",
+    "chat_ids": [
+      -1003446770420,
+      -1003179731411,
+      -1002698792813,
+      -1002553888451,
+      -1002007578957
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "Прeдлaгаем услуги премиального шопа. В нaличии нaдёжные Tеlegram-aккаyнты высокого качест…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 5,
+        "preview": "Предлагаем вам качественные решения для работы в Telegram. Надёжныe aккayнты, высокий уро…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 6,
+        "preview": "Прeмиальные yслуги нашего шoпа: Telegram-aккayнты высокого уровня и модифицированный coфт…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 7,
+        "preview": "Предлагаем нaдёжные Telegram-аккayнты и качественный coфт для aвтopaccылки с расширенным …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "15-30",
+    "total_chats": 5,
+    "sent_chats": 5,
+    "planned_count": 250,
+    "count": 50,
+    "interval_minutes": "5-11",
+    "interval_value": "5-11",
+    "start_time": "2026-04-08T14:34:51.294066+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "current_round": 1,
+    "current_chat_index": 0,
+    "text_index": 0,
+    "sent_since_rest": 0,
+    "last_wait_seconds": 79,
+    "last_error": "FloodWait"
+  },
+  "8": {
+    "user_id": 8519406281,
+    "account": 2,
+    "account_name": "Stryx shop admin",
+    "chat_ids": [
+      -1003446770420,
+      -1003179731411,
+      -1002698792813,
+      -1002553888451,
+      -1002007578957
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "Прeдлaгаем услуги премиального шопа. В нaличии нaдёжные Tеlegram-aккаyнты высокого качест…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 5,
+        "preview": "Предлагаем вам качественные решения для работы в Telegram. Надёжныe aккayнты, высокий уро…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 6,
+        "preview": "Прeмиальные yслуги нашего шoпа: Telegram-aккayнты высокого уровня и модифицированный coфт…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 7,
+        "preview": "Предлагаем нaдёжные Telegram-аккayнты и качественный coфт для aвтopaccылки с расширенным …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "100-120",
+    "total_chats": 5,
+    "sent_chats": 35,
+    "planned_count": 50,
+    "count": 50,
+    "interval_minutes": "5-11",
+    "interval_value": "5-11",
+    "start_time": "2026-04-08T15:17:10.712562+00:00",
+    "status": "cancelled",
+    "failed_count": 14,
+    "processed_count": 49,
+    "chat_runtime": [
+      {
+        "chat_id": -1003446770420,
+        "next_send_at": 1775667189.261876,
+        "sent_count": 9,
+        "failed_count": 0,
+        "order": 0
+      },
+      {
+        "chat_id": -1003179731411,
+        "next_send_at": 1775667145.8210845,
+        "sent_count": 11,
+        "failed_count": 0,
+        "order": 1
+      },
+      {
+        "chat_id": -1002698792813,
+        "next_send_at": 1775667096.992297,
+        "sent_count": 0,
+        "failed_count": 9,
+        "order": 2
+      },
+      {
+        "chat_id": -1002553888451,
+        "next_send_at": 1775667294.1533387,
+        "sent_count": 10,
+        "failed_count": 0,
+        "order": 3
+      },
+      {
+        "chat_id": -1002007578957,
+        "next_send_at": 1775667567.0173924,
+        "sent_count": 5,
+        "failed_count": 5,
+        "order": 4
+      }
+    ],
+    "next_global_send_at": 1775667072.0739858,
+    "text_index": 0,
+    "last_interval_minutes": 10,
+    "current_chat_id": -1002007578957,
+    "last_error": "The channel specified is private and you lack permission to access it. Another reason may be that you were banned from it (caused by SendMessageRequest)"
+  },
+  "9": {
+    "user_id": 8519406281,
+    "account": 2,
+    "account_name": "Stryx shop admin",
+    "chat_ids": [
+      -1003446770420,
+      -1003179731411,
+      -1002698792813,
+      -1002553888451,
+      -1002007578957
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "Прeдлaгаем услуги премиального шопа. В нaличии нaдёжные Tеlegram-aккаyнты высокого качест…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 5,
+        "preview": "Предлагаем вам качественные решения для работы в Telegram. Надёжныe aккayнты, высокий уро…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 6,
+        "preview": "Прeмиальные yслуги нашего шoпа: Telegram-aккayнты высокого уровня и модифицированный coфт…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 7,
+        "preview": "Предлагаем нaдёжные Telegram-аккayнты и качественный coфт для aвтopaccылки с расширенным …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "100-120",
+    "total_chats": 5,
+    "sent_chats": 1,
+    "planned_count": 50,
+    "count": 50,
+    "interval_minutes": "5-11",
+    "interval_value": "5-11",
+    "start_time": "2026-04-08T15:21:01.513851+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "processed_count": 1,
+    "chat_runtime": [
+      {
+        "chat_id": -1003446770420,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 0
+      },
+      {
+        "chat_id": -1003179731411,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 1
+      },
+      {
+        "chat_id": -1002698792813,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 2
+      },
+      {
+        "chat_id": -1002553888451,
+        "next_send_at": 1775662143.2749166,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 3
+      },
+      {
+        "chat_id": -1002007578957,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 4
+      }
+    ],
+    "next_global_send_at": 1775661782.1891024,
+    "text_index": 0,
+    "last_interval_minutes": 8,
+    "current_chat_id": -1002553888451,
+    "last_error": null
+  },
+  "10": {
+    "user_id": 8519406281,
+    "account": 2,
+    "account_name": "Stryx shop admin",
+    "chat_ids": [
+      -1003446770420,
+      -1003179731411,
+      -1002698792813,
+      -1002553888451,
+      -1002007578957
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "Прeдлaгаем услуги премиального шопа. В нaличии нaдёжные Tеlegram-aккаyнты высокого качест…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 5,
+        "preview": "Предлагаем вам качественные решения для работы в Telegram. Надёжныe aккayнты, высокий уро…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 6,
+        "preview": "Прeмиальные yслуги нашего шoпа: Telegram-aккayнты высокого уровня и модифицированный coфт…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 7,
+        "preview": "Предлагаем нaдёжные Telegram-аккayнты и качественный coфт для aвтopaccылки с расширенным …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "100-120",
+    "total_chats": 5,
+    "sent_chats": 4,
+    "planned_count": 50,
+    "count": 50,
+    "interval_minutes": "5-11",
+    "interval_value": "5-11",
+    "start_time": "2026-04-08T16:51:56.032006+00:00",
+    "status": "cancelled",
+    "failed_count": 2,
+    "processed_count": 6,
+    "chat_runtime": [
+      {
+        "chat_id": -1003446770420,
+        "next_send_at": 1775667945.833345,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Взаимные подписки 💙 Взаимная Подписка Пиар",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003179731411,
+        "next_send_at": 1775667809.5937192,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Взаимные подписки",
+        "status": "disabled",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002698792813,
+        "next_send_at": 1775667417.8692772,
+        "sent_count": 0,
+        "failed_count": 1,
+        "order": 2,
+        "name": "Ищу общения 🩷 девушку • парня",
+        "status": "disabled",
+        "last_error": "You can't write in this chat (caused by SendMessageRequest)",
+        "last_error_at": 1775667117.869262
+      },
+      {
+        "chat_id": -1002553888451,
+        "next_send_at": 1775668559.7488275,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Группа для общения 👑 Знакомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002007578957,
+        "next_send_at": 1775668163.5380454,
+        "sent_count": 0,
+        "failed_count": 1,
+        "order": 4,
+        "name": "Группа Для Общения 💌 Знакомства",
+        "status": "active",
+        "last_error": "The channel specified is private and you lack permission to access it. Another reason may be that you were banned from it (caused by SendMessageRequest)",
+        "last_error_at": 1775667563.5380313
+      }
+    ],
+    "next_global_send_at": 1775668002.7179096,
+    "text_index": 0,
+    "last_interval_minutes": 11,
+    "current_chat_id": -1002553888451,
+    "last_error": null
+  },
+  "11": {
+    "user_id": 8519406281,
+    "account": 2,
+    "account_name": "Stryx shop admin",
+    "chat_ids": [
+      -1003446770420,
+      -1002698792813,
+      -1002553888451
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "Прeдлaгаем услуги премиального шопа. В нaличии нaдёжные Tеlegram-aккаyнты высокого качест…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 5,
+        "preview": "Предлагаем вам качественные решения для работы в Telegram. Надёжныe aккayнты, высокий уро…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 6,
+        "preview": "Прeмиальные yслуги нашего шoпа: Telegram-aккayнты высокого уровня и модифицированный coфт…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 7,
+        "preview": "Предлагаем нaдёжные Telegram-аккayнты и качественный coфт для aвтopaccылки с расширенным …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "100-120",
+    "total_chats": 3,
+    "sent_chats": 1,
+    "planned_count": 50,
+    "count": 50,
+    "interval_minutes": "5-11",
+    "interval_value": "5-11",
+    "start_time": "2026-04-08T17:09:32.538708+00:00",
+    "status": "cancelled",
+    "failed_count": 1,
+    "processed_count": 2,
+    "chat_runtime": [
+      {
+        "chat_id": -1003446770420,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Взаимные подписки 💙 Взаимная Подписка Пиар",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002698792813,
+        "next_send_at": 1775668773.1854258,
+        "sent_count": 0,
+        "failed_count": 1,
+        "order": 1,
+        "name": "Ищу общения 🩷 девушку • парня",
+        "status": "disabled",
+        "last_error": "You can't write in this chat (caused by SendMessageRequest)",
+        "last_error_at": 1775668173.1854064
+      },
+      {
+        "chat_id": -1002553888451,
+        "next_send_at": 1775668944.1621892,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Группа для общения 👑 Знакомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1775668390.8128774,
+    "text_index": 0,
+    "last_interval_minutes": 11,
+    "current_chat_id": -1002553888451,
+    "last_error": null
+  },
+  "12": {
+    "user_id": 8519406281,
+    "account": 2,
+    "account_name": "Stryx shop admin",
+    "chat_ids": [
+      -1003446770420,
+      -1003179731411,
+      -1002553888451
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "Прeдлaгаем услуги премиального шопа. В нaличии нaдёжные Tеlegram-aккаyнты высокого качест…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 5,
+        "preview": "Предлагаем вам качественные решения для работы в Telegram. Надёжныe aккayнты, высокий уро…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 6,
+        "preview": "Прeмиальные yслуги нашего шoпа: Telegram-aккayнты высокого уровня и модифицированный coфт…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 7,
+        "preview": "Предлагаем нaдёжные Telegram-аккayнты и качественный coфт для aвтopaccылки с расширенным …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "100-120",
+    "total_chats": 3,
+    "sent_chats": 7,
+    "planned_count": 50,
+    "count": 50,
+    "interval_minutes": "5-11",
+    "interval_value": "5-11",
+    "start_time": "2026-04-08T17:12:09.306820+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "processed_count": 7,
+    "chat_runtime": [
+      {
+        "chat_id": -1003446770420,
+        "next_send_at": 1775669411.4013977,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Взаимные подписки 💙 Взаимная Подписка Пиар",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003179731411,
+        "next_send_at": 1775669932.955734,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Взаимные подписки",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002553888451,
+        "next_send_at": 1775669642.543625,
+        "sent_count": 3,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Группа для общения 👑 Знакомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1775669390.9108536,
+    "text_index": 0,
+    "last_interval_minutes": 11,
+    "current_chat_id": -1003179731411,
+    "last_error": null
+  },
+  "13": {
+    "user_id": 8519406281,
+    "account": 2,
+    "account_name": "Stryx shop admin",
+    "chat_ids": [
+      -1003446770420,
+      -1003179731411,
+      -1002553888451
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "Прeдлaгаем услуги премиального шопа. В нaличии нaдёжные Tеlegram-aккаyнты высокого качест…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 5,
+        "preview": "Предлагаем вам качественные решения для работы в Telegram. Надёжныe aккayнты, высокий уро…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 6,
+        "preview": "Прeмиальные yслуги нашего шoпа: Telegram-aккayнты высокого уровня и модифицированный coфт…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 7,
+        "preview": "Предлагаем нaдёжные Telegram-аккayнты и качественный coфт для aвтopaccылки с расширенным …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "100-120",
+    "total_chats": 3,
+    "sent_chats": 9,
+    "planned_count": 50,
+    "count": 50,
+    "interval_minutes": "5-11",
+    "interval_value": "5-11",
+    "start_time": "2026-04-08T17:39:07.023193+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "processed_count": 9,
+    "chat_runtime": [
+      {
+        "chat_id": -1003446770420,
+        "next_send_at": 1775671421.3961065,
+        "sent_count": 3,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Взаимные подписки 💙 Взаимная Подписка Пиар",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003179731411,
+        "next_send_at": 1775671432.5079281,
+        "sent_count": 3,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Взаимные подписки",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002553888451,
+        "next_send_at": 1775671382.2534213,
+        "sent_count": 3,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Группа для общения 👑 Знакомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1775671222.5225413,
+    "text_index": 0,
+    "last_interval_minutes": 5,
+    "current_chat_id": -1003446770420,
+    "last_error": null
+  },
+  "14": {
+    "user_id": 8519406281,
+    "account": 2,
+    "account_name": "Stryx shop admin",
+    "chat_ids": [
+      -1003446770420,
+      -1003179731411,
+      -1002553888451
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "Прeдлaгаем услуги премиального шопа. В нaличии нaдёжные Tеlegram-aккаyнты высокого качест…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 5,
+        "preview": "Предлагаем вам качественные решения для работы в Telegram. Надёжныe aккayнты, высокий уро…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 6,
+        "preview": "Прeмиальные yслуги нашего шoпа: Telegram-aккayнты высокого уровня и модифицированный coфт…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 7,
+        "preview": "Предлагаем нaдёжные Telegram-аккayнты и качественный coфт для aвтopaccылки с расширенным …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "100-120",
+    "total_chats": 3,
+    "sent_chats": 50,
+    "planned_count": 50,
+    "count": 50,
+    "interval_minutes": "5-11",
+    "interval_value": "5-11",
+    "start_time": "2026-04-08T18:05:15.266909+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 50,
+    "chat_runtime": [
+      {
+        "chat_id": -1003446770420,
+        "next_send_at": 1775679493.4779646,
+        "sent_count": 16,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Взаимные подписки 💙 Взаимная Подписка Пиар",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003179731411,
+        "next_send_at": 1775679782.464964,
+        "sent_count": 18,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Взаимные подписки",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002553888451,
+        "next_send_at": 1775679965.4663162,
+        "sent_count": 16,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Группа для общения 👑 Знакомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1775679527.9403439,
+    "text_index": 0,
+    "last_interval_minutes": 6,
+    "current_chat_id": -1003179731411,
+    "last_error": null
+  },
+  "15": {
+    "user_id": 8519406281,
+    "account": 3,
+    "account_name": "s1mple (stryx sh0p admin)",
+    "chat_ids": [
+      -1001992262481,
+      -1001617820075
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "TELEGRAM AKKUNTLARINI TEZ VA ISHONCHLI SOTAMIZ! Mavjud: USA 🇺🇸 – 15.000 ming sōm Qozog'is…",
+        "source_ref": "@stryxxsuz"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "@stryxxsuz",
+    "source_channel_title": "Stryx sh0p uzb",
+    "chat_pause": "100-120",
+    "total_chats": 2,
+    "sent_chats": 1,
+    "planned_count": 100,
+    "count": 100,
+    "interval_minutes": "5-11",
+    "interval_value": "5-11",
+    "start_time": "2026-04-09T07:36:17.008267+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "processed_count": 1,
+    "chat_runtime": [
+      {
+        "chat_id": -1001992262481,
+        "next_send_at": 1775720717.295736,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "🩷 𝐓𝐨𝐬𝐡𝐤𝐞𝐧𝐭𝐥𝐢𝐤𝐥𝐚𝐫 𝐓𝐚𝐧𝐢𝐬𝐡𝐮𝐯𝐥𝐚𝐫 𝐂𝐇𝐀𝐓𝐈 🩷",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1001617820075,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 1,
+        "name": "💝 𝐀𝐍𝐃𝐈𝐉𝐎𝐍𝐈𝐌 ❤️ CHAT",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1775720278.9037018,
+    "text_index": 0,
+    "last_interval_minutes": 9,
+    "current_chat_id": -1001992262481,
+    "last_error": null
+  },
+  "16": {
+    "user_id": 8519406281,
+    "account": 2,
+    "account_name": "Stryx shop admin",
+    "chat_ids": [
+      -1003446770420,
+      -1003179731411,
+      -1002553888451
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "Прeдлaгаем услуги премиального шопа. В нaличии нaдёжные Tеlegram-aккаyнты высокого качест…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 5,
+        "preview": "Предлагаем вам качественные решения для работы в Telegram. Надёжныe aккayнты, высокий уро…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 6,
+        "preview": "Прeмиальные yслуги нашего шoпа: Telegram-aккayнты высокого уровня и модифицированный coфт…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 7,
+        "preview": "Предлагаем нaдёжные Telegram-аккayнты и качественный coфт для aвтopaccылки с расширенным …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "100-120",
+    "total_chats": 3,
+    "sent_chats": 50,
+    "planned_count": 50,
+    "count": 50,
+    "interval_minutes": "5-11",
+    "interval_value": "5-11",
+    "start_time": "2026-04-09T07:37:37.748991+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 50,
+    "chat_runtime": [
+      {
+        "chat_id": -1003446770420,
+        "next_send_at": 1775729193.5070913,
+        "sent_count": 16,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Взаимные подписки 💙 Взаимная Подписка Пиар",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003179731411,
+        "next_send_at": 1775729432.8660064,
+        "sent_count": 18,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Взаимные подписки",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002553888451,
+        "next_send_at": 1775728892.828293,
+        "sent_count": 16,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Группа для общения 👑 Знакомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1775728946.7736974,
+    "text_index": 0,
+    "last_interval_minutes": 10,
+    "current_chat_id": -1003179731411,
+    "last_error": null,
+    "last_wait_seconds": 83
+  },
+  "17": {
+    "user_id": 8519406281,
+    "account": 2,
+    "account_name": "Stryx shop admin",
+    "chat_ids": [
+      -1003446770420,
+      -1003179731411,
+      -1002553888451
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "Прeдлaгаем услуги премиального шопа. В нaличии нaдёжные Tеlegram-aккаyнты высокого качест…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 5,
+        "preview": "Предлагаем вам качественные решения для работы в Telegram. Надёжныe aккayнты, высокий уро…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 6,
+        "preview": "Прeмиальные yслуги нашего шoпа: Telegram-aккayнты высокого уровня и модифицированный coфт…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 7,
+        "preview": "Предлагаем нaдёжные Telegram-аккayнты и качественный coфт для aвтopaccылки с расширенным …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "100-120",
+    "total_chats": 3,
+    "sent_chats": 37,
+    "planned_count": 50,
+    "count": 50,
+    "interval_minutes": "5-11",
+    "interval_value": "5-11",
+    "start_time": "2026-04-09T12:04:59.214576+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "processed_count": 37,
+    "chat_runtime": [
+      {
+        "chat_id": -1003446770420,
+        "next_send_at": 1775743213.252136,
+        "sent_count": 13,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Взаимные подписки 💙 Взаимная Подписка Пиар",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003179731411,
+        "next_send_at": 1775743034.2065518,
+        "sent_count": 11,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Взаимные подписки",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002553888451,
+        "next_send_at": 1775742724.1796017,
+        "sent_count": 13,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Группа для общения 👑 Знакомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1775742668.604234,
+    "text_index": 0,
+    "last_interval_minutes": 11,
+    "current_chat_id": -1003446770420,
+    "last_error": null
+  }
+}

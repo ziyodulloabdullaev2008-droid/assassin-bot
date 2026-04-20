@@ -1,0 +1,119 @@
+{
+  "active_id": 1,
+  "next_id": 2,
+  "configs": {
+    "1": {
+      "name": "Конфиг 1",
+      "config": {
+        "count": 1,
+        "interval": "10-20",
+        "parse_mode": "HTML",
+        "texts": [],
+        "text_source_type": "channel",
+        "text_mode": "sequence",
+        "text_index": 0,
+        "source_channel_ref": "@reklamala_shuyerda",
+        "source_channel_title": "Reklama",
+        "source_posts": [
+          {
+            "message_id": 8,
+            "preview": "FAQAT BUGUN ⭐ 💯 TOLOVDA HAR BIR TAKLIF UCHUN 50STARS TOʻLIQ 🎁 TOLOVLAR 1SOATDAN OSHMIDI 🫥…"
+          },
+          {
+            "message_id": 10,
+            "preview": "Tekin nomer bot 👀 Ref: 3000som💵 Min nomer olish; 6000som💵 Promokod: freeNomer 1ta uzb nom…"
+          },
+          {
+            "message_id": 14,
+            "preview": "Tekin nomer bot 👀 Ref: 3000som💵 Min nomer olish; 6000som💵 Promokod: freeNomer 1ta uzb nom…"
+          },
+          {
+            "message_id": 15,
+            "preview": "BOT FAOL ISHLAMOQDA BOTGA OTING VA ARZONGA NAKRUTKA URING ✅ 1K OBUNACHI ATIGI 800 SO’M BO…"
+          },
+          {
+            "message_id": 16,
+            "preview": "https://t.me/+hDzvMFXrMy01MTRi KIM BRINCHI QOSHLB KOMETGA OMAD DEB YOSSA 100 TA ODAMGA BI…"
+          },
+          {
+            "message_id": 17,
+            "preview": "GIFT SOTILADI ARZON NARXLARDA ☄️ 25 TALIK🌹 - 🎁 -- 5.000som 💵 50 TALIK 🚀 - 💐 - 🎂 - 🎁 - 🎁 -…"
+          },
+          {
+            "message_id": 18,
+            "preview": "REAK VA KOM YOZB BERILA OLDINDAN RAXMAT 😁🫂 POST"
+          },
+          {
+            "message_id": 19,
+            "preview": "Tekin nomer bot 👀 Ref: 3000som💵 Min nomer olish; 6000som💵 Promokod: freeNomer 1ta uzb nom…"
+          },
+          {
+            "message_id": 21,
+            "preview": "https://t.me/WeekStarBot?start=ref6138428310"
+          },
+          {
+            "message_id": 22,
+            "preview": "FAQAT BUGUN 💯TOLOVDA HAR BIR TAKLIF UCHUN 50STARS TOʻLIQ 💐 TOLOVLAR 1SOATDAN OSHMIDI 🍃 Bo…"
+          },
+          {
+            "message_id": 25,
+            "preview": "😐 Telegram uchun arzon va tez nakrutka — 1000 ta obunachi atigi 200 so‘m 💵 ✅ Barchasi Tel…"
+          },
+          {
+            "message_id": 26,
+            "preview": "https://t.me/virus_play_bot/app?startapp=roulette_inviteCode0sHMYp0b8BZRZwMg"
+          },
+          {
+            "message_id": 27,
+            "preview": "VIRUS JINNIMI? 🔋 YANA FREE SPINDAN TUSHDI🚕 ✅ Omadilani snab ko’rila 😎 @Virus_play_bot"
+          },
+          {
+            "message_id": 28,
+            "preview": "@UCPointBot 🎮 PUBG UC ishlash endi juda oson! Bot orqali ochko (point) to'plang va ularni…"
+          }
+        ],
+        "chat_pause": "1-3",
+        "plan_limit_count": 0,
+        "plan_limit_rest": 0,
+        "source_account": 1
+      },
+      "chats": [
+        [
+          -1003770130961,
+          "Sotiladi 30000 soʻm",
+          "https://t.me/TEKIN_REKLAMALARIMIZKU"
+        ],
+        [
+          -1003700608959,
+          "REKLAMA SERVIS",
+          "https://t.me/reklama_servis_uzb"
+        ],
+        [
+          -1003530950187,
+          "DLS MOD SAVDO",
+          "https://t.me/dls_chat_guruppa"
+        ],
+        [
+          -1002667299841,
+          "𝐓𝐞𝐤𝐢𝐧 𝐑𝐞𝐤𝐥𝐚𝐦𝐚 🫆",
+          "https://t.me/TekinReklama287"
+        ],
+        [
+          -1002458058163,
+          "GLOBAL FORUM",
+          "https://t.me/global_forums"
+        ],
+        [
+          -1002313293325,
+          "𝗩𝗭 𝗥𝗘𝗔𝗞 𝗥𝗘𝗞 𝗚𝗥🎀",
+          "https://t.me/vz_reak_rek_tekin"
+        ],
+        [
+          -1001819035559,
+          "PUBG Reak vz tekin reklama",
+          "https://t.me/halolkasblar"
+        ]
+      ]
+    }
+  }
+}

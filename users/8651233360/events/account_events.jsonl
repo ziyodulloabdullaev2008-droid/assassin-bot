@@ -1,0 +1,12 @@
+{"ts": 1776617077.80175, "account_number": 5, "kind": "broadcast_running", "level": "info", "broadcast_id": 40, "text": "Broadcast resumed. (#40)"}
+{"ts": 1776617081.66943, "account_number": 3, "kind": "broadcast_running", "level": "info", "broadcast_id": 41, "text": "Broadcast resumed. (#41)"}
+{"ts": 1776617343.437888, "account_number": 5, "kind": "broadcast_running", "level": "info", "broadcast_id": 40, "text": "Broadcast resumed. (#40)"}
+{"ts": 1776617347.075668, "account_number": 3, "kind": "broadcast_running", "level": "info", "broadcast_id": 41, "text": "Broadcast resumed. (#41)"}
+{"ts": 1776617865.735187, "account_number": 5, "kind": "broadcast_completed", "level": "info", "broadcast_id": 40, "text": "Broadcast completed. (#40)"}
+{"ts": 1776618295.368201, "account_number": 3, "kind": "broadcast_completed", "level": "info", "broadcast_id": 41, "text": "Broadcast completed. (#41)"}
+{"ts": 1776618496.223412, "account_number": 5, "kind": "broadcast_started", "level": "info", "broadcast_id": 42, "text": "Broadcast #42 started: 16 messages, 7 chats."}
+{"ts": 1776618518.363751, "account_number": 3, "kind": "broadcast_started", "level": "info", "broadcast_id": 43, "text": "Broadcast #43 started: 16 messages, 8 chats."}
+{"ts": 1776629817.62798, "account_number": 3, "kind": "broadcast_completed", "level": "info", "broadcast_id": 43, "text": "Broadcast completed. (#43)"}
+{"ts": 1776630028.495987, "account_number": 5, "kind": "broadcast_completed", "level": "info", "broadcast_id": 42, "text": "Broadcast completed. (#42)"}
+{"ts": 1776649317.258276, "account_number": 5, "kind": "broadcast_started", "level": "info", "broadcast_id": 44, "text": "Broadcast #44 started: 35 messages, 7 chats."}
+{"ts": 1776649331.676283, "account_number": 3, "kind": "broadcast_started", "level": "info", "broadcast_id": 45, "text": "Broadcast #45 started: 32 messages, 8 chats."}

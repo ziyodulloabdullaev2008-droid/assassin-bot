@@ -1,0 +1,141 @@
+{
+  "active_id": 2,
+  "next_id": 3,
+  "configs": {
+    "1": {
+      "name": "Alex cfg",
+      "config": {
+        "count": 35,
+        "interval": "15-40",
+        "parse_mode": "HTML",
+        "texts": [],
+        "text_source_type": "channel",
+        "text_mode": "random",
+        "text_index": 0,
+        "source_channel_ref": "-1003752585429",
+        "source_channel_title": "stryxrek ru",
+        "source_posts": [
+          {
+            "message_id": 10,
+            "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…"
+          },
+          {
+            "message_id": 12,
+            "preview": "ⲡⲣⲉⲇⲗⲁⲅⲁⲉⲙ ⲃⲁⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲃыⲥɯⲉⲅⲟ ⲕⲁɥⲉⲥⲧⲃⲁ ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲧⲁⲕⲿ…"
+          }
+        ],
+        "chat_pause": "600-900",
+        "plan_limit_count": 0,
+        "plan_limit_rest": 0,
+        "source_account": 5
+      },
+      "chats": [
+        [
+          -1003800123354,
+          "Ищу Девушку • Парня ❤️ Друга / Найти",
+          "https://t.me/md_sp"
+        ],
+        [
+          -1003623262039,
+          "PUBERTI",
+          null
+        ],
+        [
+          -1003608677943,
+          "Ищу Девушку парня/ЛД/ЛП/ЧАТ ОБЩЕНИЯ",
+          "https://t.me/grupass0"
+        ],
+        [
+          -1003318788888,
+          "Ищу Девушку Парня 👑 Общение Лд",
+          "https://t.me/ishchu_devushky"
+        ],
+        [
+          -1002793453826,
+          "Ищю Девушку 😻Парня Друга Подругу",
+          "https://t.me/ishchu_parnyam"
+        ],
+        [
+          -1002441245685,
+          "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+          "https://t.me/gorodlive7"
+        ],
+        [
+          -1002419463305,
+          "Nft чат Продажа/обмен общение Нфт",
+          "https://t.me/Nftbuyselland"
+        ]
+      ]
+    },
+    "2": {
+      "name": "s1mple cfg",
+      "config": {
+        "texts": [],
+        "text_mode": "random",
+        "text_index": 0,
+        "count": 32,
+        "interval": "15-40",
+        "parse_mode": "HTML",
+        "chat_pause": "600-900",
+        "text_source_type": "channel",
+        "source_channel_ref": "@bzjsjsjsjsiddalsosbanzkxidbamzk",
+        "source_channel_title": "stryxrekru2",
+        "source_posts": [
+          {
+            "message_id": 2,
+            "preview": "ⲡⲣⲟⲇⲁⲉⲙ: ⲁⲕⲕⲁⲩⲏⲧы ⲃ ⲧⲅ ⲗюⳝⲟⲅⲟ ⲣⲉⲅυⲟⲏⲁ ⲡⲟ ⲇⲉɯⲉⲃыⲙ ⳡⲉⲏⲁⲙ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⳅⲃⲉⳅⲇы ⭐ ⲟɥⲉ…"
+          },
+          {
+            "message_id": 3,
+            "preview": "ⲡⲣⲟⲇⲁⲉⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕυ ⲗюⳝⲟⲅⲟ ⲣⲉⲅυⲟⲏⲁ. ⲥⲟφⲧυⲕ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⳅⲃⲉⳅⲇы ⭐ 100 ⳅⲃⲉⳅⲇ 50ⲣ, ⲃы…"
+          }
+        ],
+        "plan_limit_count": 0,
+        "plan_limit_rest": 0,
+        "source_account": 5
+      },
+      "chats": [
+        [
+          -1003800123354,
+          "Ищу Девушку • Парня ❤️ Друга / Найти",
+          "https://t.me/md_sp"
+        ],
+        [
+          -1003623262039,
+          "PUBERTI",
+          null
+        ],
+        [
+          -1003608677943,
+          "Ищу Девушку парня/ЛД/ЛП/ЧАТ ОБЩЕНИЯ",
+          "https://t.me/grupass0"
+        ],
+        [
+          -1003318788888,
+          "Ищу Девушку Парня 👑 Общение Лд",
+          "https://t.me/ishchu_devushky"
+        ],
+        [
+          -1002885992639,
+          "Группа Для Общения ❤️ Чатик",
+          null
+        ],
+        [
+          -1002793453826,
+          "Ищю Девушку 😻Парня Друга Подругу",
+          "https://t.me/ishchu_parnyam"
+        ],
+        [
+          -1002441245685,
+          "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+          "https://t.me/gorodlive7"
+        ],
+        [
+          -1002419463305,
+          "Nft чат Продажа/обмен общение Нфт",
+          "https://t.me/Nftbuyselland"
+        ]
+      ]
+    }
+  }
+}

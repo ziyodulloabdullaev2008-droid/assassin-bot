@@ -1,0 +1,2928 @@
+{
+  "18": {
+    "user_id": 8651233360,
+    "account": 1,
+    "account_name": "Нурхан",
+    "chat_ids": [
+      -1003196878794,
+      -1002553888451
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "Прeдлaгаем услуги премиального шопа. В нaличии нaдёжные Tеlegram-aккаyнты высокого качест…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 5,
+        "preview": "Предлагаем вам качественные решения для работы в Telegram. Надёжныe aккayнты, высокий уро…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 6,
+        "preview": "Прeмиальные yслуги нашего шoпа: Telegram-aккayнты высокого уровня и модифицированный coфт…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 7,
+        "preview": "Предлагаем нaдёжные Telegram-аккayнты и качественный coфт для aвтopaccылки с расширенным …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "150-300",
+    "total_chats": 2,
+    "sent_chats": 1,
+    "planned_count": 10,
+    "count": 10,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-09T19:31:57.310075+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "processed_count": 1,
+    "chat_runtime": [
+      {
+        "chat_id": -1003196878794,
+        "next_send_at": 1775765097.9640274,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "znakomstva chat",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002553888451,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Группа для общения 👑 Знакомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1775763289.8957753,
+    "text_index": 0,
+    "last_interval_minutes": 33,
+    "current_chat_id": -1003196878794,
+    "last_error": null
+  },
+  "19": {
+    "user_id": 8651233360,
+    "account": 1,
+    "account_name": "_stryX_admin",
+    "chat_ids": [
+      -1002474463738,
+      -1002298996014,
+      -1002279015263,
+      -1002266573022
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "Прeдлaгаем услуги премиального шопа. В нaличии нaдёжные Tеlegram-aккаyнты высокого качест…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 5,
+        "preview": "Предлагаем вам качественные решения для работы в Telegram. Надёжныe aккayнты, высокий уро…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 6,
+        "preview": "Прeмиальные yслуги нашего шoпа: Telegram-aккayнты высокого уровня и модифицированный coфт…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 7,
+        "preview": "Предлагаем нaдёжные Telegram-аккayнты и качественный coфт для aвтopaccылки с расширенным …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "150-300",
+    "total_chats": 4,
+    "sent_chats": 4,
+    "planned_count": 20,
+    "count": 20,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-13T12:57:49.567061+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "processed_count": 4,
+    "chat_runtime": [
+      {
+        "chat_id": -1002474463738,
+        "next_send_at": 1776087264.7504108,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку Парня ❤️ Общение ЛД ЛП СП",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002298996014,
+        "next_send_at": 1776087631.0461636,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Ищу девушку, парня, пару, лд, лп❤️",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002279015263,
+        "next_send_at": 1776087169.8797123,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищю девушку подругу❤",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002266573022,
+        "next_send_at": 1776087722.4913008,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Ищу Девушку Парня 💝 Друга Подругу ЛД ЛП",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776085974.305352,
+    "text_index": 0,
+    "group_id": 19,
+    "last_interval_minutes": 25,
+    "current_chat_id": -1002474463738,
+    "last_error": null
+  },
+  "20": {
+    "user_id": 8651233360,
+    "account": 2,
+    "account_name": "Artem",
+    "chat_ids": [
+      -1002474463738,
+      -1002298996014,
+      -1002279015263,
+      -1002266573022
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "Прeдлaгаем услуги премиального шопа. В нaличии нaдёжные Tеlegram-aккаyнты высокого качест…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 5,
+        "preview": "Предлагаем вам качественные решения для работы в Telegram. Надёжныe aккayнты, высокий уро…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 6,
+        "preview": "Прeмиальные yслуги нашего шoпа: Telegram-aккayнты высокого уровня и модифицированный coфт…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 7,
+        "preview": "Предлагаем нaдёжные Telegram-аккayнты и качественный coфт для aвтopaccылки с расширенным …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "150-300",
+    "total_chats": 4,
+    "sent_chats": 4,
+    "planned_count": 20,
+    "count": 20,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-13T12:57:51.236950+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "processed_count": 4,
+    "chat_runtime": [
+      {
+        "chat_id": -1002474463738,
+        "next_send_at": 1776087428.4512646,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку Парня ❤️ Общение ЛД ЛП СП",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002298996014,
+        "next_send_at": 1776087441.3153243,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Ищу девушку, парня, пару, лд, лп❤️",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002279015263,
+        "next_send_at": 1776087615.805439,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищю девушку подругу❤",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002266573022,
+        "next_send_at": 1776087292.1859443,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Ищу Девушку Парня 💝 Друга Подругу ЛД ЛП",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776086069.4506032,
+    "text_index": 0,
+    "group_id": 19,
+    "last_interval_minutes": 27,
+    "current_chat_id": -1002474463738,
+    "last_error": null
+  },
+  "21": {
+    "user_id": 8651233360,
+    "account": 3,
+    "account_name": "Imran",
+    "chat_ids": [
+      -1002474463738,
+      -1002298996014,
+      -1002279015263,
+      -1002266573022
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "Прeдлaгаю вaм услуги своего шопа: Телегрaм aккayнты, полнoстью надёжные, никаких слётoв и…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 4,
+        "preview": "Прeдлaгаем услуги премиального шопа. В нaличии нaдёжные Tеlegram-aккаyнты высокого качест…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 5,
+        "preview": "Предлагаем вам качественные решения для работы в Telegram. Надёжныe aккayнты, высокий уро…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 6,
+        "preview": "Прeмиальные yслуги нашего шoпа: Telegram-aккayнты высокого уровня и модифицированный coфт…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 7,
+        "preview": "Предлагаем нaдёжные Telegram-аккayнты и качественный coфт для aвтopaccылки с расширенным …",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "150-300",
+    "total_chats": 4,
+    "sent_chats": 4,
+    "planned_count": 20,
+    "count": 20,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-13T12:57:52.855757+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "processed_count": 4,
+    "chat_runtime": [
+      {
+        "chat_id": -1002474463738,
+        "next_send_at": 1776088017.208287,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку Парня ❤️ Общение ЛД ЛП СП",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002298996014,
+        "next_send_at": 1776087293.2300436,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Ищу девушку, парня, пару, лд, лп❤️",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002279015263,
+        "next_send_at": 1776087196.4081318,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищю девушку подругу❤",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002266573022,
+        "next_send_at": 1776087666.403096,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Ищу Девушку Парня 💝 Друга Подругу ЛД ЛП",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776085869.392176,
+    "text_index": 0,
+    "group_id": 19,
+    "last_interval_minutes": 39,
+    "current_chat_id": -1002474463738,
+    "last_error": null
+  },
+  "22": {
+    "user_id": 8651233360,
+    "account": 4,
+    "account_name": "s1mple (stryx sh0p admin)",
+    "chat_ids": [
+      -1002474463738,
+      -1002298996014,
+      -1002279015263
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 8,
+        "preview": "т3л3грам @ккаунты, д3ш3в0! 🇺🇸 - I00 pу6 🇰🇿 - 25O py6 🇷🇺 - 45O py6 с хорошей 0тл3гой, не с…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "150-300",
+    "total_chats": 3,
+    "sent_chats": 7,
+    "planned_count": 20,
+    "count": 20,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-13T16:05:56.829040+00:00",
+    "status": "cancelled",
+    "failed_count": 1,
+    "processed_count": 8,
+    "chat_runtime": [
+      {
+        "chat_id": -1002474463738,
+        "next_send_at": 1776101076.7642775,
+        "sent_count": 1,
+        "failed_count": 1,
+        "order": 0,
+        "name": "Ищу Девушку Парня ❤️ Общение ЛД ЛП СП",
+        "status": "disabled",
+        "last_error": "You're banned from sending messages in supergroups/channels (caused by SendMessageRequest)",
+        "last_error_at": 1776099216.7642639
+      },
+      {
+        "chat_id": -1002298996014,
+        "next_send_at": 1776101877.9611716,
+        "sent_count": 3,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Ищу девушку, парня, пару, лд, лп❤️",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002279015263,
+        "next_send_at": 1776102698.3307512,
+        "sent_count": 3,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищю девушку подругу❤",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776100710.7873244,
+    "text_index": 0,
+    "last_interval_minutes": 38,
+    "current_chat_id": -1002279015263,
+    "last_error": null
+  },
+  "23": {
+    "user_id": 8651233360,
+    "account": 4,
+    "account_name": "Neox",
+    "chat_ids": [
+      -1002474463738,
+      -1002298996014,
+      -1002279015263
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 9,
+        "preview": "В наличии: телеграм аккаунты США 🇺🇸 100р Кз 🇰🇿 250р РФ 🇷🇺 350р Софт для авторассылки с бо…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "200-400",
+    "total_chats": 3,
+    "sent_chats": 3,
+    "planned_count": 3,
+    "count": 3,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-17T16:56:42.870311+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 3,
+    "chat_runtime": [
+      {
+        "chat_id": -1002474463738,
+        "next_send_at": 1776447485.130713,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку Парня ❤️ Общение ЛД ЛП СП",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002298996014,
+        "next_send_at": 1776446923.5786412,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Ищу девушку, парня, пару, лд, лп❤️",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002279015263,
+        "next_send_at": 1776447009.5595343,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищю девушку подругу❤",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776445880.709982,
+    "text_index": 0,
+    "last_interval_minutes": 32,
+    "current_chat_id": -1002474463738,
+    "last_error": null
+  },
+  "24": {
+    "user_id": 8651233360,
+    "account": 1,
+    "account_name": "Artem",
+    "chat_ids": [
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "200-400",
+    "total_chats": 3,
+    "sent_chats": 2,
+    "planned_count": 3,
+    "count": 3,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-17T17:34:11.191900+00:00",
+    "status": "completed",
+    "failed_count": 1,
+    "processed_count": 3,
+    "chat_runtime": [
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776449448.6256356,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776448992.2121232,
+        "sent_count": 0,
+        "failed_count": 1,
+        "order": 1,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "A wait of 179 seconds is required before sending another message in this chat (caused by SendMessageRequest)",
+        "last_error_at": 1776447252.0048902
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776449959.4404647,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776448060.832172,
+    "text_index": 0,
+    "last_interval_minutes": 37,
+    "current_chat_id": -1002419463305,
+    "last_error": null
+  },
+  "25": {
+    "user_id": 8651233360,
+    "account": 1,
+    "account_name": "Artem",
+    "chat_ids": [
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "500-600",
+    "total_chats": 4,
+    "sent_chats": 9,
+    "planned_count": 10,
+    "count": 10,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-17T17:49:35.230758+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "processed_count": 9,
+    "chat_runtime": [
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 1776452593.463483,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Группа Для Общения ❤️ Чатик • Знайомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776453680.3067234,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776454375.0922186,
+        "sent_count": 3,
+        "failed_count": 0,
+        "order": 2,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776453292.2211225,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776453198.0987213,
+    "text_index": 0,
+    "last_interval_minutes": 29,
+    "current_chat_id": -1002441245685,
+    "last_error": null
+  },
+  "26": {
+    "user_id": 8651233360,
+    "account": 1,
+    "account_name": "Artem",
+    "chat_ids": [
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "500-600",
+    "total_chats": 4,
+    "sent_chats": 0,
+    "planned_count": 5,
+    "count": 5,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-17T19:12:41.980042+00:00",
+    "status": "cancelled",
+    "failed_count": 2,
+    "processed_count": 2,
+    "chat_runtime": [
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Группа Для Общения ❤️ Чатик • Знайомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776455452.510412,
+        "sent_count": 0,
+        "failed_count": 1,
+        "order": 2,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "database is locked",
+        "last_error_at": 1776453172.3454063
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776455567.6306503,
+        "sent_count": 0,
+        "failed_count": 1,
+        "order": 3,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "database is locked",
+        "last_error_at": 1776453707.459795
+      }
+    ],
+    "next_global_send_at": 1776454272.583667,
+    "text_index": 0,
+    "last_interval_minutes": 31,
+    "current_chat_id": -1002419463305,
+    "last_error": "database is locked"
+  },
+  "27": {
+    "user_id": 8651233360,
+    "account": 1,
+    "account_name": "Artem",
+    "chat_ids": [
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "500-600",
+    "total_chats": 4,
+    "sent_chats": 0,
+    "planned_count": 5,
+    "count": 5,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-17T19:26:48.029458+00:00",
+    "status": "cancelled",
+    "failed_count": 1,
+    "processed_count": 1,
+    "chat_runtime": [
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Группа Для Общения ❤️ Чатик • Знайомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776455758.5564055,
+        "sent_count": 0,
+        "failed_count": 1,
+        "order": 2,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "database is locked",
+        "last_error_at": 1776454018.4045157
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776454521.3718317,
+    "text_index": 0,
+    "last_interval_minutes": 29,
+    "current_chat_id": -1002441245685,
+    "last_error": "database is locked"
+  },
+  "28": {
+    "user_id": 8651233360,
+    "account": 1,
+    "account_name": "Artem",
+    "chat_ids": [
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "500-600",
+    "total_chats": 4,
+    "sent_chats": 0,
+    "planned_count": 5,
+    "count": 5,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-17T19:29:46.176713+00:00",
+    "status": "cancelled",
+    "failed_count": 1,
+    "processed_count": 1,
+    "chat_runtime": [
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Группа Для Общения ❤️ Чатик • Знайомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 2,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776456056.780381,
+        "sent_count": 0,
+        "failed_count": 1,
+        "order": 3,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "database is locked",
+        "last_error_at": 1776454196.5240612
+      }
+    ],
+    "next_global_send_at": 1776454699.9676008,
+    "text_index": 0,
+    "last_interval_minutes": 31,
+    "current_chat_id": -1002419463305,
+    "last_error": "database is locked"
+  },
+  "29": {
+    "user_id": 8651233360,
+    "account": 1,
+    "account_name": "Artem",
+    "chat_ids": [
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "500-600",
+    "total_chats": 4,
+    "sent_chats": 3,
+    "planned_count": 5,
+    "count": 5,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-17T19:32:56.836815+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "processed_count": 3,
+    "chat_runtime": [
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Группа Для Общения ❤️ Чатик • Знайомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776457065.6451986,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776457821.6756995,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776455997.624466,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776456009.5098293,
+    "text_index": 0,
+    "last_interval_minutes": 39,
+    "current_chat_id": -1002441245685,
+    "last_error": null
+  },
+  "30": {
+    "user_id": 8651233360,
+    "account": 1,
+    "account_name": "Artem",
+    "chat_ids": [
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "500-600",
+    "total_chats": 4,
+    "sent_chats": 5,
+    "planned_count": 5,
+    "count": 5,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-17T21:16:04.728843+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 5,
+    "chat_runtime": [
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 1776462977.8354046,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Группа Для Общения ❤️ Чатик • Знайомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776463435.9582157,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776464479.562234,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776464320.2428749,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776463293.1062284,
+    "text_index": 0,
+    "last_interval_minutes": 27,
+    "current_chat_id": -1002419463305,
+    "last_error": null
+  },
+  "31": {
+    "user_id": 8651233360,
+    "account": 1,
+    "account_name": "Artem",
+    "chat_ids": [
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "500-600",
+    "total_chats": 4,
+    "sent_chats": 5,
+    "planned_count": 5,
+    "count": 5,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-18T02:38:36.511898+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 5,
+    "chat_runtime": [
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 1776482807.045047,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Группа Для Общения ❤️ Чатик • Знайомства",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776482045.9139013,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776483102.1126099,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776483721.2120168,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776482758.6772616,
+    "text_index": 0,
+    "last_interval_minutes": 26,
+    "current_chat_id": -1002419463305,
+    "last_error": null
+  },
+  "32": {
+    "user_id": 8651233360,
+    "account": 1,
+    "account_name": "Artem",
+    "chat_ids": [
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "500-600",
+    "total_chats": 4,
+    "sent_chats": 27,
+    "planned_count": 50,
+    "count": 50,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-18T03:28:29.290724+00:00",
+    "status": "completed",
+    "failed_count": 23,
+    "processed_count": 50,
+    "chat_runtime": [
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 1776512329.7811034,
+        "sent_count": 7,
+        "failed_count": 6,
+        "order": 0,
+        "name": "Группа Для Общения ❤️ Чатик • Знайомства",
+        "status": "active",
+        "last_error": "You're banned from sending messages in supergroups/channels (caused by SendMessageRequest)",
+        "last_error_at": 1776510289.5279565
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776512437.3142738,
+        "sent_count": 7,
+        "failed_count": 6,
+        "order": 1,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "The channel specified is private and you lack permission to access it. Another reason may be that you were banned from it (caused by SendMessageRequest)",
+        "last_error_at": 1776510877.1495614
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776511676.0182347,
+        "sent_count": 6,
+        "failed_count": 6,
+        "order": 2,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "You're banned from sending messages in supergroups/channels (caused by SendMessageRequest)",
+        "last_error_at": 1776509695.807295
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776511416.9748697,
+        "sent_count": 7,
+        "failed_count": 5,
+        "order": 3,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "You're banned from sending messages in supergroups/channels (caused by SendMessageRequest)",
+        "last_error_at": 1776509015.848171
+      }
+    ],
+    "next_global_send_at": 1776511444.8070097,
+    "text_index": 0,
+    "last_interval_minutes": 26,
+    "current_chat_id": -1002793453826,
+    "last_error": "The channel specified is private and you lack permission to access it. Another reason may be that you were banned from it (caused by SendMessageRequest)"
+  },
+  "33": {
+    "user_id": 8651233360,
+    "account": 5,
+    "account_name": "Perw",
+    "chat_ids": [
+      -1003800123354,
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 12,
+        "preview": "ⲡⲣⲉⲇⲗⲁⲅⲁⲉⲙ ⲃⲁⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲃыⲥɯⲉⲅⲟ ⲕⲁɥⲉⲥⲧⲃⲁ ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲧⲁⲕⲿ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "600-900",
+    "total_chats": 5,
+    "sent_chats": 5,
+    "planned_count": 5,
+    "count": 5,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-19T04:48:11.116016+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 5,
+    "chat_runtime": [
+      {
+        "chat_id": -1003800123354,
+        "next_send_at": 1776576851.9515,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку • Парня ❤️ Друга / Найти",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 1776577977.3722255,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Группа Для Общения ❤️ Чатик",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776576491.622921,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776577319.3418226,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 3,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776578549.7235062,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 4,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776577762.044756,
+    "text_index": 0,
+    "last_interval_minutes": 27,
+    "current_chat_id": -1002419463305,
+    "last_error": null
+  },
+  "34": {
+    "user_id": 8651233360,
+    "account": 5,
+    "account_name": "Perw",
+    "chat_ids": [
+      -1003800123354,
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 12,
+        "preview": "ⲡⲣⲉⲇⲗⲁⲅⲁⲉⲙ ⲃⲁⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲃыⲥɯⲉⲅⲟ ⲕⲁɥⲉⲥⲧⲃⲁ ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲧⲁⲕⲿ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "600-900",
+    "total_chats": 5,
+    "sent_chats": 5,
+    "planned_count": 5,
+    "count": 5,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-19T05:55:17.352250+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 5,
+    "chat_runtime": [
+      {
+        "chat_id": -1003800123354,
+        "next_send_at": 1776582340.7650328,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку • Парня ❤️ Друга / Найти",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 1776583486.3537629,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Группа Для Общения ❤️ Чатик",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776580639.0129216,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776581521.6513886,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 3,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776580518.1748638,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 4,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776581861.7208195,
+    "text_index": 0,
+    "last_interval_minutes": 40,
+    "current_chat_id": -1002885992639,
+    "last_error": null
+  },
+  "35": {
+    "user_id": 8651233360,
+    "account": 5,
+    "account_name": "Perw",
+    "chat_ids": [
+      -1003800123354,
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 12,
+        "preview": "ⲡⲣⲉⲇⲗⲁⲅⲁⲉⲙ ⲃⲁⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲃыⲥɯⲉⲅⲟ ⲕⲁɥⲉⲥⲧⲃⲁ ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲧⲁⲕⲿ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "600-900",
+    "total_chats": 5,
+    "sent_chats": 5,
+    "planned_count": 5,
+    "count": 5,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-19T07:31:57.118834+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 5,
+    "chat_runtime": [
+      {
+        "chat_id": -1003800123354,
+        "next_send_at": 1776585777.7947998,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку • Парня ❤️ Друга / Найти",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 1776588155.351778,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Группа Для Общения ❤️ Чатик",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776588979.8546681,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776586082.9238732,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 3,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776586925.672011,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 4,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776587839.6795764,
+    "text_index": 0,
+    "last_interval_minutes": 32,
+    "current_chat_id": -1002793453826,
+    "last_error": null
+  },
+  "36": {
+    "user_id": 8651233360,
+    "account": 5,
+    "account_name": "Perw",
+    "chat_ids": [
+      -1003800123354,
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 12,
+        "preview": "ⲡⲣⲉⲇⲗⲁⲅⲁⲉⲙ ⲃⲁⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲃыⲥɯⲉⲅⲟ ⲕⲁɥⲉⲥⲧⲃⲁ ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲧⲁⲕⲿ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "600-900",
+    "total_chats": 5,
+    "sent_chats": 5,
+    "planned_count": 5,
+    "count": 5,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-19T09:24:03.035977+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 5,
+    "chat_runtime": [
+      {
+        "chat_id": -1003800123354,
+        "next_send_at": 1776592803.8502681,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку • Парня ❤️ Друга / Найти",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 1776595711.6276853,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Группа Для Общения ❤️ Чатик",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776593319.506291,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776594439.5597324,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 3,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776594787.66359,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 4,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776594217.6738398,
+    "text_index": 0,
+    "last_interval_minutes": 36,
+    "current_chat_id": -1002885992639,
+    "last_error": null
+  },
+  "37": {
+    "user_id": 8651233360,
+    "account": 5,
+    "account_name": "Perw",
+    "chat_ids": [
+      -1003800123354,
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 12,
+        "preview": "ⲡⲣⲉⲇⲗⲁⲅⲁⲉⲙ ⲃⲁⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲃыⲥɯⲉⲅⲟ ⲕⲁɥⲉⲥⲧⲃⲁ ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲧⲁⲕⲿ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "600-900",
+    "total_chats": 5,
+    "sent_chats": 5,
+    "planned_count": 5,
+    "count": 5,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-19T10:24:37.267012+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 5,
+    "chat_runtime": [
+      {
+        "chat_id": -1003800123354,
+        "next_send_at": 1776596617.76195,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку • Парня ❤️ Друга / Найти",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 1776597314.9439147,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Группа Для Общения ❤️ Чатик",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776599440.9467587,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776598413.8571968,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 3,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776596625.9468591,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 4,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776597893.4467394,
+    "text_index": 0,
+    "last_interval_minutes": 39,
+    "current_chat_id": -1002793453826,
+    "last_error": null
+  },
+  "38": {
+    "user_id": 8651233360,
+    "account": 5,
+    "account_name": "Alexander",
+    "chat_ids": [
+      -1003800123354,
+      -1003608677943,
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 12,
+        "preview": "ⲡⲣⲉⲇⲗⲁⲅⲁⲉⲙ ⲃⲁⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲃыⲥɯⲉⲅⲟ ⲕⲁɥⲉⲥⲧⲃⲁ ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲧⲁⲕⲿ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "600-900",
+    "total_chats": 6,
+    "sent_chats": 1,
+    "planned_count": 5,
+    "count": 5,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-19T11:28:04.735180+00:00",
+    "status": "cancelled",
+    "failed_count": 0,
+    "processed_count": 1,
+    "chat_runtime": [
+      {
+        "chat_id": -1003800123354,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку • Парня ❤️ Друга / Найти",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003608677943,
+        "next_send_at": 1776599645.539277,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Ищу Девушку парня/ЛД/ЛП/ЧАТ ОБЩЕНИЯ",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Группа Для Общения ❤️ Чатик",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 4,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 0.0,
+        "sent_count": 0,
+        "failed_count": 0,
+        "order": 5,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776598725.7286267,
+    "text_index": 0,
+    "last_interval_minutes": 26,
+    "current_chat_id": -1003608677943,
+    "last_error": null
+  },
+  "39": {
+    "user_id": 8651233360,
+    "account": 5,
+    "account_name": "Alexander",
+    "chat_ids": [
+      -1003800123354,
+      -1003608677943,
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 12,
+        "preview": "ⲡⲣⲉⲇⲗⲁⲅⲁⲉⲙ ⲃⲁⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲃыⲥɯⲉⲅⲟ ⲕⲁɥⲉⲥⲧⲃⲁ ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲧⲁⲕⲿ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "600-900",
+    "total_chats": 6,
+    "sent_chats": 6,
+    "planned_count": 8,
+    "count": 8,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-19T11:28:21.520531+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 6,
+    "chat_runtime": [
+      {
+        "chat_id": -1003800123354,
+        "next_send_at": 1776603183.944294,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку • Парня ❤️ Друга / Найти",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003608677943,
+        "next_send_at": 1776602079.6547532,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 1,
+        "name": "Ищу Девушку парня/ЛД/ЛП/ЧАТ ОБЩЕНИЯ",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 1776601017.957001,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Группа Для Общения ❤️ Чатик",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776603673.6424608,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776599722.0952384,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 4,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776602055.7275298,
+        "sent_count": 1,
+        "failed_count": 0,
+        "order": 5,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776602703.3853624,
+    "text_index": 0,
+    "last_interval_minutes": 31,
+    "current_chat_id": -1002793453826,
+    "last_error": null
+  },
+  "40": {
+    "user_id": 8651233360,
+    "account": 5,
+    "account_name": "Alexander",
+    "chat_ids": [
+      -1003800123354,
+      -1003623262039,
+      -1003608677943,
+      -1003318788888,
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 12,
+        "preview": "ⲡⲣⲉⲇⲗⲁⲅⲁⲉⲙ ⲃⲁⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲃыⲥɯⲉⲅⲟ ⲕⲁɥⲉⲥⲧⲃⲁ ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲧⲁⲕⲿ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "600-900",
+    "total_chats": 8,
+    "sent_chats": 15,
+    "planned_count": 16,
+    "count": 16,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-19T13:44:09.380135+00:00",
+    "status": "completed",
+    "failed_count": 1,
+    "processed_count": 16,
+    "chat_runtime": [
+      {
+        "chat_id": -1003800123354,
+        "next_send_at": 1776617899.4290931,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку • Парня ❤️ Друга / Найти",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003623262039,
+        "next_send_at": 1776617881.3321545,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 1,
+        "name": "PUBERTI",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003608677943,
+        "next_send_at": 1776616289.119406,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищу Девушку парня/ЛД/ЛП/ЧАТ ОБЩЕНИЯ",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003318788888,
+        "next_send_at": 1776615403.7514782,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Ищу Девушку Парня 👑 Общение Лд",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 1776620025.728658,
+        "sent_count": 1,
+        "failed_count": 1,
+        "order": 4,
+        "name": "Группа Для Общения ❤️ Чатик",
+        "status": "active",
+        "last_error": "RPCError 403: CHAT_SEND_PLAIN_FORBIDDEN (caused by SendMessageRequest)",
+        "last_error_at": 1776617865.514949
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776614535.2457175,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 5,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776617062.9915414,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 6,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776618818.3025463,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 7,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776618549.8177774,
+    "text_index": 0,
+    "last_interval_minutes": 36,
+    "current_chat_id": -1002885992639,
+    "last_error": "RPCError 403: CHAT_SEND_PLAIN_FORBIDDEN (caused by SendMessageRequest)",
+    "last_wait_seconds": 68
+  },
+  "41": {
+    "user_id": 8651233360,
+    "account": 3,
+    "account_name": "s1mple",
+    "chat_ids": [
+      -1003800123354,
+      -1003623262039,
+      -1003608677943,
+      -1003318788888,
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 2,
+        "preview": "ⲡⲣⲟⲇⲁⲉⲙ: ⲁⲕⲕⲁⲩⲏⲧы ⲃ ⲧⲅ ⲗюⳝⲟⲅⲟ ⲣⲉⲅυⲟⲏⲁ ⲡⲟ ⲇⲉɯⲉⲃыⲙ ⳡⲉⲏⲁⲙ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⳅⲃⲉⳅⲇы ⭐ ⲟɥⲉ…",
+        "source_ref": "@bzjsjsjsjsiddalsosbanzkxidbamzk"
+      },
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "ⲡⲣⲟⲇⲁⲉⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕυ ⲗюⳝⲟⲅⲟ ⲣⲉⲅυⲟⲏⲁ. ⲥⲟφⲧυⲕ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⳅⲃⲉⳅⲇы ⭐ 100 ⳅⲃⲉⳅⲇ 50ⲣ, ⲃы…",
+        "source_ref": "@bzjsjsjsjsiddalsosbanzkxidbamzk"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "@bzjsjsjsjsiddalsosbanzkxidbamzk",
+    "source_channel_title": "stryxrekru2",
+    "chat_pause": "20-60",
+    "total_chats": 8,
+    "sent_chats": 16,
+    "planned_count": 16,
+    "count": 16,
+    "interval_minutes": "30-90",
+    "interval_value": "30-90",
+    "start_time": "2026-04-19T15:35:26.544959+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 16,
+    "chat_runtime": [
+      {
+        "chat_id": -1003800123354,
+        "next_send_at": 1776620349.605397,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку • Парня ❤️ Друга / Найти",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003623262039,
+        "next_send_at": 1776620589.5721233,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 1,
+        "name": "PUBERTI",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003608677943,
+        "next_send_at": 1776623395.3481011,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищу Девушку парня/ЛД/ЛП/ЧАТ ОБЩЕНИЯ",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003318788888,
+        "next_send_at": 1776621041.5792809,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Ищу Девушку Парня 👑 Общение Лд",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 1776619086.5160518,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 4,
+        "name": "Группа Для Общения ❤️ Чатик",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776622361.8286397,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 5,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776621926.9344985,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 6,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776622099.9317598,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 7,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776618337.0588431,
+    "text_index": 0,
+    "last_interval_minutes": 85,
+    "current_chat_id": -1003608677943,
+    "last_error": null
+  },
+  "42": {
+    "user_id": 8651233360,
+    "account": 5,
+    "account_name": "Alexander",
+    "chat_ids": [
+      -1003800123354,
+      -1003623262039,
+      -1003608677943,
+      -1003318788888,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 12,
+        "preview": "ⲡⲣⲉⲇⲗⲁⲅⲁⲉⲙ ⲃⲁⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲃыⲥɯⲉⲅⲟ ⲕⲁɥⲉⲥⲧⲃⲁ ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲧⲁⲕⲿ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "600-900",
+    "total_chats": 7,
+    "sent_chats": 16,
+    "planned_count": 16,
+    "count": 16,
+    "interval_minutes": "25-40",
+    "interval_value": "25-40",
+    "start_time": "2026-04-19T17:08:16.219011+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 16,
+    "chat_runtime": [
+      {
+        "chat_id": -1003800123354,
+        "next_send_at": 1776629615.9625812,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку • Парня ❤️ Друга / Найти",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003623262039,
+        "next_send_at": 1776629977.629476,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 1,
+        "name": "PUBERTI",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003608677943,
+        "next_send_at": 1776631476.7939506,
+        "sent_count": 3,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищу Девушку парня/ЛД/ЛП/ЧАТ ОБЩЕНИЯ",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003318788888,
+        "next_send_at": 1776632188.4789226,
+        "sent_count": 3,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Ищу Девушку Парня 👑 Общение Лд",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776627995.979837,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 4,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776628646.6426945,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 5,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776628485.4790661,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 6,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776630767.7364879,
+    "text_index": 0,
+    "last_interval_minutes": 36,
+    "current_chat_id": -1003318788888,
+    "last_error": null
+  },
+  "43": {
+    "user_id": 8651233360,
+    "account": 3,
+    "account_name": "s1mple",
+    "chat_ids": [
+      -1003800123354,
+      -1003623262039,
+      -1003608677943,
+      -1003318788888,
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 2,
+        "preview": "ⲡⲣⲟⲇⲁⲉⲙ: ⲁⲕⲕⲁⲩⲏⲧы ⲃ ⲧⲅ ⲗюⳝⲟⲅⲟ ⲣⲉⲅυⲟⲏⲁ ⲡⲟ ⲇⲉɯⲉⲃыⲙ ⳡⲉⲏⲁⲙ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⳅⲃⲉⳅⲇы ⭐ ⲟɥⲉ…",
+        "source_ref": "@bzjsjsjsjsiddalsosbanzkxidbamzk"
+      },
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "ⲡⲣⲟⲇⲁⲉⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕυ ⲗюⳝⲟⲅⲟ ⲣⲉⲅυⲟⲏⲁ. ⲥⲟφⲧυⲕ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⳅⲃⲉⳅⲇы ⭐ 100 ⳅⲃⲉⳅⲇ 50ⲣ, ⲃы…",
+        "source_ref": "@bzjsjsjsjsiddalsosbanzkxidbamzk"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "@bzjsjsjsjsiddalsosbanzkxidbamzk",
+    "source_channel_title": "stryxrekru2",
+    "chat_pause": "600-900",
+    "total_chats": 8,
+    "sent_chats": 16,
+    "planned_count": 16,
+    "count": 16,
+    "interval_minutes": "30-90",
+    "interval_value": "30-90",
+    "start_time": "2026-04-19T17:08:38.356104+00:00",
+    "status": "completed",
+    "failed_count": 0,
+    "processed_count": 16,
+    "chat_runtime": [
+      {
+        "chat_id": -1003800123354,
+        "next_send_at": 1776631751.8660896,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку • Парня ❤️ Друга / Найти",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003623262039,
+        "next_send_at": 1776632908.18366,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 1,
+        "name": "PUBERTI",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003608677943,
+        "next_send_at": 1776628540.4048448,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищу Девушку парня/ЛД/ЛП/ЧАТ ОБЩЕНИЯ",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003318788888,
+        "next_send_at": 1776630578.919998,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Ищу Девушку Парня 👑 Общение Лд",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 1776631048.0648453,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 4,
+        "name": "Группа Для Общения ❤️ Чатик",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776633721.4943533,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 5,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776629758.5000763,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 6,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776634977.6129131,
+        "sent_count": 2,
+        "failed_count": 0,
+        "order": 7,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776630710.3827832,
+    "text_index": 0,
+    "last_interval_minutes": 86,
+    "current_chat_id": -1002419463305,
+    "last_error": null
+  },
+  "44": {
+    "user_id": 8651233360,
+    "account": 5,
+    "account_name": "Alexander",
+    "chat_ids": [
+      -1003800123354,
+      -1003623262039,
+      -1003608677943,
+      -1003318788888,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 10,
+        "preview": "ⲃ ⲏⲁⲗυɥυυ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⲥ ⳝⲟ…",
+        "source_ref": "-1003752585429"
+      },
+      {
+        "kind": "forward",
+        "message_id": 12,
+        "preview": "ⲡⲣⲉⲇⲗⲁⲅⲁⲉⲙ ⲃⲁⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕⲁⲩⲏⲧы ⲃыⲥɯⲉⲅⲟ ⲕⲁɥⲉⲥⲧⲃⲁ ⲥɯⲁ 🇺🇸 100ⲣ ⲕⳅ 🇰🇿 250ⲣ ⲣφ 🇷🇺 350ⲣ ⲧⲁⲕⲿ…",
+        "source_ref": "-1003752585429"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "-1003752585429",
+    "source_channel_title": "stryxrek ru",
+    "chat_pause": "600-900",
+    "total_chats": 7,
+    "sent_chats": 29,
+    "planned_count": 35,
+    "count": 35,
+    "interval_minutes": "15-40",
+    "interval_value": "15-40",
+    "start_time": "2026-04-20T01:41:57.243685+00:00",
+    "status": "running",
+    "failed_count": 0,
+    "processed_count": 29,
+    "chat_runtime": [
+      {
+        "chat_id": -1003800123354,
+        "next_send_at": 1776669039.2846043,
+        "sent_count": 4,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку • Парня ❤️ Друга / Найти",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003623262039,
+        "next_send_at": 1776670174.9630253,
+        "sent_count": 4,
+        "failed_count": 0,
+        "order": 1,
+        "name": "PUBERTI",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003608677943,
+        "next_send_at": 1776670455.1970193,
+        "sent_count": 4,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищу Девушку парня/ЛД/ЛП/ЧАТ ОБЩЕНИЯ",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003318788888,
+        "next_send_at": 1776671863.084672,
+        "sent_count": 4,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Ищу Девушку Парня 👑 Общение Лд",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776672134.9090965,
+        "sent_count": 4,
+        "failed_count": 0,
+        "order": 4,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776672940.511416,
+        "sent_count": 5,
+        "failed_count": 0,
+        "order": 5,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776667172.0194602,
+        "sent_count": 4,
+        "failed_count": 0,
+        "order": 6,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776672282.8887563,
+    "text_index": 0,
+    "last_interval_minutes": 25,
+    "current_chat_id": -1002441245685,
+    "last_error": null
+  },
+  "45": {
+    "user_id": 8651233360,
+    "account": 3,
+    "account_name": "s1mple",
+    "chat_ids": [
+      -1003800123354,
+      -1003623262039,
+      -1003608677943,
+      -1003318788888,
+      -1002885992639,
+      -1002793453826,
+      -1002441245685,
+      -1002419463305
+    ],
+    "texts": [],
+    "content_items": [
+      {
+        "kind": "forward",
+        "message_id": 2,
+        "preview": "ⲡⲣⲟⲇⲁⲉⲙ: ⲁⲕⲕⲁⲩⲏⲧы ⲃ ⲧⲅ ⲗюⳝⲟⲅⲟ ⲣⲉⲅυⲟⲏⲁ ⲡⲟ ⲇⲉɯⲉⲃыⲙ ⳡⲉⲏⲁⲙ ⲥⲟφⲧ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⳅⲃⲉⳅⲇы ⭐ ⲟɥⲉ…",
+        "source_ref": "@bzjsjsjsjsiddalsosbanzkxidbamzk"
+      },
+      {
+        "kind": "forward",
+        "message_id": 3,
+        "preview": "ⲡⲣⲟⲇⲁⲉⲙ: ⲧⲉⲗⲉⲅⲣⲁⲙ ⲁⲕⲕυ ⲗюⳝⲟⲅⲟ ⲣⲉⲅυⲟⲏⲁ. ⲥⲟφⲧυⲕ ⲇⲗя ⲁⲃⲧⲟⲣⲁⲥⲥыⲗⲕυ ⳅⲃⲉⳅⲇы ⭐ 100 ⳅⲃⲉⳅⲇ 50ⲣ, ⲃы…",
+        "source_ref": "@bzjsjsjsjsiddalsosbanzkxidbamzk"
+      }
+    ],
+    "text_source_type": "channel",
+    "text_mode": "random",
+    "parse_mode": "HTML",
+    "source_channel_ref": "@bzjsjsjsjsiddalsosbanzkxidbamzk",
+    "source_channel_title": "stryxrekru2",
+    "chat_pause": "600-900",
+    "total_chats": 8,
+    "sent_chats": 30,
+    "planned_count": 32,
+    "count": 32,
+    "interval_minutes": "15-35",
+    "interval_value": "15-35",
+    "start_time": "2026-04-20T01:42:11.670388+00:00",
+    "status": "running",
+    "failed_count": 0,
+    "processed_count": 30,
+    "chat_runtime": [
+      {
+        "chat_id": -1003800123354,
+        "next_send_at": 1776672859.1429963,
+        "sent_count": 4,
+        "failed_count": 0,
+        "order": 0,
+        "name": "Ищу Девушку • Парня ❤️ Друга / Найти",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003623262039,
+        "next_send_at": 1776668803.615863,
+        "sent_count": 4,
+        "failed_count": 0,
+        "order": 1,
+        "name": "PUBERTI",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003608677943,
+        "next_send_at": 1776671024.801038,
+        "sent_count": 4,
+        "failed_count": 0,
+        "order": 2,
+        "name": "Ищу Девушку парня/ЛД/ЛП/ЧАТ ОБЩЕНИЯ",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1003318788888,
+        "next_send_at": 1776666980.5663872,
+        "sent_count": 3,
+        "failed_count": 0,
+        "order": 3,
+        "name": "Ищу Девушку Парня 👑 Общение Лд",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002885992639,
+        "next_send_at": 1776670181.6548758,
+        "sent_count": 4,
+        "failed_count": 0,
+        "order": 4,
+        "name": "Группа Для Общения ❤️ Чатик",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002793453826,
+        "next_send_at": 1776666884.2171953,
+        "sent_count": 3,
+        "failed_count": 0,
+        "order": 5,
+        "name": "Ищю Девушку 😻Парня Друга Подругу",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002441245685,
+        "next_send_at": 1776670283.018715,
+        "sent_count": 4,
+        "failed_count": 0,
+        "order": 6,
+        "name": "ТЕМЫ/ТЕМЩИКИ/РЕЙД, ДЕНЬГИ/СКУП/ПРОДАЖА/РЕКЛАМА/ДРОПЫ ЧАТ ОБЩЕНИЕ БАРНАУЛ/НОВОСИБИРСК\\МОСКВА",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      },
+      {
+        "chat_id": -1002419463305,
+        "next_send_at": 1776671894.7305572,
+        "sent_count": 4,
+        "failed_count": 0,
+        "order": 7,
+        "name": "Nft чат Продажа/обмен общение Нфт",
+        "status": "active",
+        "last_error": "",
+        "last_error_at": 0.0
+      }
+    ],
+    "next_global_send_at": 1776672192.6955876,
+    "text_index": 0,
+    "last_interval_minutes": 23,
+    "current_chat_id": -1003800123354,
+    "last_error": null
+  }
+}
