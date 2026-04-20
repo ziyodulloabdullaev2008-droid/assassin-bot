@@ -1,6 +1,4 @@
-users/
 runtime/
-config.local.json
 dist/
 __pycache__/
 *.pyc
