@@ -87,13 +87,37 @@ def _pick_content_item(items: list[dict], text_mode: str, text_index: int) -> tu
     return current_item, text_index + 1
 
 
+def _distribute_chat_targets(chat_ids: list, total_count: int) -> dict[str, int]:
+    if not chat_ids:
+        return {}
+
+    safe_total = max(int(total_count or 0), 0)
+    base = safe_total // len(chat_ids)
+    extra = safe_total % len(chat_ids)
+    targets: dict[str, int] = {}
+    for index, chat_id in enumerate(chat_ids):
+        targets[str(chat_id)] = base + (1 if index < extra else 0)
+    return targets
+
+
+def _chat_attempts(item: dict) -> int:
+    return int(item.get("sent_count", 0) or 0) + int(item.get("failed_count", 0) or 0)
+
+
+def _chat_has_quota(item: dict) -> bool:
+    target_count = max(int(item.get("target_count", 0) or 0), 0)
+    return _chat_attempts(item) < target_count
+
+
 def _normalize_chat_runtime(
     chat_ids: list,
     runtime_items: list[dict] | None,
+    total_count: int,
 ) -> list[dict]:
     now = time.time()
     normalized_items: list[dict] = []
     existing_by_chat: dict[str, dict] = {}
+    targets_by_chat = _distribute_chat_targets(chat_ids, total_count)
 
     for item in runtime_items or []:
         if not isinstance(item, dict) or "chat_id" not in item:
@@ -118,6 +142,7 @@ def _normalize_chat_runtime(
                 "status": str(raw_item.get("status") or "active"),
                 "last_error": str(raw_item.get("last_error") or ""),
                 "last_error_at": float(raw_item.get("last_error_at", 0.0) or 0.0),
+                "target_count": int(targets_by_chat.get(str(chat_id), 0)),
             }
         )
 
@@ -128,7 +153,7 @@ def _pick_next_chat_entry(chat_runtime: list[dict]) -> dict | None:
     active_items = [
         item
         for item in chat_runtime
-        if str(item.get("status") or "active") == "active"
+        if str(item.get("status") or "active") == "active" and _chat_has_quota(item)
     ]
     if not active_items:
         return None
@@ -369,9 +394,11 @@ async def schedule_broadcast_send(
         )
         text_index = int(broadcast.get("text_index", 0) or 0)
         next_global_send_at = float(broadcast.get("next_global_send_at", 0.0) or 0.0)
+        current_count = int(broadcast.get("count", count) or count or 1)
         chat_runtime = _normalize_chat_runtime(
             chat_ids,
             broadcast.get("chat_runtime"),
+            current_count,
         )
         if not chat_ids:
             await mark_error(broadcast_id, "No chats configured for broadcast", "no_chats")
@@ -406,6 +433,7 @@ async def schedule_broadcast_send(
             chat_runtime = _normalize_chat_runtime(
                 chat_ids,
                 broadcast.get("chat_runtime") or chat_runtime,
+                count,
             )
             next_global_send_at = float(
                 broadcast.get("next_global_send_at", next_global_send_at) or 0.0
@@ -437,7 +465,10 @@ async def schedule_broadcast_send(
 
             chat_entry = _pick_next_chat_entry(chat_runtime)
             if not chat_entry:
-                if any(str(item.get("status") or "active") == "paused" for item in chat_runtime):
+                if any(
+                    str(item.get("status") or "active") == "paused" and _chat_has_quota(item)
+                    for item in chat_runtime
+                ):
                     sleep_status = await _sleep_with_controls(broadcast_id, 1)
                     if sleep_status in {"cancelled", "missing"}:
                         return
