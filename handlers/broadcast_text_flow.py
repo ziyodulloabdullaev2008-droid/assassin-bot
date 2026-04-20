@@ -5,6 +5,9 @@ async def bc_text_callback(query: CallbackQuery, state: FSMContext):
     """Open content source settings for broadcast."""
 
     await query.answer()
+    current_state = await state.get_state()
+    if current_state == BroadcastConfigState.waiting_for_source_channel.state:
+        await state.clear()
 
     user_id = query.from_user.id
     config = get_broadcast_config(user_id)
@@ -80,8 +83,17 @@ async def text_channel_refresh_callback(query: CallbackQuery, state: FSMContext)
         await query.answer("\u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0443\u043a\u0430\u0436\u0438 \u043a\u0430\u043d\u0430\u043b-\u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a", show_alert=True)
         return
 
+    preferred_account = config.get("source_account")
     try:
-        source_data = await _load_channel_source_for_user(user_id, source_ref)
+        source_data = await _load_channel_source_for_user(
+            user_id,
+            source_ref,
+            preferred_account_number=(
+                int(preferred_account)
+                if str(preferred_account or "").isdigit()
+                else None
+            ),
+        )
     except Exception as exc:
         await query.answer(str(exc), show_alert=True)
         return
@@ -584,18 +596,57 @@ async def bc_cancel_tempo_callback(query: CallbackQuery, state: FSMContext):
 @router.message(BroadcastConfigState.waiting_for_source_channel)
 async def process_source_channel_input(message: Message, state: FSMContext):
     user_id = message.from_user.id
+    if (message.text or "").strip() == CANCEL_TEXT:
+        data = await state.get_data()
+        chat_id = data.get("chat_id")
+        edit_message_id = data.get("edit_message_id")
+        await state.clear()
+
+        config = get_broadcast_config(user_id)
+        kb = build_text_settings_keyboard(
+            config.get("text_source_type", "manual"),
+            config.get("text_mode", "random"),
+            config.get("parse_mode", "HTML"),
+        )
+        info = _build_text_settings_info(config)
+
+        if edit_message_id and chat_id:
+            try:
+                await message.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=edit_message_id,
+                    text=info,
+                    reply_markup=kb,
+                    parse_mode="HTML",
+                )
+                return
+            except Exception:
+                pass
+
+        await message.answer(info, reply_markup=kb, parse_mode="HTML")
+        return
+
     source_ref = normalize_channel_reference(message.text)
     if not source_ref:
         await message.answer("Укажи ссылку, @username или ID канала")
         return
 
+    config = get_broadcast_config(user_id)
+    preferred_account = config.get("source_account")
     try:
-        source_data = await _load_channel_source_for_user(user_id, source_ref)
+        source_data = await _load_channel_source_for_user(
+            user_id,
+            source_ref,
+            preferred_account_number=(
+                int(preferred_account)
+                if str(preferred_account or "").isdigit()
+                else None
+            ),
+        )
     except Exception as exc:
         await message.answer(f"❌ Не удалось загрузить посты: {exc}")
         return
 
-    config = get_broadcast_config(user_id)
     config["text_source_type"] = "channel"
     config.update(source_data)
     config["text_index"] = 0

@@ -132,17 +132,26 @@ async def _load_channel_source_for_user(
 ) -> dict:
     normalized_ref = normalize_channel_reference(channel_ref)
     if not normalized_ref:
-        raise ValueError("Укажи ссылку, @username или ID канала")
+        raise ValueError("????? ??????, @username ??? ID ??????")
 
     account_numbers = []
     if preferred_account_number is not None:
         account_numbers.append(preferred_account_number)
 
+    fallback_numbers = []
     for acc_num, _, _, _, is_active in get_user_accounts(user_id):
-        if not is_active or acc_num in account_numbers:
+        if acc_num in account_numbers or acc_num in fallback_numbers:
             continue
-        account_numbers.append(acc_num)
+        if is_active:
+            account_numbers.append(acc_num)
+        else:
+            fallback_numbers.append(acc_num)
 
+    account_numbers.extend(fallback_numbers)
+    if not account_numbers:
+        raise RuntimeError("??? ????????? ????????? ??? ???????? ?????? ??????")
+
+    errors: list[str] = []
     for acc_num in account_numbers:
         client = await ensure_connected_client(
             user_id,
@@ -151,15 +160,22 @@ async def _load_channel_source_for_user(
             api_hash=API_HASH,
         )
         if not client:
+            errors.append(f"??????? {acc_num}: ?? ??????? ?????????? ??????")
             continue
         try:
             source_data = await fetch_channel_posts(client, normalized_ref)
             source_data["source_account"] = acc_num
             return source_data
-        except Exception:
+        except Exception as exc:
+            errors.append(f"??????? {acc_num}: {str(exc)}")
             continue
 
-    raise RuntimeError("Не удалось загрузить посты канала ни с одного подключенного аккаунта")
+    reason = errors[0] if errors else "??? ????????? ? ???????? ? ??????"
+    raise RuntimeError(
+        "?? ??????? ????????? ????? ?????? ?? ? ?????? ????????. "
+        "???????, ??? ??????? ?????? ?? ??? ?????, ? ?? ?? ????????? ????, "
+        f"? ??? ???? ?? ???? ??????? ????? ???? ?????. ??????: {reason}"
+    )
 
 async def _ensure_account_ready(user_id: int, account_number: int):
     return await ensure_connected_client(
@@ -181,9 +197,12 @@ async def _load_channel_preview_message(user_id: int, config: dict, text_index: 
     if text_index < 0 or text_index >= len(items):
         raise IndexError("Post not found")
 
-    account_number = _preferred_account_number(user_id)
+    source_account = config.get("source_account")
+    account_number = int(source_account) if str(source_account or "").isdigit() else None
     if account_number is None:
-        raise RuntimeError("Нет подключенных аккаунтов")
+        account_number = _preferred_account_number(user_id)
+    if account_number is None:
+        raise RuntimeError("??? ???????????? ?????????")
 
     client = await ensure_connected_client(
         user_id,
@@ -192,17 +211,17 @@ async def _load_channel_preview_message(user_id: int, config: dict, text_index: 
         api_hash=API_HASH,
     )
     if not client:
-        raise RuntimeError("Не удалось подключить аккаунт")
+        raise RuntimeError("?? ??????? ?????????? ???????")
 
     source_ref = str(config.get("source_channel_ref") or "")
     if not source_ref:
-        raise RuntimeError("Источник канала не задан")
+        raise RuntimeError("???????? ?????? ?? ?????")
 
     source_entity = await resolve_entity_reference(client, source_ref)
     message_id = int(items[text_index]["message_id"])
     source_message = await client.get_messages(source_entity, ids=message_id)
     if not source_message:
-        raise RuntimeError("Пост канала не найден")
+        raise RuntimeError("???? ?????? ?? ??????")
 
     return client, source_message, account_number
 

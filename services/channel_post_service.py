@@ -1,5 +1,6 @@
 import asyncio
 from typing import Any
+from urllib.parse import urlparse
 from telethon.utils import get_peer_id
 from services.mention_utils import normalize_chat_id
 
@@ -13,19 +14,23 @@ def normalize_channel_reference(value: str | None) -> str | None:
         return raw
 
     lower = raw.lower()
-    if lower.startswith("https://t.me/") or lower.startswith("http://t.me/"):
-        tail = raw.split("t.me/", 1)[1].strip("/")
-        if tail:
-            if tail.startswith("+"):
-                return f"https://t.me/{tail}"
-            return f"@{tail.split('/', 1)[0]}"
-
-    if lower.startswith("t.me/"):
-        tail = raw.split("t.me/", 1)[1].strip("/")
-        if tail:
-            if tail.startswith("+"):
-                return f"https://t.me/{tail}"
-            return f"@{tail.split('/', 1)[0]}"
+    if (
+        lower.startswith("https://t.me/")
+        or lower.startswith("http://t.me/")
+        or lower.startswith("t.me/")
+    ):
+        normalized_url = raw if "://" in raw else f"https://{raw}"
+        parsed = urlparse(normalized_url)
+        parts = [part for part in parsed.path.split("/") if part]
+        if parts:
+            head = parts[0]
+            if head == "c" and len(parts) >= 2 and parts[1].isdigit():
+                return f"-100{parts[1]}"
+            if head == "joinchat" and len(parts) >= 2:
+                return f"https://t.me/joinchat/{parts[1]}"
+            if head.startswith("+"):
+                return f"https://t.me/{head}"
+            return f"@{head}"
 
     return raw
 
