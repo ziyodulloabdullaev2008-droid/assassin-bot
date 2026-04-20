@@ -86,7 +86,7 @@ from ui.main_menu_ui import get_main_menu_keyboard
 
 from handlers.basic_handlers import router as basic_router
 
-from handlers.vip_handlers import router as vip_router, get_vip_cache_size
+from handlers.vip_handlers import router as vip_router
 
 from handlers.account_handlers import router as account_router
 
@@ -95,7 +95,7 @@ from handlers.config_handlers import router as config_router
 from handlers.broadcast_handlers import router as broadcast_router
 from handlers.joins_handlers import router as joins_router
 
-from services.vip_service import is_vip_user_cached, update_vip_cache
+from services.vip_service import get_vip_cache_size, is_vip_user_cached, update_vip_cache
 
 from database import (
     add_user_account_with_number,
