@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 from aiogram import F, Router
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
@@ -28,11 +28,7 @@ from database import (
     remove_vip_user,
     set_vip_session_limit,
 )
-from services.vip_service import (
-    add_vip_user_to_cache,
-    get_vip_cache_size,
-    remove_vip_user_from_cache,
-)
+from services.vip_service import add_vip_user_to_cache, remove_vip_user_from_cache
 
 router = Router()
 
@@ -51,7 +47,7 @@ def _is_admin(user_id: int) -> bool:
 async def _reject_admin_message(message: Message) -> bool:
     if _is_admin(message.from_user.id):
         return False
-    await message.answer("? Только владелец может управлять VIP")
+    await message.answer("❌ Только владелец может управлять VIP")
     return True
 
 
@@ -77,7 +73,7 @@ def _format_username(username: str) -> str:
 
 def _format_vip_time_left(expires_at: float | None) -> str:
     if expires_at is None:
-        return "?"
+        return "∞"
 
     seconds_left = max(int(expires_at - time.time()), 0)
     days = seconds_left // 86400
@@ -93,7 +89,7 @@ def _format_vip_time_left(expires_at: float | None) -> str:
 
 def _format_session_limit(session_limit: int | None) -> str:
     if session_limit is None or int(session_limit) <= 0:
-        return "?"
+        return "∞"
     return str(int(session_limit))
 
 
@@ -117,18 +113,44 @@ def _format_vip_entry(
 def _build_vip_list_text() -> str:
     vip_list = get_all_vip_users_with_details()
     users_lookup = _build_users_lookup()
-    text = f"?? <b>VIP юзеры:</b> ({len(vip_list)})\n\n"
+    unlimited_count = sum(
+        1 for _, expires_at, _ in vip_list if expires_at is None
+    )
+    limited_sessions_count = sum(
+        1 for _, _, session_limit in vip_list if session_limit is not None and int(session_limit) > 0
+    )
+
+    text = (
+        "👑 <b>VIP юзеры</b>\n\n"
+        f"Всего: <b>{len(vip_list)}</b>\n"
+        f"Бессрочных: <b>{unlimited_count}</b>\n"
+        f"С лимитом сессий: <b>{limited_sessions_count}</b>\n"
+    )
+
+    if vip_list:
+        text += "\n"
+
     for idx, (user_id, expires_at, session_limit) in enumerate(vip_list, 1):
-        text += f"{idx}. {_format_vip_entry(user_id, expires_at, session_limit, users_lookup)}\n"
+        username, first_name = users_lookup.get(user_id, ("", ""))
+        display_name = escape(first_name) if first_name else "Без имени"
+        display_username = escape(_format_username(username))
+        text += (
+            f"<b>{idx}) {display_name}</b>\n"
+            f"{display_username}\n"
+            f"ID: <code>{user_id}</code>\n"
+            f"VIP: <b>{escape(_format_vip_time_left(expires_at))}</b>\n"
+            f"Лимит сессий: <b>{escape(_format_session_limit(session_limit))}</b>\n\n"
+        )
     return text
 
 
 def _build_vips_overview_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="? Добавить", callback_data="vip_add_menu")],
-            [InlineKeyboardButton(text="??? Лимиты", callback_data="vip_limits_menu")],
-            [InlineKeyboardButton(text="? Удалить", callback_data="vip_delete_menu")],
+            [InlineKeyboardButton(text="➕ Выдать VIP", callback_data="vip_add_menu")],
+            [InlineKeyboardButton(text="🎚️ Лимиты сессий", callback_data="vip_limits_menu")],
+            [InlineKeyboardButton(text="❌ Удалить VIP", callback_data="vip_delete_menu")],
+            [InlineKeyboardButton(text="🔄 Обновить", callback_data="vip_back")],
         ]
     )
 
@@ -146,13 +168,13 @@ def _build_vip_delete_keyboard() -> InlineKeyboardMarkup:
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="? " + " | ".join(label_parts),
-                    callback_data=f"vip_remove_{uid}",
+                    text="❌ " + " | ".join(label_parts),
+                    callback_data=f"vip_remove_prompt_{uid}",
                 )
             ]
         )
 
-    rows.append([InlineKeyboardButton(text="?? Назад", callback_data="vip_back")])
+    rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="vip_back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -165,26 +187,43 @@ def _build_vip_limit_keyboard() -> InlineKeyboardMarkup:
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=f"??? {user_id} | {label[:16]} | {_format_session_limit(session_limit)}",
+                    text=f"🎚️ {user_id} | {label[:16]} | {_format_session_limit(session_limit)}",
                     callback_data=f"vip_limit_{user_id}",
                 )
             ]
         )
-    rows.append([InlineKeyboardButton(text="?? Назад", callback_data="vip_back")])
+    rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="vip_back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def _build_vip_delete_confirm_keyboard(user_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Да, удалить",
+                    callback_data=f"vip_remove_{user_id}",
+                ),
+                InlineKeyboardButton(
+                    text="⬅️ Назад",
+                    callback_data="vip_delete_menu",
+                ),
+            ]
+        ]
+    )
 
 
 def _vip_cancel_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="? Отменить", callback_data="vip_add_cancel")]
+            [InlineKeyboardButton(text="❌ Отменить", callback_data="vip_add_cancel")]
         ]
     )
 
 
 def _vip_duration_prompt(user_id: int) -> str:
     return (
-        "? <b>На какой срок выдать VIP?</b>\n\n"
+        "⏳ <b>На какой срок выдать VIP?</b>\n\n"
         f"Юзер: <code>{user_id}</code>\n\n"
         "Введи число дней:\n"
         "• <code>0</code> — навсегда\n"
@@ -194,9 +233,9 @@ def _vip_duration_prompt(user_id: int) -> str:
 
 
 def _vip_limit_prompt(user_id: int, days: int) -> str:
-    left = "?" if days == 0 else f"{days} дн."
+    left = "∞" if days == 0 else f"{days} дн."
     return (
-        "?? <b>Какой лимит сессий поставить?</b>\n\n"
+        "🔢 <b>Какой лимит сессий поставить?</b>\n\n"
         f"Юзер: <code>{user_id}</code>\n"
         f"VIP: <b>{left}</b>\n\n"
         "Введи число:\n"
@@ -208,7 +247,7 @@ def _vip_limit_prompt(user_id: int, days: int) -> str:
 
 def _vip_edit_limit_prompt(user_id: int, current_limit: int | None) -> str:
     return (
-        "?? <b>Изменить лимит сессий</b>\n\n"
+        "🔧 <b>Изменить лимит сессий</b>\n\n"
         f"Юзер: <code>{user_id}</code>\n"
         f"Текущий лимит: <b>{_format_session_limit(current_limit)}</b>\n\n"
         "Введи новое число:\n"
@@ -232,7 +271,7 @@ async def _send_vip_limit_prompt(message: Message, state: FSMContext, days: int)
     user_id = data.get("vip_user_id")
     if not user_id:
         await state.clear()
-        await message.answer("? Не найден ID юзера. Начни заново: /vip <user_id>")
+        await message.answer("❌ Не найден ID юзера. Начни заново: /vip <user_id>")
         return
 
     await state.update_data(vip_days=days)
@@ -249,21 +288,21 @@ async def _finish_vip_add(message: Message, state: FSMContext, days: int, sessio
     user_id = data.get("vip_user_id")
     if not user_id:
         await state.clear()
-        await message.answer("? Не найден ID юзера. Начни заново: /vip <user_id>")
+        await message.answer("❌ Не найден ID юзера. Начни заново: /vip <user_id>")
         return
 
     if add_vip_user(int(user_id), days, session_limit=session_limit):
         add_vip_user_to_cache(int(user_id))
-        left = "?" if days == 0 else f"{days} дн."
+        left = "∞" if days == 0 else f"{days} дн."
         limit_text = _format_session_limit(session_limit)
         await message.answer(
-            f"? VIP выдан юзеру <code>{user_id}</code>\n"
+            f"✅ VIP выдан юзеру <code>{user_id}</code>\n"
             f"Срок: <b>{left}</b>\n"
             f"Лимит сессий: <b>{limit_text}</b>",
             parse_mode="HTML",
         )
     else:
-        await message.answer("? Не удалось выдать VIP")
+        await message.answer("❌ Не удалось выдать VIP")
     await state.clear()
 
 
@@ -274,13 +313,13 @@ async def cmd_add_vip(message: Message, state: FSMContext):
 
     args = message.text.split()
     if len(args) < 2:
-        await message.answer("? Использование: /vip <user_id>")
+        await message.answer("❌ Использование: /vip <user_id>")
         return
 
     try:
         user_id = int(args[1])
     except ValueError:
-        await message.answer("? Неверный ID")
+        await message.answer("❌ Неверный ID")
         return
 
     await _send_vip_duration_prompt(message, state, user_id)
@@ -293,20 +332,20 @@ async def cmd_remove_vip(message: Message):
 
     args = message.text.split()
     if len(args) < 2:
-        await message.answer("? Использование: /dlvip <user_id>")
+        await message.answer("❌ Использование: /dlvip <user_id>")
         return
 
     try:
         user_id = int(args[1])
     except ValueError:
-        await message.answer("? Неверный ID")
+        await message.answer("❌ Неверный ID")
         return
 
     if remove_vip_user(user_id):
         remove_vip_user_from_cache(user_id)
-        await message.answer(f"? Юзер {user_id} удален из VIP")
+        await message.answer(f"✅ Юзер {user_id} удален из VIP")
     else:
-        await message.answer(f"? Юзер {user_id} не найден в VIP")
+        await message.answer(f"❌ Юзер {user_id} не найден в VIP")
 
 
 @router.message(Command("vips"))
@@ -316,7 +355,7 @@ async def cmd_show_vips(message: Message):
 
     vip_list = get_all_vip_users()
     if not vip_list:
-        await message.answer("?? VIP список пуст", reply_markup=_build_vips_overview_keyboard())
+        await message.answer("📭 VIP список пуст", reply_markup=_build_vips_overview_keyboard())
         return
 
     await message.answer(
@@ -334,7 +373,7 @@ async def vip_add_menu(query: CallbackQuery, state: FSMContext):
     await query.answer()
     await state.set_state(VIPAddState.waiting_for_user_id)
     await query.message.edit_text(
-        "?? <b>Введи ID пользователя для добавления:</b>\n(отправь число)",
+        "📝 <b>Введи ID пользователя для добавления:</b>\n(отправь число)",
         parse_mode="HTML",
         reply_markup=_vip_cancel_keyboard(),
     )
@@ -352,7 +391,7 @@ async def vip_delete_menu(query: CallbackQuery):
 
     await query.answer()
     await query.message.edit_text(
-        "?? <b>Выберите VIP для удаления:</b>",
+        "📋 <b>Выберите VIP для удаления:</b>",
         parse_mode="HTML",
         reply_markup=_build_vip_delete_keyboard(),
     )
@@ -370,9 +409,25 @@ async def vip_limits_menu(query: CallbackQuery):
 
     await query.answer()
     await query.message.edit_text(
-        "??? <b>Выберите VIP для изменения лимита:</b>",
+        "🎚️ <b>Выберите VIP для изменения лимита:</b>",
         parse_mode="HTML",
         reply_markup=_build_vip_limit_keyboard(),
+    )
+
+
+@router.callback_query(F.data.startswith("vip_remove_prompt_"))
+async def vip_remove_prompt_callback(query: CallbackQuery):
+    if await _reject_admin_query(query):
+        return
+
+    user_id = int(query.data.split("_")[-1])
+    await query.answer()
+    await query.message.edit_text(
+        "⚠️ <b>Подтвердить удаление VIP</b>\n\n"
+        f"Юзер: <code>{user_id}</code>\n\n"
+        "Это действие удалит VIP у пользователя.",
+        parse_mode="HTML",
+        reply_markup=_build_vip_delete_confirm_keyboard(user_id),
     )
 
 
@@ -384,10 +439,10 @@ async def vip_remove_callback(query: CallbackQuery):
     user_id = int(query.data.split("_")[-1])
     if remove_vip_user(user_id):
         remove_vip_user_from_cache(user_id)
-        await query.answer(f"? Юзер {user_id} удален из VIP")
+        await query.answer(f"✅ Юзер {user_id} удален из VIP")
         await vip_delete_menu(query)
     else:
-        await query.answer("? Ошибка удаления", show_alert=True)
+        await query.answer("❌ Ошибка удаления", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("vip_limit_"))
@@ -419,7 +474,7 @@ async def vip_back(query: CallbackQuery):
 
     await query.answer()
     await query.message.edit_text(
-        _build_vip_list_text() if get_all_vip_users() else "?? VIP список пуст",
+        _build_vip_list_text() if get_all_vip_users() else "📭 VIP список пуст",
         parse_mode="HTML",
         reply_markup=_build_vips_overview_keyboard(),
     )
@@ -433,7 +488,7 @@ async def vip_add_cancel(query: CallbackQuery, state: FSMContext):
     await state.clear()
     await query.answer("Отменено", show_alert=False)
     try:
-        await query.message.edit_text("? Выдача/редактирование VIP отменены")
+        await query.message.edit_text("❌ Выдача или редактирование VIP отменены")
     except Exception:
         pass
 
@@ -447,7 +502,7 @@ async def process_vip_user_id(message: Message, state: FSMContext):
     try:
         user_id = int(message.text.strip())
     except ValueError:
-        await message.answer("? Неверный ID. Пожалуйста, введи число")
+        await message.answer("❌ Неверный ID. Пожалуйста, введи число")
         return
 
     await _send_vip_duration_prompt(message, state, user_id)
@@ -462,11 +517,11 @@ async def process_vip_duration(message: Message, state: FSMContext):
     try:
         days = int(message.text.strip())
     except ValueError:
-        await message.answer("? Введи число дней. Например: 0, 1, 7, 30")
+        await message.answer("❌ Введи число дней. Например: 0, 1, 7, 30")
         return
 
     if days < 0:
-        await message.answer("? Срок не может быть меньше 0")
+        await message.answer("❌ Срок не может быть меньше 0")
         return
 
     await _send_vip_limit_prompt(message, state, days)
@@ -481,11 +536,11 @@ async def process_vip_session_limit(message: Message, state: FSMContext):
     try:
         session_limit = int(message.text.strip())
     except ValueError:
-        await message.answer("? Введи число. Например: 0, 1, 3")
+        await message.answer("❌ Введи число. Например: 0, 1, 3")
         return
 
     if session_limit < 0:
-        await message.answer("? Лимит не может быть меньше 0")
+        await message.answer("❌ Лимит не может быть меньше 0")
         return
 
     data = await state.get_data()
@@ -502,28 +557,28 @@ async def process_vip_edit_limit(message: Message, state: FSMContext):
     try:
         session_limit = int(message.text.strip())
     except ValueError:
-        await message.answer("? Введи число. Например: 0, 1, 3")
+        await message.answer("❌ Введи число. Например: 0, 1, 3")
         return
 
     if session_limit < 0:
-        await message.answer("? Лимит не может быть меньше 0")
+        await message.answer("❌ Лимит не может быть меньше 0")
         return
 
     data = await state.get_data()
     user_id = data.get("vip_user_id")
     if not user_id:
         await state.clear()
-        await message.answer("? Потерян ID пользователя. Открой /vips заново")
+        await message.answer("❌ Потерян ID пользователя. Открой /vips заново")
         return
 
     if set_vip_session_limit(int(user_id), session_limit):
         await message.answer(
-            f"? Лимит сессий обновлен для <code>{user_id}</code>\n"
+            f"✅ Лимит сессий обновлен для <code>{user_id}</code>\n"
             f"Новый лимит: <b>{_format_session_limit(session_limit)}</b>",
             parse_mode="HTML",
         )
     else:
-        await message.answer("? Не удалось обновить лимит")
+        await message.answer("❌ Не удалось обновить лимит")
     await state.clear()
 
 
@@ -537,24 +592,23 @@ async def cmd_show_users_stats(message: Message):
     vip_count = len(vip_list)
 
     stats_text = (
-        "?? <b>Статистика бота:</b>\n\n"
-        f"?? <b>Всего юзеров:</b> {len(users)}\n"
-        f"?? <b>VIP юзеров:</b> {vip_count}\n"
-        f"?? <b>Обычных юзеров:</b> {len(users) - vip_count}\n"
+        "📊 <b>Статистика бота:</b>\n\n"
+        f"👥 <b>Всего юзеров:</b> {len(users)}\n"
+        f"👑 <b>VIP юзеров:</b> {vip_count}\n"
+        f"📱 <b>Обычных юзеров:</b> {len(users) - vip_count}\n"
     )
 
     total_accounts = 0
     for user_id, _, _, _ in users:
-        accounts = get_user_accounts(user_id)
-        total_accounts += len(accounts)
+        total_accounts += len(get_user_accounts(user_id))
 
-    stats_text += f"?? <b>Всего аккаунтов:</b> {total_accounts}\n\n"
+    stats_text += f"🔐 <b>Всего аккаунтов:</b> {total_accounts}\n\n"
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="?? Скачать список юзеров", callback_data="export_users_excel"
+                    text="📥 Скачать список юзеров", callback_data="export_users_excel"
                 )
             ]
         ]
@@ -565,7 +619,7 @@ async def cmd_show_users_stats(message: Message):
 
 @router.callback_query(F.data == "export_users_excel")
 async def export_users_excel(query: CallbackQuery):
-    await query.answer("? Создаю список юзеров...", show_alert=False)
+    await query.answer("⏳ Создаю список юзеров...", show_alert=False)
 
     try:
         users = get_all_users()
@@ -588,8 +642,8 @@ async def export_users_excel(query: CallbackQuery):
             cell.alignment = Alignment(horizontal="center")
 
         for row_num, (user_id, username, first_name, is_logged_in) in enumerate(users, 2):
-            vip_status = "? VIP" if is_vip_user(user_id) else "?"
-            login_status = "? Вход выполнен" if is_logged_in else "? Не вошел"
+            vip_status = "✅ VIP" if is_vip_user(user_id) else "❌"
+            login_status = "✅ Вход выполнен" if is_logged_in else "❌ Не вошел"
             account_count = len(get_user_accounts(user_id))
 
             ws.cell(row=row_num, column=1).value = row_num - 1
@@ -614,7 +668,7 @@ async def export_users_excel(query: CallbackQuery):
 
         await query.message.answer_document(
             BufferedInputFile(excel_bytes, filename="users_list.xlsx"),
-            caption="?? Список всех юзеров бота",
+            caption="📊 Список всех юзеров бота",
         )
     except Exception as e:
-        await query.answer(f"? Ошибка: {str(e)}", show_alert=True)
+        await query.answer(f"❌ Ошибка: {str(e)}", show_alert=True)

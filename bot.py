@@ -728,6 +728,30 @@ def _build_proxy_account_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
+def _build_proxy_delete_confirm_keyboard(
+    account_number: int,
+    source: str = "proxy",
+) -> InlineKeyboardMarkup:
+    confirm_callback = (
+        f"se_proxy_remove_confirm_{account_number}"
+        if source == "se"
+        else f"proxy_remove_confirm_{account_number}"
+    )
+    back_callback = (
+        f"se_proxy_menu_{account_number}"
+        if source == "se"
+        else f"proxy_account_{account_number}"
+    )
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Да, удалить", callback_data=confirm_callback),
+                InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback),
+            ]
+        ]
+    )
+
+
 def _build_proxy_input_cancel_keyboard(
     account_number: int,
     source: str = "proxy",
@@ -1150,7 +1174,7 @@ async def _build_session_account_detail_text(user_id: int, account_number: int) 
 def _build_session_account_detail_keyboard(
     account_number: int,
     is_active: bool,
-) -> InlineKeyboardMarkup:
+    ) -> InlineKeyboardMarkup:
     toggle_text = "⏸️ Отключить" if is_active else "▶️ Включить"
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -1181,6 +1205,23 @@ def _build_session_account_detail_keyboard(
                 )
             ],
             [InlineKeyboardButton(text="⬅️ К аккаунтам", callback_data="se_back_accounts")],
+        ]
+    )
+
+
+def _build_session_delete_confirm_keyboard(account_number: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Да, удалить",
+                    callback_data=f"se_account_delete_confirm_{account_number}",
+                ),
+                InlineKeyboardButton(
+                    text="⬅️ Назад",
+                    callback_data=f"se_account_{account_number}",
+                ),
+            ]
         ]
     )
 
@@ -1517,9 +1558,29 @@ async def proxy_delete_callback(query: CallbackQuery, state: FSMContext):
     if not await _guard_broadcast_sensitive_action(query):
         return
     await query.answer()
-    await state.clear()
     account_number = int(query.data.rsplit("_", 1)[1])
     source = "se" if query.data.startswith("se_proxy_delete_") else "proxy"
+    await query.message.edit_text(
+        "⚠️ <b>Подтвердить удаление прокси</b>\n\n"
+        f"Аккаунт: <b>{account_number}</b>\n\n"
+        "Прокси будет удалён из настроек аккаунта.",
+        parse_mode="HTML",
+        reply_markup=_build_proxy_delete_confirm_keyboard(
+            account_number,
+            source=source,
+        ),
+    )
+
+
+@dp.callback_query(F.data.startswith("proxy_remove_confirm_"))
+@dp.callback_query(F.data.startswith("se_proxy_remove_confirm_"))
+async def proxy_delete_confirm_callback(query: CallbackQuery, state: FSMContext):
+    if not await _guard_broadcast_sensitive_action(query):
+        return
+    await query.answer()
+    await state.clear()
+    account_number = int(query.data.rsplit("_", 1)[1])
+    source = "se" if query.data.startswith("se_proxy_remove_confirm_") else "proxy"
     clear_account_proxy(query.from_user.id, account_number)
     await drop_cached_client(query.from_user.id, account_number)
     append_account_event(
@@ -2015,6 +2076,23 @@ async def close_sessions_menu_callback(query: CallbackQuery):
 @dp.callback_query(F.data.startswith("delete_account_"))
 @dp.callback_query(F.data.startswith("se_delete_account_"))
 async def delete_account(query: CallbackQuery):
+    if not await _guard_broadcast_sensitive_action(query):
+        return
+
+    account_number = int(query.data.rsplit("_", 1)[1])
+    await query.answer()
+    await query.message.edit_text(
+        "⚠️ <b>Подтвердить удаление аккаунта</b>\n\n"
+        f"Аккаунт: <b>{account_number}</b>\n\n"
+        "Будут удалены сессия, прокси и локальные данные этого аккаунта.",
+        parse_mode="HTML",
+        reply_markup=_build_session_delete_confirm_keyboard(account_number),
+    )
+
+
+@dp.callback_query(F.data.startswith("account_delete_confirm_"))
+@dp.callback_query(F.data.startswith("se_account_delete_confirm_"))
+async def delete_account_confirm(query: CallbackQuery):
     if not await _guard_broadcast_sensitive_action(query):
         return
 

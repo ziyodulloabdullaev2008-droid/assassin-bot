@@ -163,7 +163,7 @@ async def show_config_detail(query: CallbackQuery, config_id: int):
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text="Удалить конфиг", callback_data=f"cfg_delete_{config_id}"
+                    text="Удалить конфиг", callback_data=f"cfg_delete_prompt_{config_id}"
                 )
             ]
         )
@@ -276,6 +276,24 @@ async def cfg_rename_process(message: Message, state: FSMContext):
         pass
 
     await show_config_list(message, message.from_user.id, edit=False)
+
+
+@router.callback_query(F.data.startswith("cfg_delete_prompt_"))
+async def cfg_delete_prompt(query: CallbackQuery):
+    await query.answer()
+    config_id = int(query.data.split("_")[3])
+    await query.message.edit_text(
+        "?? <b>??????????? ???????? ???????</b>\n\n"
+        f"??????: <code>{config_id}</code>\n\n"
+        "????? ???????? ??????? ??? ??? ?? ?????????.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[
+                InlineKeyboardButton(text="? ??, ???????", callback_data=f"cfg_delete_{config_id}"),
+                InlineKeyboardButton(text="?? ?????", callback_data=f"cfg_view_{config_id}"),
+            ]]
+        ),
+    )
 
 
 @router.callback_query(F.data.startswith("cfg_delete_"))
