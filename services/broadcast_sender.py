@@ -293,8 +293,9 @@ async def _notify_broadcast_error(
             f"\u0427\u0430\u0442: <b>{html.escape(str(chat_name or chat_id))}</b>"
             + (f" (<code>{chat_id}</code>)" if chat_id is not None else "")
         )
+    link_text = html.escape(str(chat_link)) if chat_link else "\u043d\u0435\u0442 \u0441\u0441\u044b\u043b\u043a\u0438"
     lines.append(
-        f"\u0421\u0441\u044b\u043b\u043a\u0430: {html.escape(str(chat_link)) if chat_link else '\u043d\u0435\u0442 \u0441\u0441\u044b\u043b\u043a\u0438'}"
+        f"\u0421\u0441\u044b\u043b\u043a\u0430: {link_text}"
     )
     lines.append(
         f"\u041e\u0448\u0438\u0431\u043a\u0430: <code>{html.escape(str(error_text)[:800])}</code>"
