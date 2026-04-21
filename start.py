@@ -40,15 +40,17 @@ def ensure_dependencies() -> None:
         return
 
     _print(f"Installing missing packages: {', '.join(missing)}")
+    in_virtualenv = sys.prefix != getattr(sys, "base_prefix", sys.prefix)
     command = [
         sys.executable,
         "-m",
         "pip",
         "install",
-        "--user",
         "-r",
         str(REQUIREMENTS_FILE),
     ]
+    if not in_virtualenv:
+        command.insert(4, "--user")
     result = subprocess.run(command, cwd=str(ROOT))
     if result.returncode != 0:
         raise SystemExit(result.returncode)

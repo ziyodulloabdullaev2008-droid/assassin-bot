@@ -512,36 +512,21 @@ async def bc_interval_callback(query: CallbackQuery, state: FSMContext):
 
     await query.answer()
 
-    await state.set_state(BroadcastConfigState.waiting_for_interval)
-
-    await state.update_data(
-        edit_message_id=query.message.message_id, chat_id=query.message.chat.id
-    )
-
     config = get_broadcast_config(query.from_user.id)
+    interval_unit = _current_interval_unit(config)
 
-    current_interval = config.get("interval", "30-90")
-
-    text = (
-        "\u23f1\ufe0f <b>\u0418\u041d\u0422\u0415\u0420\u0412\u0410\u041b \u0414\u041b\u042f \u041a\u0410\u0416\u0414\u041e\u0413\u041e \u0427\u0410\u0422\u0410</b>\n\n"
-        f"\u0422\u0435\u043a\u0443\u0449\u0438\u0439: {current_interval} \u043c\u0438\u043d\n\n"
-        "\u041f\u043e\u0441\u043b\u0435 \u043a\u0430\u0436\u0434\u043e\u0439 \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0438 \u0431\u043e\u0442 \u0437\u0430\u043d\u043e\u0432\u043e \u043d\u0430\u0437\u043d\u0430\u0447\u0430\u0435\u0442 \u044d\u0442\u043e\u0442 \u0438\u043d\u0442\u0435\u0440\u0432\u0430\u043b \u0438\u043c\u0435\u043d\u043d\u043e \u0434\u043b\u044f \u0442\u043e\u0433\u043e \u0447\u0430\u0442\u0430, \u043a\u0443\u0434\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0447\u0442\u043e \u043e\u0442\u043f\u0440\u0430\u0432\u0438\u043b.\n"
-        "\u0412\u0432\u0435\u0434\u0438 \u043e\u0434\u043d\u043e \u0447\u0438\u0441\u043b\u043e \u0438\u043b\u0438 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d.\n"
-        "\u041f\u0440\u0438\u043c\u0435\u0440\u044b: <code>15</code> \u0438\u043b\u0438 <code>10-30</code>"
+    await state.set_state(BroadcastConfigState.waiting_for_interval)
+    await state.update_data(
+        edit_message_id=query.message.message_id,
+        chat_id=query.message.chat.id,
+        interval_unit=interval_unit,
     )
 
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=CANCEL_TEXT,
-                    callback_data="bc_cancel",
-                )
-            ]
-        ]
+    await query.message.edit_text(
+        _build_interval_input_text(config.get("interval", "30-90"), interval_unit),
+        reply_markup=_build_interval_input_keyboard(interval_unit, "bc_cancel"),
+        parse_mode="HTML",
     )
-
-    await query.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
 @router.callback_query(F.data == "bc_batch_pause")
 async def bc_batch_pause_callback(query: CallbackQuery, state: FSMContext):
