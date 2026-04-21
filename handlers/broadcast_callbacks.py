@@ -440,7 +440,7 @@ async def view_bc_callback(query: CallbackQuery):
         f"\U0001f4e4 <b>\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{display_number}</b>\n\n"
     )
 
-    info += f"\u25fc\ufe0f \u0421\u0442\u0430\u0442\u0443\u0441: {status}\n"
+    info += f"{status} <b>\u0421\u0442\u0430\u0442\u0443\u0441</b>\n"
 
     info += f"\U0001f464 \u0410\u043a\u043a\u0430\u0443\u043d\u0442: {account_name}\n"
     info += f"\u2699\ufe0f \u041a\u043e\u043d\u0444\u0438\u0433: {html.escape(config_name)}\n"
