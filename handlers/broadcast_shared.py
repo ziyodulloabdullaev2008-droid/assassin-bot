@@ -65,6 +65,8 @@ from services.broadcast_runtime_service import (
 
 from services.broadcast_profiles_service import (
     ensure_active_config,
+    get_active_config_id,
+    get_config_detail,
     sync_active_config_from_db,
 )
 from services.channel_post_service import (
@@ -116,6 +118,15 @@ broadcast_update_lock = app_state.broadcast_update_lock
 active_broadcasts = app_state.active_broadcasts
 CHAT_PAUSE_MAX_SECONDS = 3600
 
+
+def _broadcast_display_numbers(user_id: int) -> dict[int, int]:
+    user_ids = sorted(
+        bid
+        for bid, broadcast in active_broadcasts.items()
+        if broadcast.get("user_id") == user_id
+    )
+    return {bid: index for index, bid in enumerate(user_ids, start=1)}
+
 def save_broadcast_config_with_profile(user_id: int, config: dict) -> None:
 
     ensure_active_config(user_id)
@@ -132,7 +143,7 @@ async def _load_channel_source_for_user(
 ) -> dict:
     normalized_ref = normalize_channel_reference(channel_ref)
     if not normalized_ref:
-        raise ValueError("????? ??????, @username ??? ID ??????")
+        raise ValueError("Укажи ссылку, @username или ID канала")
 
     account_numbers = []
     if preferred_account_number is not None:
@@ -149,7 +160,7 @@ async def _load_channel_source_for_user(
 
     account_numbers.extend(fallback_numbers)
     if not account_numbers:
-        raise RuntimeError("??? ????????? ????????? ??? ???????? ?????? ??????")
+        raise RuntimeError("Нет доступных аккаунтов для загрузки постов канала")
 
     errors: list[str] = []
     for acc_num in account_numbers:
@@ -160,21 +171,21 @@ async def _load_channel_source_for_user(
             api_hash=API_HASH,
         )
         if not client:
-            errors.append(f"??????? {acc_num}: ?? ??????? ?????????? ??????")
+            errors.append(f"Аккаунт {acc_num}: не удалось подключить сессию")
             continue
         try:
             source_data = await fetch_channel_posts(client, normalized_ref)
             source_data["source_account"] = acc_num
             return source_data
         except Exception as exc:
-            errors.append(f"??????? {acc_num}: {str(exc)}")
+            errors.append(f"Аккаунт {acc_num}: {str(exc)}")
             continue
 
-    reason = errors[0] if errors else "??? ????????? ? ???????? ? ??????"
+    reason = errors[0] if errors else "нет аккаунтов с доступом к каналу"
     raise RuntimeError(
-        "?? ??????? ????????? ????? ?????? ?? ? ?????? ????????. "
-        "???????, ??? ??????? ?????? ?? ??? ?????, ? ?? ?? ????????? ????, "
-        f"? ??? ???? ?? ???? ??????? ????? ???? ?????. ??????: {reason}"
+        "Не удалось загрузить посты канала ни с одного аккаунта. "
+        "Проверь, что указана ссылка на сам канал, а не на отдельный пост, "
+        f"и что хотя бы один аккаунт видит этот канал. Пример: {reason}"
     )
 
 async def _ensure_account_ready(user_id: int, account_number: int):
@@ -202,7 +213,7 @@ async def _load_channel_preview_message(user_id: int, config: dict, text_index: 
     if account_number is None:
         account_number = _preferred_account_number(user_id)
     if account_number is None:
-        raise RuntimeError("??? ???????????? ?????????")
+        raise RuntimeError("Нет подключенных аккаунтов")
 
     client = await ensure_connected_client(
         user_id,
@@ -211,17 +222,17 @@ async def _load_channel_preview_message(user_id: int, config: dict, text_index: 
         api_hash=API_HASH,
     )
     if not client:
-        raise RuntimeError("?? ??????? ?????????? ???????")
+        raise RuntimeError("Не удалось подключить аккаунт")
 
     source_ref = str(config.get("source_channel_ref") or "")
     if not source_ref:
-        raise RuntimeError("???????? ?????? ?? ?????")
+        raise RuntimeError("Источник канала не задан")
 
     source_entity = await resolve_entity_reference(client, source_ref)
     message_id = int(items[text_index]["message_id"])
     source_message = await client.get_messages(source_entity, ids=message_id)
     if not source_message:
-        raise RuntimeError("???? ?????? ?? ??????")
+        raise RuntimeError("Пост канала не найден")
 
     return client, source_message, account_number
 
@@ -972,6 +983,35 @@ async def _set_broadcast_chat_status(
     await update_broadcast_fields(bid, chat_runtime=items)
     return True
 
+
+async def _set_broadcast_chat_status_by_chat_id(
+    user_id: int,
+    bid: int,
+    chat_id,
+    status: str,
+) -> bool:
+    broadcast = active_broadcasts.get(bid)
+    if not broadcast or broadcast.get("user_id") != user_id:
+        return False
+
+    items = _broadcast_chat_runtime_items(broadcast)
+    found = False
+    chat_id_text = str(chat_id)
+    for item in items:
+        if str(item.get("chat_id")) != chat_id_text:
+            continue
+        item["status"] = status
+        found = True
+        if status == "active" and float(item.get("next_send_at", 0.0) or 0.0) <= 0:
+            item["next_send_at"] = datetime.now(timezone.utc).timestamp()
+        break
+
+    if not found:
+        return False
+
+    await update_broadcast_fields(bid, chat_runtime=items)
+    return True
+
 async def _send_broadcast_notice(message_or_query, text: str) -> None:
 
     try:
@@ -1043,6 +1083,15 @@ async def execute_broadcast(
 
     source_type = config.get("text_source_type", "manual")
     runtime_config = dict(config)
+    active_config_id = get_active_config_id(user_id)
+    config_detail = get_config_detail(user_id, active_config_id) if active_config_id is not None else None
+    config_name = (
+        str((config_detail or {}).get("name") or "")
+        if config_detail
+        else ("По умолчанию" if active_config_id == 0 else "")
+    )
+    if not config_name:
+        config_name = "По умолчанию" if active_config_id == 0 else f"Конфиг {active_config_id}"
     if source_type == "channel":
         source_ref = runtime_config.get("source_channel_ref")
         if not source_ref:
@@ -1085,6 +1134,8 @@ async def execute_broadcast(
         "user_id": user_id,
         "account": account_number,
         "account_name": account_name or f"Аккаунт {account_number}",
+        "config_id": active_config_id,
+        "config_name": config_name,
         "chat_ids": chat_ids,
         "texts": list(runtime_config.get("texts") or []),
         "content_items": content_items,
@@ -1127,12 +1178,15 @@ async def execute_broadcast(
 
     create_broadcast(broadcast_id, payload)
     _start_or_resume_broadcast_task(broadcast_id)
+    display_number = _broadcast_display_numbers(user_id).get(broadcast_id, 1)
 
     await _send_broadcast_notice(
         message_or_query,
         (
             "✅ Рассылка запущена\n\n"
+            f"Активная: #{display_number}\n"
             f"Аккаунт: {payload['account_name']}\n"
+            f"Конфиг: {payload['config_name']}\n"
             f"Чатов: {len(chat_ids)}\n"
             f"Сообщений: {payload['planned_count']}"
         ),

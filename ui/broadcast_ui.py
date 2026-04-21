@@ -40,6 +40,10 @@ def build_broadcast_keyboard(
         if user_broadcasts:
             groups = {}
             singles = []
+            display_numbers = {
+                bid: index
+                for index, bid in enumerate(sorted(user_broadcasts.keys()), start=1)
+            }
             for bid, b in user_broadcasts.items():
                 gid = b.get("group_id")
                 if gid is None:
@@ -72,10 +76,11 @@ def build_broadcast_keyboard(
                     if broadcast["status"] == "paused"
                     else "✅"
                 )
+                display_number = display_numbers.get(bid, bid)
                 buttons.append(
                     [
                         InlineKeyboardButton(
-                            text=f"{status} Рассылка #{bid}",
+                            text=f"{status} Рассылка #{display_number}",
                             callback_data=f"view_bc_{bid}",
                         )
                     ]

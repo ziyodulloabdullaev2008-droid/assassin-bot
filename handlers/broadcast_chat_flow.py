@@ -55,6 +55,35 @@ async def bc_chat_pause_callback(query: CallbackQuery):
     await _set_broadcast_chat_status(user_id, bid, order, "paused")
     await _render_broadcast_chat_detail(query, bid, order)
 
+
+@router.callback_query(F.data.startswith("bc_err_pause_"))
+async def bc_err_pause_callback(query: CallbackQuery):
+    await query.answer()
+    user_id = query.from_user.id
+    try:
+        _, _, _, bid_text, chat_id_text = query.data.split("_", 4)
+        bid = int(bid_text)
+        chat_id = int(chat_id_text)
+    except Exception:
+        await query.answer("Ошибка", show_alert=True)
+        return
+
+    changed = await _set_broadcast_chat_status_by_chat_id(
+        user_id,
+        bid,
+        chat_id,
+        "paused",
+    )
+    if not changed:
+        await query.answer("Не удалось поставить чат на паузу", show_alert=True)
+        return
+
+    try:
+        await query.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await query.answer("Чат поставлен на паузу", show_alert=True)
+
 @router.callback_query(F.data.startswith("bc_chat_resume_"))
 async def bc_chat_resume_callback(query: CallbackQuery):
     await query.answer()

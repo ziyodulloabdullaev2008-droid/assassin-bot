@@ -2,8 +2,10 @@ import asyncio
 import html
 import random
 import time
+from datetime import datetime, timezone
 
 from telethon.errors import FloodWaitError
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.config import API_HASH, API_ID
 from core.state import app_state
@@ -170,6 +172,37 @@ def _pick_next_chat_entry(chat_runtime: list[dict]) -> dict | None:
     return random.choice(ready_items)
 
 
+def _should_apply_global_pace(
+    chat_entry: dict,
+    chat_runtime: list[dict],
+    next_global_send_at: float,
+    now: float,
+) -> bool:
+    if next_global_send_at <= now:
+        return False
+
+    # During the first pass through chats, the global pace spaces out
+    # the initial messages so they do not go out in a burst.
+    if _chat_attempts(chat_entry) == 0:
+        return True
+
+    # After the first pass, pace only matters when multiple chats are due
+    # within the same pace window and need to be separated.
+    for item in chat_runtime:
+        if item is chat_entry:
+            continue
+        if str(item.get("status") or "active") != "active" or not _chat_has_quota(item):
+            continue
+        try:
+            other_next_send_at = float(item.get("next_send_at", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            other_next_send_at = 0.0
+        if other_next_send_at <= next_global_send_at:
+            return True
+
+    return False
+
+
 async def _wait_while_paused(broadcast_id: int) -> str:
     while True:
         broadcast = get_broadcast(broadcast_id)
@@ -221,6 +254,7 @@ async def _notify_floodwait(user_id: int, account_name: str, wait_seconds: int) 
 
 async def _notify_broadcast_error(
     user_id: int,
+    broadcast_id: int,
     account_name: str,
     error_text: str,
     *,
@@ -245,12 +279,40 @@ async def _notify_broadcast_error(
         f"\u041e\u0448\u0438\u0431\u043a\u0430: <code>{html.escape(str(error_text)[:800])}</code>"
     )
 
+    reply_markup = None
+    if chat_id is not None:
+        reply_markup = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="⏸️ Остановить для этого чата",
+                        callback_data=f"bc_err_pause_{broadcast_id}_{chat_id}",
+                    )
+                ]
+            ]
+        )
+
     try:
         await bot.send_message(
             user_id,
             "\n".join(lines),
             parse_mode="HTML",
+            reply_markup=reply_markup,
         )
+    except Exception:
+        pass
+
+
+async def _notify_broadcast_debug(user_id: int, text: str) -> None:
+    if user_id not in app_state.broadcast_debug_users:
+        return
+
+    bot = app_state.bot
+    if not bot:
+        return
+
+    try:
+        await bot.send_message(user_id, text, parse_mode="HTML")
     except Exception:
         pass
 
@@ -363,6 +425,7 @@ async def schedule_broadcast_send(
             )
             await _notify_broadcast_error(
                 user_id,
+                broadcast_id,
                 f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442 {account_number}",
                 "Account disconnected or session is no longer authorized",
             )
@@ -404,6 +467,7 @@ async def schedule_broadcast_send(
             await mark_error(broadcast_id, "No chats configured for broadcast", "no_chats")
             await _notify_broadcast_error(
                 user_id,
+                broadcast_id,
                 account_name,
                 "No chats configured for broadcast",
             )
@@ -496,10 +560,17 @@ async def schedule_broadcast_send(
                 )
                 return
 
-            wait_until = max(
-                float(chat_entry.get("next_send_at", 0.0) or 0.0),
+            now_ts = time.time()
+            chat_ready_at = float(chat_entry.get("next_send_at", 0.0) or 0.0)
+            wait_until = chat_ready_at
+            pace_applied = _should_apply_global_pace(
+                chat_entry,
+                chat_runtime,
                 next_global_send_at,
+                now_ts,
             )
+            if pace_applied:
+                wait_until = max(wait_until, next_global_send_at)
             wait_seconds = max(0.0, wait_until - time.time())
             if wait_seconds > 0:
                 sleep_status = await _sleep_with_controls(broadcast_id, wait_seconds)
@@ -508,6 +579,7 @@ async def schedule_broadcast_send(
                 continue
 
             chat_id = chat_entry["chat_id"]
+            was_first_attempt = _chat_attempts(chat_entry) == 0
             current_item, next_text_index = _pick_content_item(
                 content_items,
                 text_mode,
@@ -593,6 +665,7 @@ async def schedule_broadcast_send(
                 chat_entry["last_error_at"] = time.time()
                 await _notify_broadcast_error(
                     user_id,
+                    broadcast_id,
                     account_name,
                     last_error,
                     chat_id=chat_id,
@@ -609,7 +682,8 @@ async def schedule_broadcast_send(
                 chat_entry["last_error_at"] = 0.0
 
             pause_min, pause_max = _parse_float_range(chat_pause_value, 1.0, 3.0)
-            next_global_send_at = time.time() + random.uniform(pause_min, pause_max)
+            pace_seconds = random.uniform(pause_min, pause_max)
+            next_global_send_at = time.time() + pace_seconds
 
             await update_broadcast_fields(
                 broadcast_id,
@@ -624,11 +698,25 @@ async def schedule_broadcast_send(
                 current_chat_id=chat_id,
                 last_error=last_error,
             )
+            await _notify_broadcast_debug(
+                user_id,
+                (
+                    "🧪 <b>Логинг рассылки</b>\n\n"
+                    f"ID: <code>{broadcast_id}</code>\n"
+                    f"Чат: <b>{html.escape(str(chat_entry.get('name') or chat_id))}</b>\n"
+                    f"Попыток в чат: <b>{_chat_attempts(chat_entry)}/{int(chat_entry.get('target_count', 0) or 0)}</b>\n"
+                    f"Первый заход: <b>{'да' if was_first_attempt else 'нет'}</b>\n"
+                    f"Темп применялся перед этим сообщением: <b>{'да' if pace_applied else 'нет'}</b>\n"
+                    f"Следующий повтор в этот чат: <b>{wait_minutes}</b> мин\n"
+                    f"Следующий глобальный темп: <b>{pace_seconds:.1f}</b> сек"
+                ),
+            )
 
     except Exception as exc:
         await mark_error(broadcast_id, str(exc), "send_failed")
         await _notify_broadcast_error(
             user_id,
+            broadcast_id,
             account_name if "account_name" in locals() else f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442 {account_number}",
             str(exc),
         )

@@ -1384,6 +1384,29 @@ async def cmd_health(message: Message):
     )
 
 
+@dp.message(Command("loging"))
+async def cmd_loging(message: Message):
+    user_id = message.from_user.id
+    debug_users = app_state.broadcast_debug_users
+    if user_id in debug_users:
+        debug_users.discard(user_id)
+        await message.answer(
+            "🧪 Логинг рассылки выключен.\n\n"
+            "Больше не буду слать debug-сообщения по темпу и интервалам."
+        )
+        return
+
+    debug_users.add(user_id)
+    await message.answer(
+        "🧪 Логинг рассылки включен.\n\n"
+        "Теперь во время рассылки я буду отправлять debug-сообщения:\n"
+        "• первый это заход в чат или нет\n"
+        "• применялся ли темп\n"
+        "• какой повторный интервал выпал для чата\n"
+        "• какой следующий глобальный темп выпал"
+    )
+
+
 @dp.callback_query(F.data == "health_close")
 async def health_close_callback(query: CallbackQuery):
     await query.answer()

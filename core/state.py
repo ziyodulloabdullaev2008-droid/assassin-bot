@@ -1,6 +1,6 @@
 import asyncio
 from dataclasses import dataclass, field
-from typing import Dict, Any
+from typing import Dict, Any, Set
 
 
 @dataclass
@@ -35,6 +35,7 @@ class AppState:
 
     # User operations
     active_operations: Dict[int, str] = field(default_factory=dict)
+    broadcast_debug_users: Set[int] = field(default_factory=set)
 
 
 app_state = AppState()

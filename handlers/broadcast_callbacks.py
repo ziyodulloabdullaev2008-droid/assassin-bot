@@ -88,6 +88,8 @@ async def bc_active_callback(query: CallbackQuery):
     groups = {}
 
     singles = []
+    display_numbers = _broadcast_display_numbers(user_id)
+    display_numbers = _broadcast_display_numbers(user_id)
 
     for bid, b in user_broadcasts.items():
         gid = b.get("group_id")
@@ -147,18 +149,21 @@ async def bc_active_callback(query: CallbackQuery):
             if b["status"] == "running"
             else "\u23f8\ufe0f \u041f\u0430\u0443\u0437\u0430"
         )
+        display_number = display_numbers.get(bid, bid)
 
         account_name = b.get(
             "account_name",
             f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442 {b.get('account', '?')}",
         )
+        config_name = str(b.get("config_name") or "По умолчанию")
         finish_ts = _estimate_broadcast_finish_timestamp(b, now_ts=now_ts)
         next_send_ts = _estimate_next_send_timestamp(b, now_ts=now_ts)
         eta_text = _format_eta_duration(None if finish_ts is None else finish_ts - now_ts)
 
         info += (
-            f"{status} <b>\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{bid}</b>\n"
+            f"{status} <b>\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{display_number}</b>\n"
             f"{account_name} | {b.get('sent_chats', 0)}/{b.get('planned_count', 0)}\n"
+            f"\u2699\ufe0f \u041a\u043e\u043d\u0444\u0438\u0433: {html.escape(config_name)}\n"
             f"\u23ed\ufe0f \u0421\u043b\u0435\u0434\u0443\u044e\u0449\u0430\u044f: "
             f"{_format_eta_duration(None if next_send_ts is None else next_send_ts - now_ts)}\n"
             f"\u23f3 \u0414\u043e \u043a\u043e\u043d\u0446\u0430: {eta_text}\n\n"
@@ -167,7 +172,7 @@ async def bc_active_callback(query: CallbackQuery):
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=f"{status.split()[0]} \u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{bid}",
+                    text=f"{status.split()[0]} \u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{display_number}",
                     callback_data=f"view_bc_{bid}",
                 )
             ]
@@ -410,6 +415,7 @@ async def view_bc_callback(query: CallbackQuery):
 
     b = active_broadcasts[bid]
     chat_items = _broadcast_chat_runtime_items(b)
+    display_number = _broadcast_display_numbers(user_id).get(bid, bid)
     active_chats, paused_chats, disabled_chats = _active_chat_counts(b)
 
     status = (
@@ -429,13 +435,15 @@ async def view_bc_callback(query: CallbackQuery):
         f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442 {b.get('account', '?')}",
     )
 
+    config_name = str(b.get("config_name") or "По умолчанию")
     info = (
-        f"\U0001f4e4 <b>\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{bid}</b>\n\n"
+        f"\U0001f4e4 <b>\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{display_number}</b>\n\n"
     )
 
     info += f"\u0421\u0442\u0430\u0442\u0443\u0441: {status}\n"
 
     info += f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442: {account_name}\n"
+    info += f"\u2699\ufe0f \u041a\u043e\u043d\u0444\u0438\u0433: {html.escape(config_name)}\n"
 
     info += f"\u0427\u0430\u0442\u043e\u0432: {b.get('total_chats', 0)}\n"
     info += (
