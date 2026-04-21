@@ -1,11 +1,11 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from services.broadcast_profiles_service import get_active_config_id, get_config_detail
 from services.channel_post_service import (
     build_text_source_label,
     count_source_items,
     source_channel_title,
 )
-from services.broadcast_profiles_service import get_active_config_id, get_config_detail
 
 
 def _active_config_name(user_id: int) -> str:
@@ -14,8 +14,8 @@ def _active_config_name(user_id: int) -> str:
     if detail and detail.get("name"):
         return str(detail["name"])
     if config_id == 0:
-        return "?? ?????????"
-    return f"?????? {config_id}"
+        return "По умолчанию"
+    return f"Конфиг {config_id}"
 
 
 def build_broadcast_keyboard(
@@ -24,7 +24,7 @@ def build_broadcast_keyboard(
     active_broadcasts: dict = None,
     back_callback: str = "bc_back",
 ) -> InlineKeyboardMarkup:
-    """Построить стандартную клавиатуру для меню рассылки."""
+    """Build the standard keyboard for the broadcast menu."""
     buttons = [
         [
             InlineKeyboardButton(text="Текст", callback_data="bc_text"),
@@ -55,15 +55,15 @@ def build_broadcast_keyboard(
                 bid: index
                 for index, bid in enumerate(sorted(user_broadcasts.keys()), start=1)
             }
-            for bid, b in user_broadcasts.items():
-                gid = b.get("group_id")
+            for bid, broadcast in user_broadcasts.items():
+                gid = broadcast.get("group_id")
                 if gid is None:
-                    singles.append((bid, b))
+                    singles.append((bid, broadcast))
                 else:
-                    groups.setdefault(gid, []).append((bid, b))
+                    groups.setdefault(gid, []).append((bid, broadcast))
 
             for gid, items in sorted(groups.items()):
-                statuses = {b["status"] for _, b in items}
+                statuses = {broadcast["status"] for _, broadcast in items}
                 if "running" in statuses:
                     status_icon = "▶️"
                 elif statuses == {"paused"}:
@@ -108,8 +108,9 @@ def build_broadcast_menu_text(
     show_title: bool = True,
     show_active_count: bool = True,
 ) -> str:
-    """Строит текст меню рассылки."""
+    """Build the main broadcast menu text."""
     info = "📤 <b>РАССЫЛКА</b>\n\n" if show_title else ""
+    info += f"⚙️ <b>Конфиг:</b> {_active_config_name(user_id)}\n"
     mode_text = "random" if config.get("text_mode") == "random" else "no random"
     info += f"💬 <b>Источник текста:</b> {build_text_source_label(config)}\n"
     info += f"💬 <b>Вариантов:</b> {count_source_items(config)} ({mode_text})\n"
@@ -117,14 +118,14 @@ def build_broadcast_menu_text(
         info += f"📡 <b>Канал:</b> {source_channel_title(config)}\n"
     info += f"🔢 <b>Кол-во:</b> {config.get('count', 0)}\n"
     info += f"⏱️ <b>Интервал:</b> {config.get('interval', 0)} мин на чат\n"
-    info += f"⚡ <b>Темп:</b> {config.get('chat_pause', '1-3')} сек\n"
+    info += f"⚡️ <b>Темп:</b> {config.get('chat_pause', '1-3')} сек\n"
     info += f"💭 <b>Чатов:</b> {len(chats)}\n"
 
     if show_active_count:
         user_broadcasts = {
-            bid: b
-            for bid, b in active_broadcasts.items()
-            if b["user_id"] == user_id and b["status"] in ("running", "paused")
+            bid: broadcast
+            for bid, broadcast in active_broadcasts.items()
+            if broadcast["user_id"] == user_id and broadcast["status"] in ("running", "paused")
         }
         info += f"\n\nАктивных рассылок: {len(user_broadcasts)}"
 
