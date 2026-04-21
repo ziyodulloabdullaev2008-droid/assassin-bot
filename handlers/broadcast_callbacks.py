@@ -162,7 +162,7 @@ async def bc_active_callback(query: CallbackQuery):
 
         info += (
             f"{status} <b>\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{display_number}</b>\n"
-            f"{account_name} | {b.get('sent_chats', 0)}/{b.get('planned_count', 0)}\n"
+            f"\U0001f464 {account_name} | \U0001f4ec {b.get('sent_chats', 0)}/{b.get('planned_count', 0)}\n"
             f"\u2699\ufe0f \u041a\u043e\u043d\u0444\u0438\u0433: {html.escape(config_name)}\n"
             f"\u23ed\ufe0f \u0421\u043b\u0435\u0434\u0443\u044e\u0449\u0430\u044f: "
             f"{_format_eta_duration(None if next_send_ts is None else next_send_ts - now_ts)}\n"
@@ -440,27 +440,27 @@ async def view_bc_callback(query: CallbackQuery):
         f"\U0001f4e4 <b>\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{display_number}</b>\n\n"
     )
 
-    info += f"\u0421\u0442\u0430\u0442\u0443\u0441: {status}\n"
+    info += f"\u25fc\ufe0f \u0421\u0442\u0430\u0442\u0443\u0441: {status}\n"
 
-    info += f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442: {account_name}\n"
+    info += f"\U0001f464 \u0410\u043a\u043a\u0430\u0443\u043d\u0442: {account_name}\n"
     info += f"\u2699\ufe0f \u041a\u043e\u043d\u0444\u0438\u0433: {html.escape(config_name)}\n"
 
-    info += f"\u0427\u0430\u0442\u043e\u0432: {b.get('total_chats', 0)}\n"
+    info += f"\U0001f4ad \u0427\u0430\u0442\u043e\u0432: {b.get('total_chats', 0)}\n"
     info += (
-        f"\u0410\u043a\u0442\u0438\u0432\u043d\u044b: {active_chats} | "
-        f"\u041f\u0430\u0443\u0437\u0430: {paused_chats} | "
-        f"\u041e\u0442\u043a\u043b: {disabled_chats}\n"
+        f"\U0001f7e2 \u0410\u043a\u0442\u0438\u0432\u043d\u044b: {active_chats} | "
+        f"\u23f8\ufe0f \u041f\u0430\u0443\u0437\u0430: {paused_chats} | "
+        f"\u26aa \u041e\u0442\u043a\u043b: {disabled_chats}\n"
     )
 
     info += (
-        f"\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e: "
+        f"\U0001f4ec \u041e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e: "
         f"{b.get('sent_chats', 0)}/{b.get('planned_count', 0)}\n"
     )
-    info += f"\u041e\u0448\u0438\u0431\u043e\u043a: {b.get('failed_count', 0)}\n"
+    info += f"\u26a0\ufe0f \u041e\u0448\u0438\u0431\u043e\u043a: {b.get('failed_count', 0)}\n"
 
-    info += f"\u041a\u043e\u043b-\u0432\u043e: {b.get('count', 0)}\n"
+    info += f"\U0001f522 \u041a\u043e\u043b-\u0432\u043e: {b.get('count', 0)}\n"
 
-    info += f"\u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b: {b.get('interval_minutes', '?')} \u043c\u0438\u043d \u043d\u0430 \u0447\u0430\u0442\n"
+    info += f"\u23f1\ufe0f \u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b: {b.get('interval_minutes', '?')} \u043c\u0438\u043d \u043d\u0430 \u0447\u0430\u0442\n"
     now_ts = datetime.now(timezone.utc).timestamp()
     next_send_ts = _estimate_next_send_timestamp(b, now_ts=now_ts)
     finish_ts = _estimate_broadcast_finish_timestamp(b, now_ts=now_ts)
@@ -983,6 +983,7 @@ async def active_broadcasts_button(message: Message):
             groups.setdefault(gid, []).append((bid, b))
 
     info = "\U0001f4e4 <b>\u0410\u041a\u0422\u0418\u0412\u041d\u042b\u0415 \u0420\u0410\u0421\u0421\u042b\u041b\u041a\u0418</b>\n\n"
+    display_numbers = _broadcast_display_numbers(user_id)
 
     for gid, items in sorted(groups.items()):
         status = (
@@ -999,13 +1000,14 @@ async def active_broadcasts_button(message: Message):
             if b["status"] == "running"
             else "\u23f8\ufe0f \u041f\u0430\u0443\u0437\u0430"
         )
+        display_number = display_numbers.get(bid, bid)
 
         account_name = b.get(
             "account_name",
             f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442 {b.get('account', '?')}",
         )
 
-        info += f"\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{bid} {status} | {account_name}\n"
+        info += f"\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{display_number} {status} | {account_name}\n"
 
     await message.answer(info, parse_mode="HTML")
 
@@ -1022,10 +1024,11 @@ async def active_broadcasts_button(message: Message):
         )
 
     for bid, b in sorted(singles):
+        display_number = display_numbers.get(bid, bid)
         inline_buttons.append(
             [
                 InlineKeyboardButton(
-                    text=f"\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{bid}",
+                    text=f"\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430 #{display_number}",
                     callback_data=f"view_bc_{bid}",
                 )
             ]

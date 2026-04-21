@@ -633,14 +633,14 @@ def _build_group_detail_payload(
     )
 
     info = f"\U0001f4e6 <b>\u0413\u0440\u0443\u043f\u043f\u0430 #{gid}</b>\n\n"
-    info += f"\u0421\u0442\u0430\u0442\u0443\u0441: {status}\n"
-    info += f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432: {total_accounts}\n"
-    info += f"\u0427\u0430\u0442\u043e\u0432: {total_chats}\n"
-    info += f"\u041f\u043b\u0430\u043d: {total_count}\n"
-    info += f"\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e: {sent}\n"
-    info += f"\u041e\u0448\u0438\u0431\u043e\u043a: {failed}\n"
-    info += f"\u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b: {html.escape(interval_text)} \u043c\u0438\u043d\n"
-    info += f"\u0422\u0435\u043c\u043f: {html.escape(pause_text)} \u0441\u0435\u043a\n"
+    info += f"\u25fc\ufe0f \u0421\u0442\u0430\u0442\u0443\u0441: {status}\n"
+    info += f"\U0001f465 \u0410\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432: {total_accounts}\n"
+    info += f"\U0001f4ad \u0427\u0430\u0442\u043e\u0432: {total_chats}\n"
+    info += f"\U0001f522 \u041f\u043b\u0430\u043d: {total_count}\n"
+    info += f"\U0001f4ec \u041e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e: {sent}\n"
+    info += f"\u26a0\ufe0f \u041e\u0448\u0438\u0431\u043e\u043a: {failed}\n"
+    info += f"\u23f1\ufe0f \u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b: {html.escape(interval_text)} \u043c\u0438\u043d\n"
+    info += f"\u26a1\ufe0f \u0422\u0435\u043c\u043f: {html.escape(pause_text)} \u0441\u0435\u043a\n"
     if next_send_ts is not None:
         info += (
             f"\u23ed\ufe0f \u0421\u043b\u0435\u0434. \u0448\u0430\u0433 \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0438: "
