@@ -218,11 +218,27 @@ async def _wait_while_paused(broadcast_id: int) -> str:
         await asyncio.sleep(1)
 
 
-async def _sleep_with_controls(broadcast_id: int, seconds: float) -> str:
+async def _sleep_with_controls(
+    broadcast_id: int,
+    seconds: float,
+    *,
+    expected_runtime_revision: int | None = None,
+) -> str:
     finish_at = time.monotonic() + max(0.0, seconds)
 
     while True:
-        status = await _wait_while_paused(broadcast_id)
+        broadcast = get_broadcast(broadcast_id)
+        if not broadcast:
+            return "missing"
+        if (
+            expected_runtime_revision is not None
+            and int(broadcast.get("runtime_revision", 0) or 0) != expected_runtime_revision
+        ):
+            return "changed"
+
+        status = broadcast.get("status")
+        if status == "paused":
+            status = await _wait_while_paused(broadcast_id)
         if status in {"cancelled", "missing"}:
             return status
 
@@ -285,7 +301,7 @@ async def _notify_broadcast_error(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="⏸️ Остановить для этого чата",
+                        text="\u23f8\ufe0f \u041e\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u044c \u0434\u043b\u044f \u044d\u0442\u043e\u0433\u043e \u0447\u0430\u0442\u0430",
                         callback_data=f"bc_err_pause_{broadcast_id}_{chat_id}",
                     )
                 ]
@@ -327,6 +343,19 @@ def _format_duration_brief(total_seconds: float) -> str:
     if minutes > 0:
         return f"{minutes}м {secs}с"
     return f"{secs}с"
+
+
+def _broadcast_display_number(user_id: int, broadcast_id: int) -> int:
+    visible_broadcast_ids = sorted(
+        bid
+        for bid, payload in app_state.active_broadcasts.items()
+        if payload.get("user_id") == user_id
+        and payload.get("status") in ("running", "paused")
+    )
+    for index, bid in enumerate(visible_broadcast_ids, start=1):
+        if bid == broadcast_id:
+            return index
+    return 1
 
 
 async def _notify_broadcast_finished(
@@ -494,6 +523,7 @@ async def schedule_broadcast_send(
             count = int(broadcast.get("count", count) or count or 1)
             interval_value = broadcast.get("interval_value", broadcast.get("interval_minutes", interval_minutes))
             chat_pause_value = broadcast.get("chat_pause", "20-60")
+            runtime_revision = int(broadcast.get("runtime_revision", 0) or 0)
             chat_runtime = _normalize_chat_runtime(
                 chat_ids,
                 broadcast.get("chat_runtime") or chat_runtime,
@@ -533,7 +563,11 @@ async def schedule_broadcast_send(
                     str(item.get("status") or "active") == "paused" and _chat_has_quota(item)
                     for item in chat_runtime
                 ):
-                    sleep_status = await _sleep_with_controls(broadcast_id, 1)
+                    sleep_status = await _sleep_with_controls(
+                        broadcast_id,
+                        1,
+                        expected_runtime_revision=runtime_revision,
+                    )
                     if sleep_status in {"cancelled", "missing"}:
                         return
                     continue
@@ -573,7 +607,11 @@ async def schedule_broadcast_send(
                 wait_until = max(wait_until, next_global_send_at)
             wait_seconds = max(0.0, wait_until - time.time())
             if wait_seconds > 0:
-                sleep_status = await _sleep_with_controls(broadcast_id, wait_seconds)
+                sleep_status = await _sleep_with_controls(
+                    broadcast_id,
+                    wait_seconds,
+                    expected_runtime_revision=runtime_revision,
+                )
                 if sleep_status in {"cancelled", "missing"}:
                     return
                 continue
@@ -633,6 +671,7 @@ async def schedule_broadcast_send(
                 sleep_status = await _sleep_with_controls(
                     broadcast_id,
                     wait_seconds,
+                    expected_runtime_revision=runtime_revision,
                 )
                 if sleep_status in {"cancelled", "missing"}:
                     return
@@ -652,7 +691,11 @@ async def schedule_broadcast_send(
                         chat_runtime=chat_runtime,
                     )
                     await _notify_floodwait(user_id, account_name, 30)
-                    sleep_status = await _sleep_with_controls(broadcast_id, 30)
+                    sleep_status = await _sleep_with_controls(
+                        broadcast_id,
+                        30,
+                        expected_runtime_revision=runtime_revision,
+                    )
                     if sleep_status in {"cancelled", "missing"}:
                         return
                     continue
@@ -698,17 +741,21 @@ async def schedule_broadcast_send(
                 current_chat_id=chat_id,
                 last_error=last_error,
             )
+            display_number = _broadcast_display_number(user_id, broadcast_id)
+            config_name = str(broadcast.get("config_name") or "\u041f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e")
             await _notify_broadcast_debug(
                 user_id,
                 (
-                    "🧪 <b>Логинг рассылки</b>\n\n"
-                    f"ID: <code>{broadcast_id}</code>\n"
-                    f"Чат: <b>{html.escape(str(chat_entry.get('name') or chat_id))}</b>\n"
-                    f"Попыток в чат: <b>{_chat_attempts(chat_entry)}/{int(chat_entry.get('target_count', 0) or 0)}</b>\n"
-                    f"Первый заход: <b>{'да' if was_first_attempt else 'нет'}</b>\n"
-                    f"Темп применялся перед этим сообщением: <b>{'да' if pace_applied else 'нет'}</b>\n"
-                    f"Следующий повтор в этот чат: <b>{wait_minutes}</b> мин\n"
-                    f"Следующий глобальный темп: <b>{pace_seconds:.1f}</b> сек"
+                    "\U0001f9ea <b>\u041b\u043e\u0433\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0438</b>\n\n"
+                    f"\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430: <b>#{display_number}</b> (<code>{broadcast_id}</code>)\n"
+                    f"\u0410\u043a\u043a\u0430\u0443\u043d\u0442: <b>{html.escape(account_name)}</b>\n"
+                    f"\u041a\u043e\u043d\u0444\u0438\u0433: <b>{html.escape(config_name)}</b>\n"
+                    f"\u0427\u0430\u0442: <b>{html.escape(str(chat_entry.get('name') or chat_id))}</b>\n"
+                    f"\u041f\u043e\u043f\u044b\u0442\u043e\u043a \u0432 \u0447\u0430\u0442: <b>{_chat_attempts(chat_entry)}/{int(chat_entry.get('target_count', 0) or 0)}</b>\n"
+                    f"\u041f\u0435\u0440\u0432\u044b\u0439 \u0437\u0430\u0445\u043e\u0434: <b>{'\u0434\u0430' if was_first_attempt else '\u043d\u0435\u0442'}</b>\n"
+                    f"\u0422\u0435\u043c\u043f \u043f\u0440\u0438\u043c\u0435\u043d\u044f\u043b\u0441\u044f: <b>{'\u0434\u0430' if pace_applied else '\u043d\u0435\u0442'}</b>\n"
+                    f"\u0421\u043b\u0435\u0434\u0443\u044e\u0449\u0435\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435 \u0432 \u044d\u0442\u043e\u0442 \u0447\u0430\u0442: <b>~ {_format_duration_brief(wait_minutes * 60)}</b>\n"
+                    f"\u0421\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0439 \u0433\u043b\u043e\u0431\u0430\u043b\u044c\u043d\u044b\u0439 \u0442\u0435\u043c\u043f: <b>{pace_seconds:.1f}</b> \u0441\u0435\u043a"
                 ),
             )
 

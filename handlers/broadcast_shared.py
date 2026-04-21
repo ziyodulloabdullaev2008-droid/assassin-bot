@@ -124,8 +124,19 @@ def _broadcast_display_numbers(user_id: int) -> dict[int, int]:
         bid
         for bid, broadcast in active_broadcasts.items()
         if broadcast.get("user_id") == user_id
+        and broadcast.get("status") in ("running", "paused")
     )
     return {bid: index for index, bid in enumerate(user_ids, start=1)}
+
+
+def _broadcast_chat_has_quota(item: dict) -> bool:
+    target_count = max(int(item.get("target_count", 0) or 0), 0)
+    attempts = int(item.get("sent_count", 0) or 0) + int(item.get("failed_count", 0) or 0)
+    return attempts < target_count
+
+
+def _next_runtime_revision(broadcast: dict) -> int:
+    return int(broadcast.get("runtime_revision", 0) or 0) + 1
 
 def save_broadcast_config_with_profile(user_id: int, config: dict) -> None:
 
@@ -835,7 +846,9 @@ async def _render_broadcast_chat_list(query: CallbackQuery, bid: int) -> None:
         return
 
     items = _broadcast_chat_runtime_items(broadcast)
-    lines = [f"\U0001f4dd <b>\u0427\u0430\u0442\u044b \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0438 #{bid}</b>", ""]
+    display_number = _broadcast_display_numbers(user_id).get(bid, bid)
+    now_ts = datetime.now(timezone.utc).timestamp()
+    lines = [f"\U0001f4dd <b>\u0427\u0430\u0442\u044b \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0438 #{display_number}</b>", ""]
     buttons: list[list[InlineKeyboardButton]] = []
 
     if not items:
@@ -847,8 +860,16 @@ async def _render_broadcast_chat_list(query: CallbackQuery, bid: int) -> None:
             name = html.escape(_broadcast_chat_short_name(item))
             sent = int(item.get("sent_count", 0) or 0)
             failed = int(item.get("failed_count", 0) or 0)
+            target = int(item.get("target_count", 0) or 0)
+            next_send_at = float(item.get("next_send_at", 0.0) or 0.0)
+            eta_text = (
+                _format_eta_duration(max(next_send_at - now_ts, 0.0))
+                if next_send_at > 0 and str(item.get("status") or "active") == "active"
+                else "-"
+            )
             lines.append(
-                f"{number}. {_broadcast_chat_status_label(item)} | {name} | \u2705 {sent} | \u274c {failed}"
+                f"{number}. {_broadcast_chat_status_label(item)} | {name} | "
+                f"\U0001f4ec {sent}/{target} | \u274c {failed} | \u23f1\ufe0f {eta_text}"
             )
             buttons.append(
                 [
@@ -903,7 +924,10 @@ async def _render_broadcast_chat_detail(query: CallbackQuery, bid: int, order: i
         f"\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435: {html.escape(_broadcast_chat_short_name(item))}",
         f"ID: <code>{item.get('chat_id')}</code>",
         f"\u0421\u0442\u0430\u0442\u0443\u0441: {_broadcast_chat_status_label(item)}",
-        f"\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e: {int(item.get('sent_count', 0) or 0)}",
+        (
+            f"\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e: "
+            f"{int(item.get('sent_count', 0) or 0)}/{int(item.get('target_count', 0) or 0)}"
+        ),
         f"\u041e\u0448\u0438\u0431\u043e\u043a: {int(item.get('failed_count', 0) or 0)}",
     ]
 
@@ -967,20 +991,26 @@ async def _set_broadcast_chat_status(
 
     items = _broadcast_chat_runtime_items(broadcast)
     found = False
+    now_ts = datetime.now(timezone.utc).timestamp()
     for item in items:
         item_order = item.get("order", -1)
         if int(item_order if item_order is not None else -1) != order:
             continue
+        previous_status = str(item.get("status") or "active")
         item["status"] = status
         found = True
-        if status == "active" and float(item.get("next_send_at", 0.0) or 0.0) <= 0:
-            item["next_send_at"] = datetime.now(timezone.utc).timestamp()
+        if status == "active" and previous_status != "active":
+            item["next_send_at"] = now_ts
         break
 
     if not found:
         return False
 
-    await update_broadcast_fields(bid, chat_runtime=items)
+    await update_broadcast_fields(
+        bid,
+        chat_runtime=items,
+        runtime_revision=_next_runtime_revision(broadcast),
+    )
     return True
 
 
@@ -997,19 +1027,25 @@ async def _set_broadcast_chat_status_by_chat_id(
     items = _broadcast_chat_runtime_items(broadcast)
     found = False
     chat_id_text = str(chat_id)
+    now_ts = datetime.now(timezone.utc).timestamp()
     for item in items:
         if str(item.get("chat_id")) != chat_id_text:
             continue
+        previous_status = str(item.get("status") or "active")
         item["status"] = status
         found = True
-        if status == "active" and float(item.get("next_send_at", 0.0) or 0.0) <= 0:
-            item["next_send_at"] = datetime.now(timezone.utc).timestamp()
+        if status == "active" and previous_status != "active":
+            item["next_send_at"] = now_ts
         break
 
     if not found:
         return False
 
-    await update_broadcast_fields(bid, chat_runtime=items)
+    await update_broadcast_fields(
+        bid,
+        chat_runtime=items,
+        runtime_revision=_next_runtime_revision(broadcast),
+    )
     return True
 
 async def _send_broadcast_notice(message_or_query, text: str) -> None:
@@ -1170,6 +1206,7 @@ async def execute_broadcast(
             for index, (chat_id, chat_name) in enumerate(chats)
         ],
         "next_global_send_at": 0,
+        "runtime_revision": 0,
         "text_index": 0,
     }
 

@@ -100,6 +100,15 @@ async def bc_chat_resume_callback(query: CallbackQuery):
         broadcast = active_broadcasts.get(bid)
         if broadcast and broadcast.get("status") == "running":
             _start_or_resume_broadcast_task(bid)
+        elif broadcast and broadcast.get("status") == "completed":
+            chat_items = _broadcast_chat_runtime_items(broadcast)
+            if any(
+                str(item.get("status") or "active") == "active"
+                and _broadcast_chat_has_quota(item)
+                for item in chat_items
+            ):
+                await set_broadcast_status(bid, "running")
+                _start_or_resume_broadcast_task(bid)
     await _render_broadcast_chat_detail(query, bid, order)
 
 @router.callback_query(F.data.startswith("bc_chat_disable_"))
