@@ -743,6 +743,8 @@ async def schedule_broadcast_send(
             )
             display_number = _broadcast_display_number(user_id, broadcast_id)
             config_name = str(broadcast.get("config_name") or "\u041f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e")
+            first_attempt_text = "да" if was_first_attempt else "нет"
+            pace_applied_text = "да" if pace_applied else "нет"
             await _notify_broadcast_debug(
                 user_id,
                 (
@@ -752,8 +754,8 @@ async def schedule_broadcast_send(
                     f"\u041a\u043e\u043d\u0444\u0438\u0433: <b>{html.escape(config_name)}</b>\n"
                     f"\u0427\u0430\u0442: <b>{html.escape(str(chat_entry.get('name') or chat_id))}</b>\n"
                     f"\u041f\u043e\u043f\u044b\u0442\u043e\u043a \u0432 \u0447\u0430\u0442: <b>{_chat_attempts(chat_entry)}/{int(chat_entry.get('target_count', 0) or 0)}</b>\n"
-                    f"\u041f\u0435\u0440\u0432\u044b\u0439 \u0437\u0430\u0445\u043e\u0434: <b>{'\u0434\u0430' if was_first_attempt else '\u043d\u0435\u0442'}</b>\n"
-                    f"\u0422\u0435\u043c\u043f \u043f\u0440\u0438\u043c\u0435\u043d\u044f\u043b\u0441\u044f: <b>{'\u0434\u0430' if pace_applied else '\u043d\u0435\u0442'}</b>\n"
+                    f"\u041f\u0435\u0440\u0432\u044b\u0439 \u0437\u0430\u0445\u043e\u0434: <b>{first_attempt_text}</b>\n"
+                    f"\u0422\u0435\u043c\u043f \u043f\u0440\u0438\u043c\u0435\u043d\u044f\u043b\u0441\u044f: <b>{pace_applied_text}</b>\n"
                     f"\u0421\u043b\u0435\u0434\u0443\u044e\u0449\u0435\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435 \u0432 \u044d\u0442\u043e\u0442 \u0447\u0430\u0442: <b>~ {_format_duration_brief(wait_minutes * 60)}</b>\n"
                     f"\u0421\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0439 \u0433\u043b\u043e\u0431\u0430\u043b\u044c\u043d\u044b\u0439 \u0442\u0435\u043c\u043f: <b>{pace_seconds:.1f}</b> \u0441\u0435\u043a"
                 ),
