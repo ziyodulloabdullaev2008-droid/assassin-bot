@@ -151,6 +151,7 @@ def _build_interval_input_text(current_value, interval_unit: str) -> str:
     unit_examples = "15 \u0438\u043b\u0438 10-30"
     unit_short = _interval_unit_display(interval_unit)
     max_value = 3600 if interval_unit == "seconds" else 480
+    unit_suffix = "\u0441\u0435\u043a" if interval_unit == "seconds" else "\u043c\u0438\u043d"
     return (
         "\u23f1\ufe0f <b>\u0418\u041d\u0422\u0415\u0420\u0412\u0410\u041b \u0414\u041b\u042f \u041a\u0410\u0416\u0414\u041e\u0413\u041e \u0427\u0410\u0422\u0410</b>\n\n"
         f"\u0422\u0435\u043a\u0443\u0449\u0438\u0439: {current_value} {unit_short}\n\n"
@@ -159,7 +160,7 @@ def _build_interval_input_text(current_value, interval_unit: str) -> str:
         f"\u0421\u0435\u0439\u0447\u0430\u0441 \u0432\u0432\u043e\u0434 \u0432 {unit_word}.\n"
         "\u041e\u0442\u043f\u0440\u0430\u0432\u044c \u043e\u0434\u043d\u043e \u0447\u0438\u0441\u043b\u043e \u0438\u043b\u0438 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d.\n"
         f"\u041f\u0440\u0438\u043c\u0435\u0440\u044b: <code>{unit_examples}</code>\n"
-        f"\u041c\u0430\u043a\u0441\u0438\u043c\u0443\u043c: <code>{max_value}</code> {'\u0441\u0435\u043a' if interval_unit == 'seconds' else '\u043c\u0438\u043d'}"
+        f"\u041c\u0430\u043a\u0441\u0438\u043c\u0443\u043c: <code>{max_value}</code> {unit_suffix}"
     )
 
 
