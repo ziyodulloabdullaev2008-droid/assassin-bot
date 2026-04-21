@@ -181,6 +181,15 @@ async def bc_active_callback(query: CallbackQuery):
     buttons.append(
         [
             InlineKeyboardButton(
+                text="\U0001f504 \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c",
+                callback_data="bc_active",
+            )
+        ]
+    )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
                 text="\u2b05\ufe0f \u041d\u0430\u0437\u0430\u0434",
                 callback_data="bc_back",
             )
@@ -276,28 +285,25 @@ async def bc_group_edit_interval_callback(query: CallbackQuery, state: FSMContex
         )
         return
 
+    group_items = _group_runtime_items(user_id, gid)
+    first_broadcast = group_items[0][1]
+    interval_unit = _current_interval_unit(first_broadcast)
+    current_value = first_broadcast.get(
+        "interval_value",
+        first_broadcast.get("interval_minutes", 0),
+    )
+
     await state.set_state(BroadcastConfigState.waiting_for_interval)
     await state.update_data(
         edit_group_id=gid,
         edit_message_id=query.message.message_id,
         chat_id=query.message.chat.id,
         previous_menu="group_detail",
+        interval_unit=interval_unit,
     )
     await query.message.edit_text(
-        "\u23f1\ufe0f <b>\u0418\u041d\u0422\u0415\u0420\u0412\u0410\u041b \u0414\u041b\u042f \u0413\u0420\u0423\u041f\u041f\u042b</b>\n\n"
-        "\u041d\u043e\u0432\u044b\u0439 \u0438\u043d\u0442\u0435\u0440\u0432\u0430\u043b \u043f\u0440\u0438\u043c\u0435\u043d\u0438\u0442\u0441\u044f \u043a \u043a\u0430\u0436\u0434\u043e\u0439 \u0440\u0430\u0441\u0441\u044b\u043b\u043a\u0435 \u0432 \u0433\u0440\u0443\u043f\u043f\u0435.\n"
-        "\u041e\u0442\u043f\u0440\u0430\u0432\u044c \u043e\u0434\u043d\u043e \u0447\u0438\u0441\u043b\u043e \u0438\u043b\u0438 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d.\n"
-        "\u041f\u0440\u0438\u043c\u0435\u0440\u044b: <code>15</code> \u0438\u043b\u0438 <code>10-30</code>",
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=CANCEL_TEXT,
-                        callback_data=f"view_group_{gid}",
-                    )
-                ]
-            ]
-        ),
+        _build_interval_input_text(current_value, interval_unit),
+        reply_markup=_build_interval_input_keyboard(interval_unit, f"view_group_{gid}"),
         parse_mode="HTML",
     )
 
@@ -460,7 +466,11 @@ async def view_bc_callback(query: CallbackQuery):
 
     info += f"\U0001f522 \u041a\u043e\u043b-\u0432\u043e: {b.get('count', 0)}\n"
 
-    info += f"\u23f1\ufe0f \u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b: {b.get('interval_minutes', '?')} \u043c\u0438\u043d \u043d\u0430 \u0447\u0430\u0442\n"
+    info += (
+        f"\u23f1\ufe0f \u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b: "
+        f"{b.get('interval_value', b.get('interval_minutes', '?'))} "
+        f"{_interval_unit_display(b.get('interval_unit'))}\n"
+    )
     now_ts = datetime.now(timezone.utc).timestamp()
     next_send_ts = _estimate_next_send_timestamp(b, now_ts=now_ts)
     finish_ts = _estimate_broadcast_finish_timestamp(b, now_ts=now_ts)
@@ -657,42 +667,33 @@ async def bc_edit_interval_callback(query: CallbackQuery, state: FSMContext):
 
     try:
         bid = int(query.data.split("_")[3])
-
     except Exception:
-        await query.answer("Ошибка", show_alert=True)
-
+        await query.answer("??????", show_alert=True)
         return
 
     if bid not in active_broadcasts or active_broadcasts[bid]["user_id"] != user_id:
-        await query.answer(
-            "Рассылка не найдена",
-            show_alert=True,
-        )
-
+        await query.answer("???????? ?? ???????", show_alert=True)
         return
 
-    await state.set_state(BroadcastConfigState.waiting_for_interval)
+    interval_unit = _current_interval_unit(active_broadcasts.get(bid))
+    current_value = active_broadcasts[bid].get(
+        "interval_value",
+        active_broadcasts[bid].get("interval_minutes", 0),
+    )
 
+    await state.set_state(BroadcastConfigState.waiting_for_interval)
     await state.update_data(
         edit_broadcast_id=bid,
         edit_message_id=query.message.message_id,
         chat_id=query.message.chat.id,
+        interval_unit=interval_unit,
     )
 
-    info = "Введи новый интервал в минутах (1-60) или нажми Отменить:"
-
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="Отменить",
-                    callback_data=f"view_bc_{bid}",
-                )
-            ]
-        ]
+    await query.message.edit_text(
+        _build_interval_input_text(current_value, interval_unit),
+        reply_markup=_build_interval_input_keyboard(interval_unit, f"view_bc_{bid}"),
+        parse_mode="HTML",
     )
-
-    await query.message.edit_text(info, reply_markup=kb)
 
 @router.callback_query(F.data == "bc_launch")
 async def bc_launch_callback(query: CallbackQuery):

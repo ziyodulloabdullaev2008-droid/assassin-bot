@@ -141,6 +141,7 @@ def _normalize_chat_runtime(
                 "failed_count": int(raw_item.get("failed_count", 0) or 0),
                 "order": int(raw_item.get("order", index) or index),
                 "name": str(raw_item.get("name") or raw_item.get("chat_name") or chat_id),
+                "chat_link": str(raw_item.get("chat_link") or ""),
                 "status": str(raw_item.get("status") or "active"),
                 "last_error": str(raw_item.get("last_error") or ""),
                 "last_error_at": float(raw_item.get("last_error_at", 0.0) or 0.0),
@@ -276,6 +277,7 @@ async def _notify_broadcast_error(
     *,
     chat_id=None,
     chat_name: str | None = None,
+    chat_link: str | None = None,
 ) -> None:
     bot = app_state.bot
     if not bot:
@@ -291,6 +293,9 @@ async def _notify_broadcast_error(
             f"\u0427\u0430\u0442: <b>{html.escape(str(chat_name or chat_id))}</b>"
             + (f" (<code>{chat_id}</code>)" if chat_id is not None else "")
         )
+    lines.append(
+        f"\u0421\u0441\u044b\u043b\u043a\u0430: {html.escape(str(chat_link)) if chat_link else '\u043d\u0435\u0442 \u0441\u0441\u044b\u043b\u043a\u0438'}"
+    )
     lines.append(
         f"\u041e\u0448\u0438\u0431\u043a\u0430: <code>{html.escape(str(error_text)[:800])}</code>"
     )
@@ -382,6 +387,7 @@ async def _notify_broadcast_finished(
         item for item in chat_runtime if str(item.get("last_error") or "").strip()
     ]
     interval_value = broadcast.get("interval_value", broadcast.get("interval_minutes", "-"))
+    interval_unit = "seconds" if str(broadcast.get("interval_unit") or "minutes") == "seconds" else "minutes"
     chat_pause_value = broadcast.get("chat_pause", "-")
     start_time = broadcast.get("start_time")
     if isinstance(start_time, datetime):
@@ -400,7 +406,7 @@ async def _notify_broadcast_finished(
         f"Ошибок: <b>{failed_count}</b>",
         f"Обработано шагов: <b>{processed_count}</b>",
         f"Чатов с успешной отправкой: <b>{successful_chats}/{total_chats}</b>",
-        f"Интервал: <b>{html.escape(str(interval_value))}</b> мин на чат",
+        f"Интервал: <b>{html.escape(str(interval_value))}</b> {'сек' if interval_unit == 'seconds' else 'мин'} на чат",
         f"Темп: <b>{html.escape(str(chat_pause_value))}</b> сек",
         f"Длительность: <b>{duration_text}</b>",
     ]
@@ -522,6 +528,7 @@ async def schedule_broadcast_send(
 
             count = int(broadcast.get("count", count) or count or 1)
             interval_value = broadcast.get("interval_value", broadcast.get("interval_minutes", interval_minutes))
+            interval_unit = "seconds" if str(broadcast.get("interval_unit") or "minutes") == "seconds" else "minutes"
             chat_pause_value = broadcast.get("chat_pause", "20-60")
             runtime_revision = int(broadcast.get("runtime_revision", 0) or 0)
             chat_runtime = _normalize_chat_runtime(
@@ -713,12 +720,14 @@ async def schedule_broadcast_send(
                     last_error,
                     chat_id=chat_id,
                     chat_name=str(chat_entry.get("name") or ""),
+                    chat_link=str(chat_entry.get("chat_link") or ""),
                 )
 
             processed_count += 1
             interval_min, interval_max = _parse_int_range(interval_value, 1, 1)
-            wait_minutes = random.randint(interval_min, interval_max)
-            chat_entry["next_send_at"] = time.time() + (wait_minutes * 60)
+            wait_value = random.randint(interval_min, interval_max)
+            wait_seconds_for_chat = wait_value if interval_unit == "seconds" else wait_value * 60
+            chat_entry["next_send_at"] = time.time() + wait_seconds_for_chat
             if send_succeeded:
                 chat_entry["sent_count"] = int(chat_entry.get("sent_count", 0) or 0) + 1
                 chat_entry["last_error"] = ""
@@ -737,7 +746,7 @@ async def schedule_broadcast_send(
                 text_index=text_index,
                 chat_runtime=chat_runtime,
                 next_global_send_at=next_global_send_at,
-                last_interval_minutes=wait_minutes,
+                last_interval_seconds=wait_seconds_for_chat,
                 current_chat_id=chat_id,
                 last_error=last_error,
             )
@@ -756,7 +765,7 @@ async def schedule_broadcast_send(
                     f"\u041f\u043e\u043f\u044b\u0442\u043e\u043a \u0432 \u0447\u0430\u0442: <b>{_chat_attempts(chat_entry)}/{int(chat_entry.get('target_count', 0) or 0)}</b>\n"
                     f"\u041f\u0435\u0440\u0432\u044b\u0439 \u0437\u0430\u0445\u043e\u0434: <b>{first_attempt_text}</b>\n"
                     f"\u0422\u0435\u043c\u043f \u043f\u0440\u0438\u043c\u0435\u043d\u044f\u043b\u0441\u044f: <b>{pace_applied_text}</b>\n"
-                    f"\u0421\u043b\u0435\u0434\u0443\u044e\u0449\u0435\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435 \u0432 \u044d\u0442\u043e\u0442 \u0447\u0430\u0442: <b>~ {_format_duration_brief(wait_minutes * 60)}</b>\n"
+                    f"\u0421\u043b\u0435\u0434\u0443\u044e\u0449\u0435\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435 \u0432 \u044d\u0442\u043e\u0442 \u0447\u0430\u0442: <b>~ {_format_duration_brief(wait_seconds_for_chat)}</b>\n"
                     f"\u0421\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0439 \u0433\u043b\u043e\u0431\u0430\u043b\u044c\u043d\u044b\u0439 \u0442\u0435\u043c\u043f: <b>{pace_seconds:.1f}</b> \u0441\u0435\u043a"
                 ),
             )

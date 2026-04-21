@@ -1035,25 +1035,48 @@ async def broadcast_interval_button(message: Message, state: FSMContext):
     user_id = message.from_user.id
 
     config = get_broadcast_config(user_id)
+    interval_unit = _current_interval_unit(config)
 
     await state.update_data(previous_menu="broadcast")
+    await state.update_data(interval_unit=interval_unit)
 
     await state.set_state(BroadcastConfigState.waiting_for_interval)
 
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=CANCEL_TEXT)]],
-        resize_keyboard=True,
+    await message.answer(
+        _build_interval_input_text(config.get("interval", 0), interval_unit),
+        reply_markup=_build_interval_input_keyboard(interval_unit, "bc_cancel"),
+        parse_mode="HTML",
     )
 
-    await message.answer(
-        (
-            "\u23f1\ufe0f <b>\u0418\u041d\u0422\u0415\u0420\u0412\u0410\u041b \u0414\u041b\u042f \u041a\u0410\u0416\u0414\u041e\u0413\u041e \u0427\u0410\u0422\u0410</b>\n\n"
-            f"\u0422\u0435\u043a\u0443\u0449\u0438\u0439: {config.get('interval', 0)} \u043c\u0438\u043d\n\n"
-            "\u041f\u043e\u0441\u043b\u0435 \u043a\u0430\u0436\u0434\u043e\u0439 \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0438 \u0431\u043e\u0442 \u0437\u0430\u043d\u043e\u0432\u043e \u0432\u044b\u0431\u0438\u0440\u0430\u0435\u0442 \u044d\u0442\u043e\u0442 \u0438\u043d\u0442\u0435\u0440\u0432\u0430\u043b \u0434\u043b\u044f \u043a\u043e\u043d\u043a\u0440\u0435\u0442\u043d\u043e\u0433\u043e \u0447\u0430\u0442\u0430.\n"
-            "\u041e\u0442\u043f\u0440\u0430\u0432\u044c \u043e\u0434\u043d\u043e \u0447\u0438\u0441\u043b\u043e \u0438\u043b\u0438 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d.\n"
-            "\u041f\u0440\u0438\u043c\u0435\u0440\u044b: <code>15</code> \u0438\u043b\u0438 <code>10-30</code>"
-        ),
-        reply_markup=keyboard,
+
+@router.callback_query(F.data.startswith("bc_interval_unit_"))
+async def bc_interval_unit_callback(query: CallbackQuery, state: FSMContext):
+    await query.answer()
+    interval_unit = query.data.rsplit("_", 1)[-1]
+    if interval_unit not in {"minutes", "seconds"}:
+        await query.answer("Ошибка", show_alert=True)
+        return
+
+    data = await state.get_data()
+    await state.update_data(interval_unit=interval_unit)
+
+    user_id = query.from_user.id
+    current_value = get_broadcast_config(user_id).get("interval", 0)
+    cancel_callback = "bc_cancel"
+
+    edit_broadcast_id = data.get("edit_broadcast_id")
+    edit_group_id = data.get("edit_group_id")
+    if edit_broadcast_id is not None:
+        broadcast = active_broadcasts.get(edit_broadcast_id)
+        if broadcast:
+            current_value = broadcast.get("interval_value", broadcast.get("interval_minutes", current_value))
+        cancel_callback = f"view_bc_{edit_broadcast_id}"
+    elif edit_group_id is not None:
+        cancel_callback = f"view_group_{edit_group_id}"
+
+    await query.message.edit_text(
+        _build_interval_input_text(current_value, interval_unit),
+        reply_markup=_build_interval_input_keyboard(interval_unit, cancel_callback),
         parse_mode="HTML",
     )
 
@@ -1063,101 +1086,78 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
 
     user_id = message.from_user.id
 
-    # If this is not the cancel button, expect a number or a range.
-
     if message.text == CANCEL_TEXT:
         await return_to_previous_menu(message, state)
-
         return
 
     try:
+        data = await state.get_data()
+        interval_unit = "seconds" if data.get("interval_unit") == "seconds" else "minutes"
         text = message.text.strip()
-
-        # Accept either a single number or a min-max range.
+        max_value = 3600 if interval_unit == "seconds" else 480
+        unit_label = "??????" if interval_unit == "seconds" else "?????"
 
         if "-" in text:
-            # Range format: min-max.
-
-            parts = text.split("-")
-
+            parts = text.split("-", 1)
             if len(parts) != 2:
-                await message.answer(
-                    "\u274c \u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u0444\u043e\u0440\u043c\u0430\u0442. \u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439: 10-30 \u0438\u043b\u0438 15"
-                )
-
+                await message.answer("? ???????? ??????. ?????????: 10-30 ??? 15")
                 return
 
             try:
                 min_interval = int(parts[0].strip())
-
                 max_interval = int(parts[1].strip())
-
-                if min_interval < 1 or max_interval < 1 or min_interval > max_interval:
-                    await message.answer(
-                        "\u274c \u0417\u043d\u0430\u0447\u0435\u043d\u0438\u044f \u0434\u043e\u043b\u0436\u043d\u044b \u0431\u044b\u0442\u044c \u043f\u043e\u043b\u043e\u0436\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u043c\u0438, \u0438 min \u043d\u0435 \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u0431\u043e\u043b\u044c\u0448\u0435 max"
-                    )
-
-                    return
-
-                if min_interval > 480 or max_interval > 480:
-                    await message.answer(
-                        "\u274c \u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b \u043d\u0435 \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u0431\u043e\u043b\u044c\u0448\u0435 480 \u043c\u0438\u043d\u0443\u0442 (8 \u0447\u0430\u0441\u043e\u0432)"
-                    )
-
-                    return
-
-                interval_value = text  # Keep the range as a raw string.
-
             except ValueError:
-                await message.answer(
-                    "\u274c \u0412\u0432\u0435\u0434\u0438 \u0447\u0438\u0441\u043b\u0430 \u0432 \u0444\u043e\u0440\u043c\u0430\u0442\u0435: 10-30"
-                )
-
+                await message.answer("? ????? ????? ? ???????: 10-30")
                 return
 
-        else:
-            # Single number.
+            if min_interval < 1 or max_interval < 1 or min_interval > max_interval:
+                await message.answer(
+                    "? ???????? ?????? ???? ??????????????, ? min ?? ?????? ???? ?????? max"
+                )
+                return
 
+            if min_interval > max_value or max_interval > max_value:
+                await message.answer(
+                    f"? ???????? ?????? ???? ?? 1 ?? {max_value} {unit_label}"
+                )
+                return
+
+            interval_value = text
+        else:
             try:
                 interval_int = int(text)
-
-                if interval_int < 1 or interval_int > 480:
-                    await message.answer(
-                        "\u274c \u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u043e\u0442 1 \u0434\u043e 480 \u043c\u0438\u043d\u0443\u0442"
-                    )
-
-                    return
-
-                interval_value = text
-
             except ValueError:
                 await message.answer(
-                    "\u274c \u0412\u0432\u0435\u0434\u0438 \u0447\u0438\u0441\u043b\u043e \u0438\u043b\u0438 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d (\u043d\u0430\u043f\u0440\u0438\u043c\u0435\u0440 10-30)"
+                    "? ????? ????? ??? ???????? (???????? 10-30)"
                 )
-
                 return
 
-        # Save the config.
+            if interval_int < 1 or interval_int > max_value:
+                await message.answer(
+                    f"? ???????? ?????? ???? ?? 1 ?? {max_value} {unit_label}"
+                )
+                return
+
+            interval_value = text
 
         config = get_broadcast_config(user_id)
-
         config["interval"] = interval_value
-
+        config["interval_unit"] = interval_unit
         save_broadcast_config_with_profile(user_id, config)
-
-        data = await state.get_data()
 
         edit_broadcast_id = data.get("edit_broadcast_id")
         edit_group_id = data.get("edit_group_id")
         edit_message_id = data.get("edit_message_id")
-
         chat_id = data.get("chat_id")
 
         if edit_broadcast_id in active_broadcasts:
+            broadcast = active_broadcasts[edit_broadcast_id]
             await update_broadcast_fields(
                 edit_broadcast_id,
                 interval_minutes=interval_value,
                 interval_value=interval_value,
+                interval_unit=interval_unit,
+                runtime_revision=_next_runtime_revision(broadcast),
             )
         elif edit_group_id is not None:
             for bid, broadcast in list(active_broadcasts.items()):
@@ -1170,19 +1170,16 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
                         bid,
                         interval_minutes=interval_value,
                         interval_value=interval_value,
+                        interval_unit=interval_unit,
+                        runtime_revision=_next_runtime_revision(broadcast),
                     )
 
         await state.clear()
 
-        # Remove the user message.
-
         try:
             await message.delete()
-
         except Exception:
             pass
-
-        # Refresh the same menu message or send a new one if editing fails.
 
         chats = get_broadcast_chats(user_id)
 
@@ -1198,9 +1195,7 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
                     return
             except Exception as e:
                 print(f"Group detail refresh failed after interval update: {e}")
-                await message.answer(
-                    "\u274c \u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u043c\u0435\u043d\u044e \u0433\u0440\u0443\u043f\u043f\u044b"
-                )
+                await message.answer("? ?? ??????? ???????? ???? ??????")
                 return
 
         if edit_message_id and chat_id:
@@ -1225,23 +1220,14 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
                 )
 
             except Exception as e:
-                print(
-                    f"Broadcast menu refresh error: {e}"
-                )
-
-                import traceback
-
-                traceback.print_exc()
-
-                await message.answer(
-                    "\u274c \u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u043c\u0435\u043d\u044e"
-                )
+                print(f"?????? ?????????????? ????? ?????????? ?????????: {e}")
+                await message.answer("? ?? ??????? ???????? ????")
 
         else:
-            await show_broadcast_menu(message, message.from_user.id, is_edit=False)
+            await cmd_broadcast_menu(message)
 
     except ValueError:
-        await message.answer("\u274c \u0412\u0432\u0435\u0434\u0438 \u0447\u0438\u0441\u043b\u043e")
+        await message.answer("? ????? ?????")
 
 @router.message(BroadcastConfigState.waiting_for_chat_pause)
 async def process_broadcast_chat_pause(message: Message, state: FSMContext):

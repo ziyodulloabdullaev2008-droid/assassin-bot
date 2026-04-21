@@ -25,6 +25,7 @@ from core.state import app_state
 from database import (
     add_broadcast_chat,
     get_broadcast_chats,
+    get_broadcast_chats_with_links,
     get_user_accounts,
     remove_broadcast_chat,
     save_broadcast_config,
@@ -59,6 +60,8 @@ from services.broadcast_runtime_service import (
     format_eta_duration as _format_eta_duration,
     format_chat_error_line as _format_chat_error_line,
     format_chat_error_log as _format_chat_error_log,
+    interval_unit_display as _interval_unit_display,
+    interval_unit_label as _interval_unit_label,
     iter_connected_account_numbers as _iter_connected_account_numbers,
     remove_broadcast_chat_with_profile,
 )
@@ -137,6 +140,48 @@ def _broadcast_chat_has_quota(item: dict) -> bool:
 
 def _next_runtime_revision(broadcast: dict) -> int:
     return int(broadcast.get("runtime_revision", 0) or 0) + 1
+
+
+def _current_interval_unit(data: dict | None) -> str:
+    return "seconds" if str((data or {}).get("interval_unit") or "minutes") == "seconds" else "minutes"
+
+
+def _build_interval_input_text(current_value, interval_unit: str) -> str:
+    unit_word = "секундах" if interval_unit == "seconds" else "минутах"
+    unit_examples = "15 или 10-30" if interval_unit == "seconds" else "15 или 10-30"
+    unit_short = _interval_unit_display(interval_unit)
+    max_value = 3600 if interval_unit == "seconds" else 480
+    return (
+        "⏱️ <b>ИНТЕРВАЛ ДЛЯ КАЖДОГО ЧАТА</b>\n\n"
+        f"Текущий: {current_value} {unit_short}\n\n"
+        "После каждой отправки бот заново выбирает этот интервал "
+        "для конкретного чата.\n"
+        f"Сейчас ввод в {unit_word}.\n"
+        f"Отправь одно число или диапазон.\n"
+        f"Примеры: <code>{unit_examples}</code>\n"
+        f"Максимум: <code>{max_value}</code> {'сек' if interval_unit == 'seconds' else 'мин'}"
+    )
+
+
+def _build_interval_input_keyboard(interval_unit: str, cancel_callback: str) -> InlineKeyboardMarkup:
+    toggle_unit = "seconds" if interval_unit != "seconds" else "minutes"
+    toggle_text = "🔁 Перевести в секунды" if toggle_unit == "seconds" else "🔁 Перевести в минуты"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=toggle_text,
+                    callback_data=f"bc_interval_unit_{toggle_unit}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="⬅️ Отменить",
+                    callback_data=cancel_callback,
+                )
+            ],
+        ]
+    )
 
 def save_broadcast_config_with_profile(user_id: int, config: dict) -> None:
 
@@ -634,6 +679,11 @@ def _build_group_detail_payload(
     }
     pause_values = {str(broadcast.get("chat_pause", "20-60")) for _, broadcast in items}
     interval_text = ", ".join(sorted(interval_values)) if interval_values else "-"
+    interval_units = {
+        _interval_unit_label(broadcast.get("interval_unit"))
+        for _, broadcast in items
+    }
+    interval_unit_text = ", ".join(sorted(interval_units)) if interval_units else _interval_unit_label("minutes")
     pause_text = ", ".join(sorted(pause_values)) if pause_values else "-"
     finish_ts = _estimate_group_finish_timestamp(items)
     next_send_ts = _estimate_group_next_send_timestamp(items)
@@ -650,7 +700,7 @@ def _build_group_detail_payload(
     info += f"\U0001f522 \u041f\u043b\u0430\u043d: {total_count}\n"
     info += f"\U0001f4ec \u041e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e: {sent}\n"
     info += f"\u26a0\ufe0f \u041e\u0448\u0438\u0431\u043e\u043a: {failed}\n"
-    info += f"\u23f1\ufe0f \u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b: {html.escape(interval_text)} \u043c\u0438\u043d\n"
+    info += f"\u23f1\ufe0f \u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b: {html.escape(interval_text)} {html.escape(interval_unit_text)}\n"
     info += f"\u26a1\ufe0f \u0422\u0435\u043c\u043f: {html.escape(pause_text)} \u0441\u0435\u043a\n"
     if next_send_ts is not None:
         info += (
@@ -1109,6 +1159,10 @@ async def execute_broadcast(
         return
 
     chat_ids = [cid for cid, _ in chats]
+    chat_link_map = {
+        int(chat_id): chat_link
+        for chat_id, _chat_name, chat_link in get_broadcast_chats_with_links(user_id)
+    }
     broadcast_id = next_broadcast_id()
 
     account_name = None
@@ -1187,6 +1241,7 @@ async def execute_broadcast(
         "count": int(runtime_config.get("count", 1)),
         "interval_minutes": runtime_config.get("interval", 1),
         "interval_value": runtime_config.get("interval", 1),
+        "interval_unit": str(runtime_config.get("interval_unit") or "minutes"),
         "start_time": datetime.now(timezone.utc),
         "status": "running",
         "failed_count": 0,
@@ -1195,6 +1250,7 @@ async def execute_broadcast(
             {
                 "chat_id": chat_id,
                 "name": chat_name,
+                "chat_link": chat_link_map.get(int(chat_id)),
                 "next_send_at": 0,
                 "sent_count": 0,
                 "failed_count": 0,

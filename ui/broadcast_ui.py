@@ -1,6 +1,7 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from services.broadcast_profiles_service import get_active_config_id, get_config_detail
+from services.broadcast_runtime_service import interval_unit_display
 from services.channel_post_service import (
     build_text_source_label,
     count_source_items,
@@ -117,7 +118,10 @@ def build_broadcast_menu_text(
     if config.get("text_source_type") == "channel":
         info += f"📡 <b>Канал:</b> {source_channel_title(config)}\n"
     info += f"🔢 <b>Кол-во:</b> {config.get('count', 0)}\n"
-    info += f"⏱️ <b>Интервал:</b> {config.get('interval', 0)} мин на чат\n"
+    info += (
+        f"⏱️ <b>Интервал:</b> {config.get('interval', 0)} "
+        f"{interval_unit_display(config.get('interval_unit'))}\n"
+    )
     info += f"⚡️ <b>Темп:</b> {config.get('chat_pause', '1-3')} сек\n"
     info += f"💭 <b>Чатов:</b> {len(chats)}\n"
 

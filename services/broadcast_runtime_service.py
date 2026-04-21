@@ -164,6 +164,25 @@ def _parse_float_range(
     return default_min, default_max
 
 
+def interval_unit_label(unit: str | None) -> str:
+    return "сек" if str(unit or "minutes") == "seconds" else "мин"
+
+
+def interval_unit_display(unit: str | None) -> str:
+    return "сек на чат" if str(unit or "minutes") == "seconds" else "мин на чат"
+
+
+def interval_range_seconds(broadcast: dict) -> tuple[float, float]:
+    interval_min, interval_max = _parse_int_range(
+        broadcast.get("interval_value", broadcast.get("interval_minutes", 30)),
+        30,
+        90,
+    )
+    if str(broadcast.get("interval_unit") or "minutes") == "seconds":
+        return float(interval_min), float(interval_max)
+    return float(interval_min) * 60.0, float(interval_max) * 60.0
+
+
 def estimate_broadcast_finish_timestamp(
     broadcast: dict,
     *,
@@ -186,17 +205,13 @@ def estimate_broadcast_finish_timestamp(
     if not active_items:
         return None
 
-    interval_min, interval_max = _parse_int_range(
-        broadcast.get("interval_value", broadcast.get("interval_minutes", 30)),
-        30,
-        90,
-    )
+    interval_min_seconds, interval_max_seconds = interval_range_seconds(broadcast)
     pause_min, pause_max = _parse_float_range(
         broadcast.get("chat_pause", "20-60"),
         20.0,
         60.0,
     )
-    average_interval_seconds = ((interval_min + interval_max) / 2.0) * 60.0
+    average_interval_seconds = (interval_min_seconds + interval_max_seconds) / 2.0
     average_pause_seconds = (pause_min + pause_max) / 2.0
 
     chat_next_times = []
