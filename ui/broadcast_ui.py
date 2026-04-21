@@ -5,6 +5,17 @@ from services.channel_post_service import (
     count_source_items,
     source_channel_title,
 )
+from services.broadcast_profiles_service import get_active_config_id, get_config_detail
+
+
+def _active_config_name(user_id: int) -> str:
+    config_id = get_active_config_id(user_id)
+    detail = get_config_detail(user_id, config_id)
+    if detail and detail.get("name"):
+        return str(detail["name"])
+    if config_id == 0:
+        return "?? ?????????"
+    return f"?????? {config_id}"
 
 
 def build_broadcast_keyboard(
