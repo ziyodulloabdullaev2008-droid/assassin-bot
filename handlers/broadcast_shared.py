@@ -147,25 +147,25 @@ def _current_interval_unit(data: dict | None) -> str:
 
 
 def _build_interval_input_text(current_value, interval_unit: str) -> str:
-    unit_word = "секундах" if interval_unit == "seconds" else "минутах"
-    unit_examples = "15 или 10-30" if interval_unit == "seconds" else "15 или 10-30"
+    unit_word = "\u0441\u0435\u043a\u0443\u043d\u0434\u0430\u0445" if interval_unit == "seconds" else "\u043c\u0438\u043d\u0443\u0442\u0430\u0445"
+    unit_examples = "15 \u0438\u043b\u0438 10-30"
     unit_short = _interval_unit_display(interval_unit)
     max_value = 3600 if interval_unit == "seconds" else 480
     return (
-        "⏱️ <b>ИНТЕРВАЛ ДЛЯ КАЖДОГО ЧАТА</b>\n\n"
-        f"Текущий: {current_value} {unit_short}\n\n"
-        "После каждой отправки бот заново выбирает этот интервал "
-        "для конкретного чата.\n"
-        f"Сейчас ввод в {unit_word}.\n"
-        f"Отправь одно число или диапазон.\n"
-        f"Примеры: <code>{unit_examples}</code>\n"
-        f"Максимум: <code>{max_value}</code> {'сек' if interval_unit == 'seconds' else 'мин'}"
+        "\u23f1\ufe0f <b>\u0418\u041d\u0422\u0415\u0420\u0412\u0410\u041b \u0414\u041b\u042f \u041a\u0410\u0416\u0414\u041e\u0413\u041e \u0427\u0410\u0422\u0410</b>\n\n"
+        f"\u0422\u0435\u043a\u0443\u0449\u0438\u0439: {current_value} {unit_short}\n\n"
+        "\u041f\u043e\u0441\u043b\u0435 \u043a\u0430\u0436\u0434\u043e\u0439 \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0438 \u0431\u043e\u0442 \u0437\u0430\u043d\u043e\u0432\u043e \u0432\u044b\u0431\u0438\u0440\u0430\u0435\u0442 \u044d\u0442\u043e\u0442 \u0438\u043d\u0442\u0435\u0440\u0432\u0430\u043b "
+        "\u0434\u043b\u044f \u043a\u043e\u043d\u043a\u0440\u0435\u0442\u043d\u043e\u0433\u043e \u0447\u0430\u0442\u0430.\n"
+        f"\u0421\u0435\u0439\u0447\u0430\u0441 \u0432\u0432\u043e\u0434 \u0432 {unit_word}.\n"
+        "\u041e\u0442\u043f\u0440\u0430\u0432\u044c \u043e\u0434\u043d\u043e \u0447\u0438\u0441\u043b\u043e \u0438\u043b\u0438 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d.\n"
+        f"\u041f\u0440\u0438\u043c\u0435\u0440\u044b: <code>{unit_examples}</code>\n"
+        f"\u041c\u0430\u043a\u0441\u0438\u043c\u0443\u043c: <code>{max_value}</code> {'\u0441\u0435\u043a' if interval_unit == 'seconds' else '\u043c\u0438\u043d'}"
     )
 
 
 def _build_interval_input_keyboard(interval_unit: str, cancel_callback: str) -> InlineKeyboardMarkup:
     toggle_unit = "seconds" if interval_unit != "seconds" else "minutes"
-    toggle_text = "🔁 Перевести в секунды" if toggle_unit == "seconds" else "🔁 Перевести в минуты"
+    toggle_text = "\U0001f501 \u041f\u0435\u0440\u0435\u0432\u0435\u0441\u0442\u0438 \u0432 \u0441\u0435\u043a\u0443\u043d\u0434\u044b" if toggle_unit == "seconds" else "\U0001f501 \u041f\u0435\u0440\u0435\u0432\u0435\u0441\u0442\u0438 \u0432 \u043c\u0438\u043d\u0443\u0442\u044b"
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -176,12 +176,13 @@ def _build_interval_input_keyboard(interval_unit: str, cancel_callback: str) -> 
             ],
             [
                 InlineKeyboardButton(
-                    text="⬅️ Отменить",
+                    text="\u2b05\ufe0f \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c",
                     callback_data=cancel_callback,
                 )
             ],
         ]
     )
+
 
 def save_broadcast_config_with_profile(user_id: int, config: dict) -> None:
 
