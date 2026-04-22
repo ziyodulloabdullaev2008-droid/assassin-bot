@@ -72,34 +72,53 @@ def chat_attempts(chat_item: dict) -> int:
     return int(chat_item.get("sent_count", 0) or 0) + int(chat_item.get("failed_count", 0) or 0)
 
 
+def chat_deliveries(chat_item: dict) -> int:
+    return int(chat_item.get("sent_count", 0) or 0)
+
+
+def chat_has_delivery_quota(chat_item: dict) -> bool:
+    target_count = max(int(chat_item.get("target_count", 0) or 0), 0)
+    return chat_deliveries(chat_item) < target_count
+
+
+def broadcast_phase(chat_items: list[dict]) -> str:
+    active_items = [
+        item
+        for item in chat_items
+        if str(item.get("status") or "active") == "active" and chat_has_delivery_quota(item)
+    ]
+    if any(chat_deliveries(item) == 0 for item in active_items):
+        return "first_pass"
+    return "repeats"
+
+
 def rebalance_chat_targets(items: list[dict], total_count: int) -> list[dict]:
     runtime_items = [item for item in items if isinstance(item, dict)]
     if not runtime_items:
         return runtime_items
 
-    attempts_total = sum(chat_attempts(item) for item in runtime_items)
-    effective_total = max(int(total_count or 0), attempts_total)
-
-    enabled_items = [
-        item for item in runtime_items if str(item.get("status") or "active") != "disabled"
+    delivered_total = sum(chat_deliveries(item) for item in runtime_items)
+    effective_total = max(int(total_count or 0), delivered_total)
+    active_items = [
+        item for item in runtime_items if str(item.get("status") or "active") == "active"
     ]
 
     for item in runtime_items:
-        if str(item.get("status") or "active") == "disabled":
-            item["target_count"] = chat_attempts(item)
+        if str(item.get("status") or "active") != "active":
+            item["target_count"] = chat_deliveries(item)
 
-    if not enabled_items:
+    if not active_items:
         return runtime_items
 
     extra_total = max(
-        effective_total - sum(chat_attempts(item) for item in runtime_items),
+        effective_total - sum(chat_deliveries(item) for item in runtime_items),
         0,
     )
-    base_extra = extra_total // len(enabled_items)
-    remainder = extra_total % len(enabled_items)
+    base_extra = extra_total // len(active_items)
+    remainder = extra_total % len(active_items)
 
-    for index, item in enumerate(enabled_items):
-        item["target_count"] = chat_attempts(item) + base_extra + (1 if index < remainder else 0)
+    for index, item in enumerate(active_items):
+        item["target_count"] = chat_deliveries(item) + base_extra + (1 if index < remainder else 0)
 
     return runtime_items
 

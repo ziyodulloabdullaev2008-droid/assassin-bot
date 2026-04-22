@@ -9,7 +9,11 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.config import API_HASH, API_ID
 from core.state import app_state
-from services.broadcast_runtime_service import rebalance_chat_targets as _rebalance_chat_targets
+from services.broadcast_runtime_service import (
+    broadcast_phase as _broadcast_phase,
+    chat_has_delivery_quota as _chat_has_delivery_quota,
+    rebalance_chat_targets as _rebalance_chat_targets,
+)
 from services.channel_post_service import resolve_entity_reference
 from services.broadcast_service import (
     discard_broadcast_task,
@@ -19,6 +23,8 @@ from services.broadcast_service import (
     update_broadcast_fields,
 )
 from services.session_service import ensure_connected_client
+
+MAX_CONSECUTIVE_CHAT_FAILURES = 3
 
 
 def _parse_int_range(value, default_min: int, default_max: int) -> tuple[int, int]:
@@ -108,8 +114,7 @@ def _chat_attempts(item: dict) -> int:
 
 
 def _chat_has_quota(item: dict) -> bool:
-    target_count = max(int(item.get("target_count", 0) or 0), 0)
-    return _chat_attempts(item) < target_count
+    return _chat_has_delivery_quota(item)
 
 
 def _normalize_chat_runtime(
@@ -146,6 +151,8 @@ def _normalize_chat_runtime(
                 "status": str(raw_item.get("status") or "active"),
                 "last_error": str(raw_item.get("last_error") or ""),
                 "last_error_at": float(raw_item.get("last_error_at", 0.0) or 0.0),
+                "consecutive_failures": int(raw_item.get("consecutive_failures", 0) or 0),
+                "last_wait_reason": str(raw_item.get("last_wait_reason") or ""),
                 "target_count": int(targets_by_chat.get(str(chat_id), 0)),
             }
         )
@@ -171,7 +178,13 @@ def _pick_next_chat_entry(chat_runtime: list[dict]) -> dict | None:
     if len(ready_items) == 1:
         return ready_items[0]
 
-    return random.choice(ready_items)
+    return min(
+        ready_items,
+        key=lambda item: (
+            int(item.get("sent_count", 0) or 0),
+            int(item.get("order", 0) or 0),
+        ),
+    )
 
 
 def _should_apply_global_pace(
@@ -179,17 +192,14 @@ def _should_apply_global_pace(
     chat_runtime: list[dict],
     next_global_send_at: float,
     now: float,
+    phase: str,
 ) -> bool:
     if next_global_send_at <= now:
         return False
 
-    # During the first pass through chats, the global pace spaces out
-    # the initial messages so they do not go out in a burst.
-    if _chat_attempts(chat_entry) == 0:
+    if phase == "first_pass" and int(chat_entry.get("sent_count", 0) or 0) == 0:
         return True
 
-    # After the first pass, pace only matters when multiple chats are due
-    # within the same pace window and need to be separated.
     for item in chat_runtime:
         if item is chat_entry:
             continue
@@ -203,6 +213,32 @@ def _should_apply_global_pace(
             return True
 
     return False
+
+
+def _resolve_wait_reason(
+    chat_entry: dict,
+    chat_runtime: list[dict],
+    next_global_send_at: float,
+    now: float,
+) -> tuple[float, str, str]:
+    phase = _broadcast_phase(chat_runtime)
+    chat_ready_at = float(chat_entry.get("next_send_at", 0.0) or 0.0)
+    pace_applied = _should_apply_global_pace(
+        chat_entry,
+        chat_runtime,
+        next_global_send_at,
+        now,
+        phase,
+    )
+    if pace_applied:
+        wait_until = max(chat_ready_at, next_global_send_at)
+        wait_reason = "first_pass" if phase == "first_pass" else "tempo_collision"
+    else:
+        wait_until = chat_ready_at
+        wait_reason = "interval"
+    if wait_until <= now:
+        wait_reason = "ready"
+    return wait_until, wait_reason, phase
 
 
 async def _wait_while_paused(broadcast_id: int) -> str:
@@ -542,7 +578,7 @@ async def schedule_broadcast_send(
                 broadcast.get("next_global_send_at", next_global_send_at) or 0.0
             )
 
-            if processed_count >= count:
+            if sent_count >= count:
                 await update_broadcast_fields(
                     broadcast_id,
                     sent_chats=sent_count,
@@ -568,18 +604,6 @@ async def schedule_broadcast_send(
 
             chat_entry = _pick_next_chat_entry(chat_runtime)
             if not chat_entry:
-                if any(
-                    str(item.get("status") or "active") == "paused" and _chat_has_quota(item)
-                    for item in chat_runtime
-                ):
-                    sleep_status = await _sleep_with_controls(
-                        broadcast_id,
-                        1,
-                        expected_runtime_revision=runtime_revision,
-                    )
-                    if sleep_status in {"cancelled", "missing"}:
-                        return
-                    continue
                 await update_broadcast_fields(
                     broadcast_id,
                     sent_chats=sent_count,
@@ -604,18 +628,23 @@ async def schedule_broadcast_send(
                 return
 
             now_ts = time.time()
-            chat_ready_at = float(chat_entry.get("next_send_at", 0.0) or 0.0)
-            wait_until = chat_ready_at
-            pace_applied = _should_apply_global_pace(
+            wait_until, wait_reason, schedule_phase = _resolve_wait_reason(
                 chat_entry,
                 chat_runtime,
                 next_global_send_at,
                 now_ts,
             )
-            if pace_applied:
-                wait_until = max(wait_until, next_global_send_at)
+            pace_applied = wait_reason in {"first_pass", "tempo_collision"}
+            chat_entry["last_wait_reason"] = wait_reason
             wait_seconds = max(0.0, wait_until - time.time())
             if wait_seconds > 0:
+                await update_broadcast_fields(
+                    broadcast_id,
+                    chat_runtime=chat_runtime,
+                    current_chat_id=chat_entry["chat_id"],
+                    last_wait_reason=wait_reason,
+                    scheduler_phase=schedule_phase,
+                )
                 sleep_status = await _sleep_with_controls(
                     broadcast_id,
                     wait_seconds,
@@ -709,12 +738,24 @@ async def schedule_broadcast_send(
                         return
                     continue
 
-                failed_count += 1
-                text_index = next_text_index
                 last_error = str(exc)
+                failed_count += 1
                 chat_entry["failed_count"] = int(chat_entry.get("failed_count", 0) or 0) + 1
+                chat_entry["consecutive_failures"] = int(
+                    chat_entry.get("consecutive_failures", 0) or 0
+                ) + 1
                 chat_entry["last_error"] = last_error
                 chat_entry["last_error_at"] = time.time()
+                if int(chat_entry.get("consecutive_failures", 0) or 0) >= MAX_CONSECUTIVE_CHAT_FAILURES:
+                    chat_entry["status"] = "paused"
+                    chat_entry["last_wait_reason"] = "auto_paused_error"
+                    last_error = (
+                        f"{last_error} (chat auto-paused after "
+                        f"{MAX_CONSECUTIVE_CHAT_FAILURES} consecutive errors)"
+                    )
+                    chat_entry["last_error"] = last_error
+                    chat_runtime = _rebalance_chat_targets(chat_runtime, count)
+                    runtime_revision += 1
                 await _notify_broadcast_error(
                     user_id,
                     broadcast_id,
@@ -732,6 +773,7 @@ async def schedule_broadcast_send(
             chat_entry["next_send_at"] = time.time() + wait_seconds_for_chat
             if send_succeeded:
                 chat_entry["sent_count"] = int(chat_entry.get("sent_count", 0) or 0) + 1
+                chat_entry["consecutive_failures"] = 0
                 chat_entry["last_error"] = ""
                 chat_entry["last_error_at"] = 0.0
 
@@ -750,6 +792,8 @@ async def schedule_broadcast_send(
                 next_global_send_at=next_global_send_at,
                 last_interval_seconds=wait_seconds_for_chat,
                 current_chat_id=chat_id,
+                last_wait_reason=chat_entry.get("last_wait_reason") or wait_reason,
+                scheduler_phase=schedule_phase,
                 last_error=last_error,
             )
             display_number = _broadcast_display_number(user_id, broadcast_id)
