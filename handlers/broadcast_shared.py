@@ -74,6 +74,7 @@ from services.broadcast_profiles_service import (
     sync_active_config_from_db,
 )
 from services.channel_post_service import (
+    build_text_source_label,
     count_source_items,
     enabled_source_posts_count,
     fetch_channel_posts,
@@ -86,6 +87,7 @@ from services.channel_post_service import (
     source_channel_title,
 )
 from services.session_service import ensure_connected_client
+from services.admin_notify_service import send_admin_event
 from core.config import API_HASH, API_ID
 from telethon.utils import get_peer_id
 
@@ -1300,6 +1302,28 @@ async def execute_broadcast(
             f"Чатов: {len(chat_ids)}\n"
             f"Сообщений: {payload['planned_count']}"
         ),
+    )
+    interval_unit_text = _interval_unit_display(runtime_config.get("interval_unit"))
+    await send_admin_event(
+        "🚀 <b>Запущена рассылка</b>",
+        [
+            f"👤 Владелец в боте: <code>{user_id}</code>",
+            f"📨 Активная рассылка: <b>#{display_number}</b> (<code>{broadcast_id}</code>)",
+            f"👤 Аккаунт: <b>{html.escape(payload['account_name'])}</b> (№{account_number})",
+            f"⚙️ Конфиг: <b>{html.escape(str(payload['config_name']))}</b>",
+            f"💬 Источник: <b>{html.escape(build_text_source_label(runtime_config))}</b>",
+            (
+                f"📡 Канал: <b>{html.escape(source_channel_title(runtime_config))}</b>"
+                if source_type == "channel"
+                else f"📝 Текстов: <b>{len(runtime_config.get('texts') or [])}</b>"
+            ),
+            f"🎲 Вариантов контента: <b>{count_source_items(runtime_config)}</b>",
+            f"💭 Чатов: <b>{len(chat_ids)}</b>",
+            f"🔢 План сообщений: <b>{payload['planned_count']}</b>",
+            f"⏱️ Интервал: <b>{html.escape(str(runtime_config.get('interval', 1)))}</b> {html.escape(interval_unit_text)}",
+            f"⚡ Темп: <b>{html.escape(str(runtime_config.get('chat_pause', '20-60')))}</b> сек",
+            f"🔗 Групповой запуск: <b>{'да' if group_id is not None else 'нет'}</b>",
+        ],
     )
 
 async def _apply_folder_import(

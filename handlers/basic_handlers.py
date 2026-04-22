@@ -6,6 +6,7 @@ from aiogram.fsm.context import FSMContext
 from core.state import app_state
 from database import add_or_update_user, add_user_account_with_number
 from core.config import API_HASH, API_ID
+from services.admin_notify_service import notify_new_bot_user
 from services.session_service import ensure_connected_client
 from ui.main_menu_ui import (
     ACCOUNT_BUTTON_TEXT,
@@ -20,7 +21,14 @@ router = Router()
 @router.message(Command("start"))
 async def cmd_start(message: Message):
     user = message.from_user
-    add_or_update_user(user.id, user.username or "unknown", user.first_name)
+    created = add_or_update_user(user.id, user.username or "unknown", user.first_name)
+    if created:
+        await notify_new_bot_user(
+            user_id=user.id,
+            username=user.username,
+            first_name=user.first_name,
+            source="/start",
+        )
 
     welcome_text = (
         f"Добро пожаловать {user.first_name} в наш бот!\n\n"
@@ -139,7 +147,14 @@ async def open_broadcast_from_main_menu(message: Message):
 )
 async def echo_handler(message: Message):
     user = message.from_user
-    add_or_update_user(user.id, user.username or "unknown", user.first_name)
+    created = add_or_update_user(user.id, user.username or "unknown", user.first_name)
+    if created:
+        await notify_new_bot_user(
+            user_id=user.id,
+            username=user.username,
+            first_name=user.first_name,
+            source="echo_handler",
+        )
     await message.answer(
         "Неизвестная команда. Используй /help",
         reply_markup=get_main_menu_keyboard(),
