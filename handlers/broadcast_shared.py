@@ -75,12 +75,14 @@ from services.broadcast_profiles_service import (
 )
 from services.channel_post_service import (
     count_source_items,
+    enabled_source_posts_count,
     fetch_channel_posts,
     format_source_channel_link,
     normalize_channel_reference,
     parse_numeric_reference,
     post_preview_text,
     resolve_entity_reference,
+    source_post_enabled,
     source_channel_title,
 )
 from services.session_service import ensure_connected_client
@@ -199,6 +201,7 @@ async def _load_channel_source_for_user(
     channel_ref: str,
     *,
     preferred_account_number: int | None = None,
+    existing_posts: list[dict] | None = None,
 ) -> dict:
     normalized_ref = normalize_channel_reference(channel_ref)
     if not normalized_ref:
@@ -233,7 +236,11 @@ async def _load_channel_source_for_user(
             errors.append(f"Аккаунт {acc_num}: не удалось подключить сессию")
             continue
         try:
-            source_data = await fetch_channel_posts(client, normalized_ref)
+            source_data = await fetch_channel_posts(
+                client,
+                normalized_ref,
+                existing_posts=existing_posts,
+            )
             source_data["source_account"] = acc_num
             return source_data
         except Exception as exc:
@@ -336,14 +343,18 @@ def _build_channel_content_items(config: dict) -> list[dict]:
             "message_id": int(item["message_id"]),
             "preview": str(item.get("preview") or ""),
             "source_ref": source_ref,
+            "show_forward_source": bool(config.get("show_forward_source", False)),
         }
         for item in (config.get("source_posts") or [])
-        if item.get("message_id")
+        if item.get("message_id") and source_post_enabled(item)
     ]
 
 def _broadcast_content_ready(config: dict) -> bool:
     if _is_channel_source(config):
-        return bool(config.get("source_channel_ref") and config.get("source_posts"))
+        return bool(
+            config.get("source_channel_ref")
+            and enabled_source_posts_count(config.get("source_posts") or [])
+        )
     return bool(config.get("texts"))
 
 def _build_missing_content_notice(config: dict) -> str:
@@ -1201,6 +1212,7 @@ async def execute_broadcast(
                 user_id,
                 source_ref,
                 preferred_account_number=account_number,
+                existing_posts=runtime_config.get("source_posts") or [],
             )
         except Exception as exc:
             if not runtime_config.get("source_posts"):

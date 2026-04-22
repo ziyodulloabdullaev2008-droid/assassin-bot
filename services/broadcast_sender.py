@@ -668,6 +668,9 @@ async def schedule_broadcast_send(
                 if current_item.get("kind") == "forward":
                     source_ref = str(current_item["source_ref"])
                     source_message_id = int(current_item["message_id"])
+                    show_forward_source = bool(
+                        current_item.get("show_forward_source", False)
+                    )
                     source_entity = source_entity_cache.get(source_ref)
                     if source_entity is None:
                         source_entity = await resolve_entity_reference(client, source_ref)
@@ -683,9 +686,15 @@ async def schedule_broadcast_send(
                         source_message_cache[source_cache_key] = source_message
                     if not source_message:
                         raise ValueError("Source channel message not found")
-                    # Resend the source post as a fresh message so Telegram
-                    # does not show the original channel in the recipient chat.
-                    await client.send_message(chat_id, source_message)
+                    if show_forward_source:
+                        await client.forward_messages(
+                            chat_id,
+                            source_message,
+                            from_peer=source_entity,
+                        )
+                    else:
+                        # Resend as a fresh message so Telegram hides the source.
+                        await client.send_message(chat_id, source_message)
                 else:
                     await client.send_message(
                         chat_id,

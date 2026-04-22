@@ -1,7 +1,9 @@
 import asyncio
 from typing import Any
 from urllib.parse import urlparse
+
 from telethon.utils import get_peer_id
+
 from services.mention_utils import normalize_chat_id
 
 
@@ -120,11 +122,35 @@ async def resolve_entity_reference(client, reference: str | int):
     raise ValueError(f"Chat or channel not found for reference: {reference}")
 
 
-def build_source_posts(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def source_post_enabled(item: dict[str, Any] | None) -> bool:
+    if not isinstance(item, dict):
+        return True
+    return item.get("enabled", True) is not False
+
+
+def source_posts_total_count(items: list[dict[str, Any]] | None) -> int:
+    return len(items or [])
+
+
+def enabled_source_posts_count(items: list[dict[str, Any]] | None) -> int:
+    return sum(1 for item in (items or []) if source_post_enabled(item))
+
+
+def build_source_posts(
+    items: list[dict[str, Any]],
+    existing_posts: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    existing_enabled = {
+        int(item["message_id"]): source_post_enabled(item)
+        for item in (existing_posts or [])
+        if isinstance(item, dict) and item.get("message_id")
+    }
+
     return [
         {
             "message_id": int(item["message_id"]),
             "preview": str(item.get("preview") or ""),
+            "enabled": existing_enabled.get(int(item["message_id"]), True),
         }
         for item in items
         if item.get("message_id")
@@ -134,7 +160,7 @@ def build_source_posts(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def count_source_items(config: dict) -> int:
     source_type = config.get("text_source_type", "manual")
     if source_type == "channel":
-        return len(config.get("source_posts") or [])
+        return enabled_source_posts_count(config.get("source_posts") or [])
     return len(config.get("texts") or [])
 
 
@@ -188,14 +214,26 @@ def _preview_from_message(message) -> str:
     return ""
 
 
-async def fetch_channel_posts(client, channel_ref: str) -> dict[str, Any]:
+async def fetch_channel_posts(
+    client,
+    channel_ref: str,
+    existing_posts: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     normalized_ref = normalize_channel_reference(channel_ref)
     if not normalized_ref:
         raise ValueError("Источник канала не указан")
 
     entity = await resolve_entity_reference(client, normalized_ref)
-    title = getattr(entity, "title", None) or getattr(entity, "username", None) or normalized_ref
-    resolved_ref = f"@{entity.username}" if getattr(entity, "username", None) else normalized_ref
+    title = (
+        getattr(entity, "title", None)
+        or getattr(entity, "username", None)
+        or normalized_ref
+    )
+    resolved_ref = (
+        f"@{entity.username}"
+        if getattr(entity, "username", None)
+        else normalized_ref
+    )
 
     posts: list[dict[str, Any]] = []
     async for message in client.iter_messages(entity, reverse=True):
@@ -216,5 +254,5 @@ async def fetch_channel_posts(client, channel_ref: str) -> dict[str, Any]:
     return {
         "source_channel_ref": resolved_ref,
         "source_channel_title": str(title),
-        "source_posts": build_source_posts(posts),
+        "source_posts": build_source_posts(posts, existing_posts=existing_posts),
     }

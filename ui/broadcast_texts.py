@@ -1,13 +1,15 @@
 from services.channel_post_service import (
     build_text_source_label,
     count_source_items,
+    enabled_source_posts_count,
     source_channel_title,
+    source_posts_total_count,
 )
 
-LOGIN_REQUIRED_TEXT = "\u274c \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u043e\u0439\u0434\u0438 \u0447\u0435\u0440\u0435\u0437 /login"
-CANCEL_TEXT = "\u274c \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c"
-COUNT_BUTTON_TEXT = "\u041a\u043e\u043b-\u0432\u043e"
-INTERVAL_BUTTON_TEXT = "\u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b"
+LOGIN_REQUIRED_TEXT = "❌ Сначала войди через /login"
+CANCEL_TEXT = "❌ Отменить"
+COUNT_BUTTON_TEXT = "Кол-во"
+INTERVAL_BUTTON_TEXT = "Интервал"
 
 
 def is_channel_source(config: dict) -> bool:
@@ -23,7 +25,18 @@ def build_text_settings_info(config: dict) -> str:
         f"Режим: {'Random ✅' if config.get('text_mode') == 'random' else 'No Random ❌'}",
     ]
     if is_channel_source(config):
+        total_posts = source_posts_total_count(config.get("source_posts") or [])
+        enabled_posts = enabled_source_posts_count(config.get("source_posts") or [])
         lines.append(f"Канал: {source_channel_title(config)}")
+        lines.append(f"Постов активно: {enabled_posts}/{total_posts}")
+        lines.append(
+            "Пересылка: "
+            + (
+                "показывать источник"
+                if config.get("show_forward_source")
+                else "скрывать источник"
+            )
+        )
     else:
         lines.append(f"Формат: {config.get('parse_mode', 'HTML')}")
     return "\n".join(lines)
@@ -31,18 +44,20 @@ def build_text_settings_info(config: dict) -> str:
 
 def build_text_list_info(config: dict) -> str:
     if is_channel_source(config):
-        count = len(config.get("source_posts") or [])
+        posts = config.get("source_posts") or []
+        total_posts = source_posts_total_count(posts)
+        enabled_posts = enabled_source_posts_count(posts)
         lines = [
             "📚 <b>ПОСТЫ ИЗ КАНАЛА</b>",
             "",
             f"Канал: {source_channel_title(config)}",
-            f"Постов доступно: {count}",
+            f"Активно: {enabled_posts}/{total_posts}",
             "",
         ]
-        if not count:
+        if not total_posts:
             lines.append("Сначала укажи канал-источник и загрузи посты.")
         else:
-            lines.append("Выбери пост для просмотра.")
+            lines.append("Выбери пост для просмотра и включения/выключения.")
         return "\n".join(lines)
 
     count = len(config.get("texts") or [])

@@ -1,13 +1,20 @@
 from database import get_account_proxy, get_account_proxy_check_result
 from services.broadcast_runtime_service import account_label
-from services.channel_post_service import build_text_source_label, count_source_items
+from services.channel_post_service import (
+    build_text_source_label,
+    count_source_items,
+    enabled_source_posts_count,
+)
 from services.operation_guard_service import get_active_operation
 
 
 def _content_ready(config: dict) -> bool:
     source_type = str(config.get("text_source_type") or "manual")
     if source_type == "channel":
-        return bool(config.get("source_channel_ref") and config.get("source_posts"))
+        return bool(
+            config.get("source_channel_ref")
+            and enabled_source_posts_count(config.get("source_posts") or [])
+        )
     return bool(config.get("texts"))
 
 

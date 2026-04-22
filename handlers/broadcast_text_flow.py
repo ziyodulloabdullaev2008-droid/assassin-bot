@@ -1,5 +1,125 @@
 from handlers.broadcast_shared import *  # noqa: F401,F403
 
+
+def _build_text_settings_markup(config: dict) -> InlineKeyboardMarkup:
+    return build_text_settings_keyboard(
+        config.get("text_source_type", "manual"),
+        config.get("text_mode", "random"),
+        config.get("parse_mode", "HTML"),
+        bool(config.get("show_forward_source", False)),
+    )
+
+
+CHANNEL_POSTS_PAGE_SIZE = 12
+
+
+def _channel_posts_filter(config: dict) -> str:
+    return "active" if str(config.get("channel_posts_filter") or "all") == "active" else "all"
+
+
+def _channel_posts_page(config: dict, total_pages: int) -> int:
+    raw_page = int(config.get("channel_posts_page", 0) or 0)
+    if total_pages <= 0:
+        return 0
+    return max(0, min(raw_page, total_pages - 1))
+
+
+def _channel_post_indices(config: dict) -> list[int]:
+    posts = list(config.get("source_posts") or [])
+    if _channel_posts_filter(config) == "active":
+        return [index for index, item in enumerate(posts) if item.get("enabled", True) is not False]
+    return list(range(len(posts)))
+
+
+def _channel_posts_list_text(config: dict) -> str:
+    posts = list(config.get("source_posts") or [])
+    visible_indices = _channel_post_indices(config)
+    total_pages = max(1, (len(visible_indices) + CHANNEL_POSTS_PAGE_SIZE - 1) // CHANNEL_POSTS_PAGE_SIZE)
+    current_page = _channel_posts_page(config, total_pages)
+    filter_label = "Только активные" if _channel_posts_filter(config) == "active" else "Все посты"
+    return (
+        f"{_build_text_list_info(config)}\n\n"
+        f"Фильтр: <b>{filter_label}</b>\n"
+        f"Страница: <b>{current_page + 1}/{total_pages}</b>"
+    )
+
+
+def _build_channel_posts_keyboard(config: dict) -> InlineKeyboardMarkup:
+    posts = list(config.get("source_posts") or [])
+    visible_indices = _channel_post_indices(config)
+    total_pages = max(1, (len(visible_indices) + CHANNEL_POSTS_PAGE_SIZE - 1) // CHANNEL_POSTS_PAGE_SIZE)
+    current_page = _channel_posts_page(config, total_pages)
+    start = current_page * CHANNEL_POSTS_PAGE_SIZE
+    page_indices = visible_indices[start : start + CHANNEL_POSTS_PAGE_SIZE]
+
+    buttons: list[list[InlineKeyboardButton]] = []
+    row: list[InlineKeyboardButton] = []
+    for global_index in page_indices:
+        item = posts[global_index]
+        suffix = " ✅" if item.get("enabled", True) is not False else " ⏸️"
+        row.append(
+            InlineKeyboardButton(
+                text=f"Пост {global_index + 1}{suffix}",
+                callback_data=f"text_view_{global_index}",
+            )
+        )
+        if len(row) == 3:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+
+    buttons.append(
+        [
+            InlineKeyboardButton(text="✅ Все", callback_data="text_posts_enable_all"),
+            InlineKeyboardButton(text="⏸️ Ничего", callback_data="text_posts_disable_all"),
+        ]
+    )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="👁️ Активные" if _channel_posts_filter(config) == "all" else "📚 Все",
+                callback_data=(
+                    "text_posts_filter_active"
+                    if _channel_posts_filter(config) == "all"
+                    else "text_posts_filter_all"
+                ),
+            ),
+            InlineKeyboardButton(
+                text="🔄 Обновить посты",
+                callback_data="text_channel_refresh",
+            ),
+        ]
+    )
+
+    if total_pages > 1:
+        nav_row: list[InlineKeyboardButton] = []
+        if current_page > 0:
+            nav_row.append(
+                InlineKeyboardButton(
+                    text="⬅️",
+                    callback_data=f"text_posts_page_{current_page - 1}",
+                )
+            )
+        nav_row.append(
+            InlineKeyboardButton(
+                text=f"{current_page + 1}/{total_pages}",
+                callback_data="text_posts_page_stay",
+            )
+        )
+        if current_page + 1 < total_pages:
+            nav_row.append(
+                InlineKeyboardButton(
+                    text="➡️",
+                    callback_data=f"text_posts_page_{current_page + 1}",
+                )
+            )
+        buttons.append(nav_row)
+
+    buttons.append([InlineKeyboardButton(text="Назад", callback_data="bc_text")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
 @router.callback_query(F.data == "bc_text")
 async def bc_text_callback(query: CallbackQuery, state: FSMContext):
     """Open content source settings for broadcast."""
@@ -11,11 +131,7 @@ async def bc_text_callback(query: CallbackQuery, state: FSMContext):
 
     user_id = query.from_user.id
     config = get_broadcast_config(user_id)
-    kb = build_text_settings_keyboard(
-        config.get("text_source_type", "manual"),
-        config.get("text_mode", "random"),
-        config.get("parse_mode", "HTML"),
-    )
+    kb = _build_text_settings_markup(config)
 
     await state.update_data(
         edit_message_id=query.message.message_id,
@@ -38,14 +154,30 @@ async def text_source_toggle_callback(query: CallbackQuery, state: FSMContext):
     config["text_index"] = 0
     save_broadcast_config_with_profile(user_id, config)
 
-    kb = build_text_settings_keyboard(
-        config.get("text_source_type", "manual"),
-        config.get("text_mode", "random"),
-        config.get("parse_mode", "HTML"),
-    )
+    kb = _build_text_settings_markup(config)
     await query.message.edit_text(
         _build_text_settings_info(config),
         reply_markup=kb,
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data == "text_forward_source_toggle")
+async def text_forward_source_toggle_callback(query: CallbackQuery, state: FSMContext):
+    await query.answer()
+
+    user_id = query.from_user.id
+    config = get_broadcast_config(user_id)
+    if not _is_channel_source(config):
+        await query.answer("Эта настройка доступна только для источника-канала", show_alert=True)
+        return
+
+    config["show_forward_source"] = not bool(config.get("show_forward_source", False))
+    save_broadcast_config_with_profile(user_id, config)
+
+    await query.message.edit_text(
+        _build_text_settings_info(config),
+        reply_markup=_build_text_settings_markup(config),
         parse_mode="HTML",
     )
 
@@ -93,6 +225,7 @@ async def text_channel_refresh_callback(query: CallbackQuery, state: FSMContext)
                 if str(preferred_account or "").isdigit()
                 else None
             ),
+            existing_posts=config.get("source_posts") or [],
         )
     except Exception as exc:
         await query.answer(str(exc), show_alert=True)
@@ -101,23 +234,91 @@ async def text_channel_refresh_callback(query: CallbackQuery, state: FSMContext)
     config.update(source_data)
     save_broadcast_config_with_profile(user_id, config)
 
-    kb = build_texts_keyboard(
-        config.get("source_posts") or [],
-        back_callback="bc_text",
-        item_prefix="Post",
-        allow_add=False,
-        extra_buttons=[
+    await query.message.edit_text(
+        _channel_posts_list_text(config),
+        reply_markup=_build_channel_posts_keyboard(config),
+        parse_mode="HTML",
+    )
+
+
+async def _render_channel_post_preview(
+    query: CallbackQuery,
+    config: dict,
+    text_index: int,
+    items: list[dict],
+) -> None:
+    post_item = items[text_index]
+    is_enabled = post_item.get("enabled", True) is not False
+    post_status_text = (
+        "\u2705 \u0412\u043a\u043b\u044e\u0447\u0435\u043d"
+        if is_enabled
+        else "\u23f8\ufe0f \u0412\u044b\u043a\u043b\u044e\u0447\u0435\u043d"
+    )
+    source_mode = (
+        "показывать источник"
+        if config.get("show_forward_source")
+        else "скрывать источник"
+    )
+    info = (
+        f"\U0001f4e8 <b>\u041f\u043e\u0441\u0442 #{text_index + 1}</b>\n\n"
+        f"\u041a\u0430\u043d\u0430\u043b: {html.escape(source_channel_title(config))}\n"
+        f"Message ID: <code>{int(post_item['message_id'])}</code>\n"
+        f"\u0421\u0442\u0430\u0442\u0443\u0441: {post_status_text}\n"
+        f"\u041f\u0435\u0440\u0435\u0441\u044b\u043b\u043a\u0430: {html.escape(source_mode)}\n"
+        f"\u041f\u0440\u0435\u0432\u044c\u044e: <code>{html.escape(post_preview_text(post_item.get('preview', '')))}</code>\n"
+    )
+    post_link = format_source_channel_link(config, int(post_item["message_id"]))
+    buttons = []
+    if post_link:
+        buttons.append(
             [
                 InlineKeyboardButton(
-                    text="\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u043f\u043e\u0441\u0442\u044b",
-                    callback_data="text_channel_refresh",
+                    text="\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u043e\u0441\u0442",
+                    url=post_link,
                 )
             ]
-        ],
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="\u23f8\ufe0f \u0412\u044b\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u043f\u043e\u0441\u0442"
+                if is_enabled
+                else "\u2705 \u0412\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u043f\u043e\u0441\u0442",
+                callback_data=f"text_post_toggle_{text_index}",
+            )
+        ]
+    )
+    nav_row = []
+    if text_index > 0:
+        nav_row.append(
+            InlineKeyboardButton(
+                text="\u2b05\ufe0f \u041f\u0440\u0435\u0434",
+                callback_data=f"text_view_{text_index - 1}",
+            )
+        )
+    if text_index + 1 < len(items):
+        nav_row.append(
+            InlineKeyboardButton(
+                text="\u0414\u0430\u043b\u0435\u0435 \u27a1\ufe0f",
+                callback_data=f"text_view_{text_index + 1}",
+            )
+        )
+    if nav_row:
+        buttons.append(nav_row)
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="\U0001f9ea \u0422\u0435\u0441\u0442 \u0441\u0435\u0431\u0435",
+                callback_data=f"text_channel_test_{text_index}",
+            )
+        ]
+    )
+    buttons.append(
+        [InlineKeyboardButton(text="\u041d\u0430\u0437\u0430\u0434", callback_data="text_list")]
     )
     await query.message.edit_text(
-        _build_text_list_info(config),
-        reply_markup=kb,
+        info,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         parse_mode="HTML",
     )
 
@@ -131,25 +332,6 @@ async def text_list_callback(query: CallbackQuery, state: FSMContext):
     config = get_broadcast_config(user_id)
     is_channel = _is_channel_source(config)
     items = config.get("source_posts") if is_channel else config.get("texts", [])
-    extra_buttons = (
-        [
-            [
-                InlineKeyboardButton(
-                    text="\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u043f\u043e\u0441\u0442\u044b",
-                    callback_data="text_channel_refresh",
-                )
-            ]
-        ]
-        if is_channel
-        else None
-    )
-    kb = build_texts_keyboard(
-        items or [],
-        back_callback="bc_text",
-        item_prefix="Пост" if is_channel else "Text",
-        allow_add=not is_channel,
-        extra_buttons=extra_buttons,
-    )
 
     await state.update_data(
         edit_message_id=query.message.message_id,
@@ -157,8 +339,17 @@ async def text_list_callback(query: CallbackQuery, state: FSMContext):
     )
 
     await query.message.edit_text(
-        _build_text_list_info(config),
-        reply_markup=kb,
+        _channel_posts_list_text(config) if is_channel else _build_text_list_info(config),
+        reply_markup=(
+            _build_channel_posts_keyboard(config)
+            if is_channel
+            else build_texts_keyboard(
+                items or [],
+                back_callback="bc_text",
+                item_prefix="Text",
+                allow_add=True,
+            )
+        ),
         parse_mode="HTML",
     )
 
@@ -166,7 +357,8 @@ async def text_list_callback(query: CallbackQuery, state: FSMContext):
 async def text_view_callback(query: CallbackQuery, state: FSMContext):
     """Open a single manual text or a channel post preview."""
 
-    await query.answer()
+    if state is not None:
+        await query.answer()
 
     user_id = query.from_user.id
     config = get_broadcast_config(user_id)
@@ -179,55 +371,15 @@ async def text_view_callback(query: CallbackQuery, state: FSMContext):
             await query.answer("\u042d\u043b\u0435\u043c\u0435\u043d\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", show_alert=True)
             return
 
-        await state.update_data(
-            edit_message_id=query.message.message_id,
-            chat_id=query.message.chat.id,
-        )
+        if state is not None:
+            await state.update_data(
+                edit_message_id=query.message.message_id,
+                chat_id=query.message.chat.id,
+            )
 
         if is_channel:
-            post_item = items[text_index]
-            info = (
-                f"\U0001f4e8 <b>\u041f\u043e\u0441\u0442 #{text_index + 1}</b>\n\n"
-                f"\u041a\u0430\u043d\u0430\u043b: {html.escape(source_channel_title(config))}\n"
-                f"Message ID: <code>{int(post_item['message_id'])}</code>\n"
-                f"\u041f\u0440\u0435\u0432\u044c\u044e: <code>{html.escape(post_preview_text(post_item.get('preview', '')))}</code>\n"
-            )
-            post_link = format_source_channel_link(config, int(post_item["message_id"]))
-            buttons = []
-            if post_link:
-                buttons.append([
-                    InlineKeyboardButton(
-                        text="\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u043e\u0441\u0442",
-                        url=post_link,
-                    )
-                ])
-            nav_row = []
-            if text_index > 0:
-                nav_row.append(
-                    InlineKeyboardButton(
-                        text="\u2b05\ufe0f \u041f\u0440\u0435\u0434",
-                        callback_data=f"text_view_{text_index - 1}",
-                    )
-                )
-            if text_index + 1 < len(items):
-                nav_row.append(
-                    InlineKeyboardButton(
-                        text="\u0414\u0430\u043b\u0435\u0435 \u27a1\ufe0f",
-                        callback_data=f"text_view_{text_index + 1}",
-                    )
-                )
-            if nav_row:
-                buttons.append(nav_row)
-            buttons.append(
-                [
-                    InlineKeyboardButton(
-                        text="\U0001f9ea \u0422\u0435\u0441\u0442 \u0441\u0435\u0431\u0435",
-                        callback_data=f"text_channel_test_{text_index}",
-                    )
-                ]
-            )
-            buttons.append([InlineKeyboardButton(text="\u041d\u0430\u0437\u0430\u0434", callback_data="text_list")])
-            kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+            await _render_channel_post_preview(query, config, text_index, items)
+            return
         else:
             current_text = str(items[text_index])
             parse_mode = config.get("parse_mode", "HTML")
@@ -279,7 +431,14 @@ async def text_channel_test_callback(query: CallbackQuery):
             config,
             text_index,
         )
-        await client.send_message("me", source_message)
+        if bool(config.get("show_forward_source", False)):
+            source_entity = await resolve_entity_reference(
+                client,
+                str(config.get("source_channel_ref") or ""),
+            )
+            await client.forward_messages("me", source_message, from_peer=source_entity)
+        else:
+            await client.send_message("me", source_message)
         await query.answer(
             f"Тестовый пост отправлен в Избранное через аккаунт {account_number}",
             show_alert=True,
@@ -289,6 +448,124 @@ async def text_channel_test_callback(query: CallbackQuery):
             f"Не удалось отправить тестовый пост: {str(exc)}",
             show_alert=True,
         )
+
+@router.callback_query(F.data.startswith("text_post_toggle_"))
+async def text_post_toggle_callback(query: CallbackQuery):
+    await query.answer()
+
+    user_id = query.from_user.id
+    config = get_broadcast_config(user_id)
+    if not _is_channel_source(config):
+        await query.answer(
+            "\u042d\u0442\u043e\u0442 \u0440\u0435\u0436\u0438\u043c \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u0442\u043e\u043b\u044c\u043a\u043e \u0434\u043b\u044f \u043f\u043e\u0441\u0442\u043e\u0432 \u043a\u0430\u043d\u0430\u043b\u0430",
+            show_alert=True,
+        )
+        return
+
+    try:
+        text_index = int(query.data.split("_")[3])
+    except (TypeError, ValueError):
+        await query.answer(
+            "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u043f\u0440\u0435\u0434\u0435\u043b\u0438\u0442\u044c \u043f\u043e\u0441\u0442",
+            show_alert=True,
+        )
+        return
+
+    posts = list(config.get("source_posts") or [])
+    if text_index < 0 or text_index >= len(posts):
+        await query.answer("\u041f\u043e\u0441\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", show_alert=True)
+        return
+
+    post_item = dict(posts[text_index])
+    post_item["enabled"] = not (post_item.get("enabled", True) is not False)
+    posts[text_index] = post_item
+    config["source_posts"] = posts
+    save_broadcast_config_with_profile(user_id, config)
+
+    await _render_channel_post_preview(query, config, text_index, posts)
+
+
+@router.callback_query(F.data.in_({"text_posts_filter_all", "text_posts_filter_active"}))
+async def text_posts_filter_callback(query: CallbackQuery):
+    await query.answer()
+
+    user_id = query.from_user.id
+    config = get_broadcast_config(user_id)
+    if not _is_channel_source(config):
+        return
+
+    config["channel_posts_filter"] = (
+        "active" if query.data.endswith("_active") else "all"
+    )
+    config["channel_posts_page"] = 0
+    save_broadcast_config_with_profile(user_id, config)
+
+    await query.message.edit_text(
+        _channel_posts_list_text(config),
+        reply_markup=_build_channel_posts_keyboard(config),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data.startswith("text_posts_page_"))
+async def text_posts_page_callback(query: CallbackQuery):
+    await query.answer()
+
+    if query.data == "text_posts_page_stay":
+        return
+
+    user_id = query.from_user.id
+    config = get_broadcast_config(user_id)
+    if not _is_channel_source(config):
+        return
+
+    try:
+        page = int(query.data.rsplit("_", 1)[-1])
+    except (TypeError, ValueError):
+        await query.answer("Не удалось открыть страницу", show_alert=True)
+        return
+
+    config["channel_posts_page"] = max(page, 0)
+    save_broadcast_config_with_profile(user_id, config)
+
+    await query.message.edit_text(
+        _channel_posts_list_text(config),
+        reply_markup=_build_channel_posts_keyboard(config),
+        parse_mode="HTML",
+    )
+
+
+async def _set_all_channel_posts_enabled(query: CallbackQuery, enabled: bool) -> None:
+    user_id = query.from_user.id
+    config = get_broadcast_config(user_id)
+    if not _is_channel_source(config):
+        return
+
+    posts = []
+    for item in config.get("source_posts") or []:
+        normalized_item = dict(item)
+        normalized_item["enabled"] = enabled
+        posts.append(normalized_item)
+    config["source_posts"] = posts
+    save_broadcast_config_with_profile(user_id, config)
+
+    await query.message.edit_text(
+        _channel_posts_list_text(config),
+        reply_markup=_build_channel_posts_keyboard(config),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data == "text_posts_enable_all")
+async def text_posts_enable_all_callback(query: CallbackQuery):
+    await query.answer("Все посты включены")
+    await _set_all_channel_posts_enabled(query, True)
+
+
+@router.callback_query(F.data == "text_posts_disable_all")
+async def text_posts_disable_all_callback(query: CallbackQuery):
+    await query.answer("Все посты выключены")
+    await _set_all_channel_posts_enabled(query, False)
 
 @router.callback_query(F.data == "text_add_new")
 async def text_add_new_callback(query: CallbackQuery, state: FSMContext):
@@ -435,11 +712,7 @@ async def text_mode_toggle_callback(query: CallbackQuery, state: FSMContext):
     config["text_index"] = 0
     save_broadcast_config_with_profile(user_id, config)
 
-    kb = build_text_settings_keyboard(
-        config.get("text_source_type", "manual"),
-        config.get("text_mode", "random"),
-        config.get("parse_mode", "HTML"),
-    )
+    kb = _build_text_settings_markup(config)
     await query.message.edit_text(
         _build_text_settings_info(config),
         reply_markup=kb,
@@ -464,11 +737,7 @@ async def text_format_toggle_callback(query: CallbackQuery, state: FSMContext):
     config["parse_mode"] = "Markdown" if config.get("parse_mode") == "HTML" else "HTML"
     save_broadcast_config_with_profile(user_id, config)
 
-    kb = build_text_settings_keyboard(
-        config.get("text_source_type", "manual"),
-        config.get("text_mode", "random"),
-        config.get("parse_mode", "HTML"),
-    )
+    kb = _build_text_settings_markup(config)
     await query.message.edit_text(
         _build_text_settings_info(config),
         reply_markup=kb,
@@ -588,11 +857,7 @@ async def process_source_channel_input(message: Message, state: FSMContext):
         await state.clear()
 
         config = get_broadcast_config(user_id)
-        kb = build_text_settings_keyboard(
-            config.get("text_source_type", "manual"),
-            config.get("text_mode", "random"),
-            config.get("parse_mode", "HTML"),
-        )
+        kb = _build_text_settings_markup(config)
         info = _build_text_settings_info(config)
 
         if edit_message_id and chat_id:
@@ -627,6 +892,7 @@ async def process_source_channel_input(message: Message, state: FSMContext):
                 if str(preferred_account or "").isdigit()
                 else None
             ),
+            existing_posts=config.get("source_posts") or [],
         )
     except Exception as exc:
         await message.answer(f"❌ Не удалось загрузить посты: {exc}")
@@ -647,11 +913,7 @@ async def process_source_channel_input(message: Message, state: FSMContext):
     except Exception:
         pass
 
-    kb = build_text_settings_keyboard(
-        config.get("text_source_type", "manual"),
-        config.get("text_mode", "random"),
-        config.get("parse_mode", "HTML"),
-    )
+    kb = _build_text_settings_markup(config)
     info = _build_text_settings_info(config)
     if edit_message_id and chat_id:
         try:
@@ -1080,30 +1342,38 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
         interval_unit = "seconds" if data.get("interval_unit") == "seconds" else "minutes"
         text = message.text.strip()
         max_value = 3600 if interval_unit == "seconds" else 480
-        unit_label = "??????" if interval_unit == "seconds" else "?????"
+        unit_label = (
+            "\u0441\u0435\u043a\u0443\u043d\u0434"
+            if interval_unit == "seconds"
+            else "\u043c\u0438\u043d\u0443\u0442"
+        )
 
         if "-" in text:
             parts = text.split("-", 1)
             if len(parts) != 2:
-                await message.answer("? ???????? ??????. ?????????: 10-30 ??? 15")
+                await message.answer(
+                    "\u274c \u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u0444\u043e\u0440\u043c\u0430\u0442. \u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439: 10-30 \u0438\u043b\u0438 15"
+                )
                 return
 
             try:
                 min_interval = int(parts[0].strip())
                 max_interval = int(parts[1].strip())
             except ValueError:
-                await message.answer("? ????? ????? ? ???????: 10-30")
+                await message.answer(
+                    "\u274c \u0412\u0432\u0435\u0434\u0438 \u0447\u0438\u0441\u043b\u0430 \u0432 \u0444\u043e\u0440\u043c\u0430\u0442\u0435: 10-30"
+                )
                 return
 
             if min_interval < 1 or max_interval < 1 or min_interval > max_interval:
                 await message.answer(
-                    "? ???????? ?????? ???? ??????????????, ? min ?? ?????? ???? ?????? max"
+                    "\u274c \u0417\u043d\u0430\u0447\u0435\u043d\u0438\u044f \u0434\u043e\u043b\u0436\u043d\u044b \u0431\u044b\u0442\u044c \u043f\u043e\u043b\u043e\u0436\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u043c\u0438, \u0438 min \u043d\u0435 \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u0431\u043e\u043b\u044c\u0448\u0435 max"
                 )
                 return
 
             if min_interval > max_value or max_interval > max_value:
                 await message.answer(
-                    f"? ???????? ?????? ???? ?? 1 ?? {max_value} {unit_label}"
+                    f"\u274c \u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u043e\u0442 1 \u0434\u043e {max_value} {unit_label}"
                 )
                 return
 
@@ -1112,12 +1382,14 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
             try:
                 interval_int = int(text)
             except ValueError:
-                await message.answer("? ????? ????? ??? ???????? (???????? 10-30)")
+                await message.answer(
+                    "\u274c \u0412\u0432\u0435\u0434\u0438 \u0447\u0438\u0441\u043b\u043e \u0438\u043b\u0438 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d (\u043d\u0430\u043f\u0440\u0438\u043c\u0435\u0440 10-30)"
+                )
                 return
 
             if interval_int < 1 or interval_int > max_value:
                 await message.answer(
-                    f"? ???????? ?????? ???? ?? 1 ?? {max_value} {unit_label}"
+                    f"\u274c \u0418\u043d\u0442\u0435\u0440\u0432\u0430\u043b \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u043e\u0442 1 \u0434\u043e {max_value} {unit_label}"
                 )
                 return
 
@@ -1178,7 +1450,9 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
                     return
             except Exception as e:
                 print(f"Group detail refresh failed after interval update: {e}")
-                await message.answer("? ?? ??????? ???????? ???? ??????")
+                await message.answer(
+                    "\u274c \u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u043c\u0435\u043d\u044e \u0433\u0440\u0443\u043f\u043f\u044b"
+                )
                 return
 
         if edit_message_id and chat_id:
@@ -1203,14 +1477,16 @@ async def process_broadcast_interval(message: Message, state: FSMContext):
                 )
 
             except Exception as e:
-                print(f"?????? ?????????????? ????? ?????????? ?????????: {e}")
-                await message.answer("? ?? ??????? ???????? ????")
+                print(f"Broadcast menu refresh error after interval update: {e}")
+                await message.answer(
+                    "\u274c \u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u043c\u0435\u043d\u044e"
+                )
 
         else:
             await cmd_broadcast_menu(message)
 
     except ValueError:
-        await message.answer("? ????? ?????")
+        await message.answer("\u274c \u0412\u0432\u0435\u0434\u0438 \u0447\u0438\u0441\u043b\u043e")
 
 @router.message(BroadcastConfigState.waiting_for_chat_pause)
 async def process_broadcast_chat_pause(message: Message, state: FSMContext):

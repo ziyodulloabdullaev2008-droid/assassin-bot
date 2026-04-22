@@ -9,14 +9,17 @@ def build_texts_keyboard(
     allow_add: bool = True,
     extra_buttons: list[list[InlineKeyboardButton]] | None = None,
 ) -> InlineKeyboardMarkup:
-    """Построить клавиатуру для списка текстов или постов."""
+    """Build keyboard for manual texts or source posts."""
     buttons = []
 
     item_buttons = []
-    for i in range(len(items)):
+    for i, item in enumerate(items):
+        status_suffix = ""
+        if isinstance(item, dict) and "enabled" in item:
+            status_suffix = " ✅" if item.get("enabled", True) else " ⏸️"
         item_buttons.append(
             InlineKeyboardButton(
-                text=f"{item_prefix} {i + 1}",
+                text=f"{item_prefix} {i + 1}{status_suffix}",
                 callback_data=f"text_view_{i}",
             )
         )
@@ -40,8 +43,9 @@ def build_text_settings_keyboard(
     source_type: str = "manual",
     text_mode: str = "random",
     parse_mode: str = "HTML",
+    show_forward_source: bool = False,
 ) -> InlineKeyboardMarkup:
-    """Построить клавиатуру для меню настроек текстов."""
+    """Build content settings keyboard."""
     buttons = [
         [
             InlineKeyboardButton(
@@ -58,6 +62,16 @@ def build_text_settings_keyboard(
                     InlineKeyboardButton(
                         text="Канал-источник",
                         callback_data="text_channel_source",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=(
+                            "🙈 Скрыть источник"
+                            if show_forward_source
+                            else "👁️ Показать источник"
+                        ),
+                        callback_data="text_forward_source_toggle",
                     )
                 ],
                 [

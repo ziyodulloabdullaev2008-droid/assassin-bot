@@ -48,6 +48,20 @@ def get_broadcast_config(user_id: int) -> dict:
         config["source_channel_title"] = ""
     if "source_posts" not in config:
         config["source_posts"] = []
+    else:
+        normalized_posts = []
+        for item in config.get("source_posts") or []:
+            if isinstance(item, dict) and item.get("message_id"):
+                normalized_item = dict(item)
+                normalized_item.setdefault("enabled", True)
+                normalized_posts.append(normalized_item)
+        config["source_posts"] = normalized_posts
+    if "show_forward_source" not in config:
+        config["show_forward_source"] = False
+    if "channel_posts_filter" not in config:
+        config["channel_posts_filter"] = "all"
+    if "channel_posts_page" not in config:
+        config["channel_posts_page"] = 0
     if "count" not in config:
         config["count"] = 1
     if "interval" not in config:
