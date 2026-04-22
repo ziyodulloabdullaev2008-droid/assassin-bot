@@ -60,6 +60,7 @@ from services.broadcast_runtime_service import (
     format_eta_duration as _format_eta_duration,
     format_chat_error_line as _format_chat_error_line,
     format_chat_error_log as _format_chat_error_log,
+    rebalance_chat_targets as _rebalance_chat_targets,
     interval_unit_display as _interval_unit_display,
     interval_unit_label as _interval_unit_label,
     iter_connected_account_numbers as _iter_connected_account_numbers,
@@ -1058,6 +1059,7 @@ async def _set_broadcast_chat_status(
     if not found:
         return False
 
+    items = _rebalance_chat_targets(items, int(broadcast.get("count", 0) or 0))
     await update_broadcast_fields(
         bid,
         chat_runtime=items,
@@ -1093,6 +1095,7 @@ async def _set_broadcast_chat_status_by_chat_id(
     if not found:
         return False
 
+    items = _rebalance_chat_targets(items, int(broadcast.get("count", 0) or 0))
     await update_broadcast_fields(
         bid,
         chat_runtime=items,

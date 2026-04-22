@@ -9,6 +9,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.config import API_HASH, API_ID
 from core.state import app_state
+from services.broadcast_runtime_service import rebalance_chat_targets as _rebalance_chat_targets
 from services.channel_post_service import resolve_entity_reference
 from services.broadcast_service import (
     discard_broadcast_task,
@@ -149,7 +150,7 @@ def _normalize_chat_runtime(
             }
         )
 
-    return normalized_items
+    return _rebalance_chat_targets(normalized_items, total_count)
 
 
 def _pick_next_chat_entry(chat_runtime: list[dict]) -> dict | None:

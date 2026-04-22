@@ -68,6 +68,42 @@ def broadcast_chat_short_name(chat_item: dict) -> str:
     return str(chat_item.get("name") or chat_item.get("chat_id") or "?")
 
 
+def chat_attempts(chat_item: dict) -> int:
+    return int(chat_item.get("sent_count", 0) or 0) + int(chat_item.get("failed_count", 0) or 0)
+
+
+def rebalance_chat_targets(items: list[dict], total_count: int) -> list[dict]:
+    runtime_items = [item for item in items if isinstance(item, dict)]
+    if not runtime_items:
+        return runtime_items
+
+    attempts_total = sum(chat_attempts(item) for item in runtime_items)
+    effective_total = max(int(total_count or 0), attempts_total)
+
+    enabled_items = [
+        item for item in runtime_items if str(item.get("status") or "active") != "disabled"
+    ]
+
+    for item in runtime_items:
+        if str(item.get("status") or "active") == "disabled":
+            item["target_count"] = chat_attempts(item)
+
+    if not enabled_items:
+        return runtime_items
+
+    extra_total = max(
+        effective_total - sum(chat_attempts(item) for item in runtime_items),
+        0,
+    )
+    base_extra = extra_total // len(enabled_items)
+    remainder = extra_total % len(enabled_items)
+
+    for index, item in enumerate(enabled_items):
+        item["target_count"] = chat_attempts(item) + base_extra + (1 if index < remainder else 0)
+
+    return runtime_items
+
+
 def format_chat_error_line(chat_item: dict) -> str:
     error_text = str(chat_item.get("last_error") or "").strip()
     if not error_text:
