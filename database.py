@@ -268,6 +268,8 @@ def add_or_update_user(user_id: int, username: str, first_name: str):
     """Add or update a bot user."""
 
     def _write(conn, cursor):
+        cursor.execute("SELECT 1 FROM users WHERE user_id = ?", (user_id,))
+        created = cursor.fetchone() is None
         cursor.execute(
             """
             INSERT INTO users (user_id, username, first_name)
@@ -278,8 +280,9 @@ def add_or_update_user(user_id: int, username: str, first_name: str):
             """,
             (user_id, username, first_name),
         )
+        return created
 
-    _retry_db_write(_write)
+    return bool(_retry_db_write(_write))
 
 def set_user_logged_in(user_id: int, is_logged_in: bool):
     """Update login status for a bot user."""

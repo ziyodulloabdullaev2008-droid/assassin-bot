@@ -96,6 +96,7 @@ from handlers.broadcast_handlers import router as broadcast_router
 from handlers.joins_handlers import router as joins_router
 
 from services.vip_service import get_vip_cache_size, is_vip_user_cached, update_vip_cache
+from services.admin_notify_service import notify_new_bot_user, send_admin_event
 
 from database import (
     add_user_account_with_number,
@@ -824,6 +825,56 @@ async def _notify_session_limit_reached(target_message: Message, user_id: int) -
     return True
 
 
+async def _notify_new_bot_user_if_needed(
+    *,
+    created: bool,
+    user_id: int,
+    username: str | None,
+    first_name: str | None,
+    source: str,
+) -> None:
+    if not created:
+        return
+    await notify_new_bot_user(
+        user_id=user_id,
+        username=username,
+        first_name=first_name,
+        source=source,
+    )
+
+
+async def _notify_session_added(
+    *,
+    bot_user_id: int,
+    account_number: int,
+    telegram_id: int,
+    username: str | None,
+    first_name: str | None,
+    phone: str | None,
+    proxy_used: bool,
+    login_flow: str,
+) -> None:
+    total_sessions = len(get_user_accounts(bot_user_id))
+    await send_admin_event(
+        "📱 <b>Добавлена новая сессия</b>",
+        [
+            f"🤖 Владелец в боте: <code>{bot_user_id}</code>",
+            f"Сессия №: <b>{account_number}</b>",
+            f"Telegram ID: <code>{telegram_id}</code>",
+            f"Имя аккаунта: <b>{html.escape(first_name or 'User')}</b>",
+            (
+                f"Username: @{html.escape(username.lstrip('@'))}"
+                if username
+                else "Username: <b>нет</b>"
+            ),
+            f"Телефон: <code>{html.escape(phone or 'не указан')}</code>",
+            f"Прокси: <b>{'да' if proxy_used else 'нет'}</b>",
+            f"Сценарий входа: <b>{html.escape(login_flow)}</b>",
+            f"Всего сессий у юзера: <b>{total_sessions}</b>",
+        ],
+    )
+
+
 async def _start_login_with_optional_proxy(
     target_message: Message,
     state: FSMContext,
@@ -835,7 +886,14 @@ async def _start_login_with_optional_proxy(
         await state.clear()
         return
 
-    add_or_update_user(user_id, username or "unknown", first_name)
+    created = add_or_update_user(user_id, username or "unknown", first_name)
+    await _notify_new_bot_user_if_needed(
+        created=created,
+        user_id=user_id,
+        username=username,
+        first_name=first_name,
+        source="/login",
+    )
     await state.clear()
     await state.set_state(LoginStates.waiting_proxy_choice)
     await target_message.answer(
@@ -2861,6 +2919,16 @@ async def process_password(message: Message, state: FSMContext):
             login_proxy = data.get("login_proxy")
             if login_proxy:
                 set_account_proxy(user_id, account_number, login_proxy)
+            await _notify_session_added(
+                bot_user_id=user_id,
+                account_number=account_number,
+                telegram_id=int(me.id),
+                username=me.username or "",
+                first_name=me.first_name or "User",
+                phone=getattr(me, "phone", "") or "",
+                proxy_used=bool(login_proxy),
+                login_flow="без 2FA",
+            )
 
             temp_session_file_str = data.get(
                 "temp_session_file", f"temp_session_{user_id}_unknown"
@@ -3011,6 +3079,16 @@ async def process_password(message: Message, state: FSMContext):
         login_proxy = data.get("login_proxy")
         if login_proxy:
             set_account_proxy(user_id, account_number, login_proxy)
+        await _notify_session_added(
+            bot_user_id=user_id,
+            account_number=account_number,
+            telegram_id=int(me.id),
+            username=me.username or "",
+            first_name=me.first_name or "User",
+            phone=phone_number or getattr(me, "phone", "") or "",
+            proxy_used=bool(login_proxy),
+            login_flow="с 2FA",
+        )
 
         temp_session_file_str = data.get(
             "temp_session_file", f"temp_session_{user_id}_unknown"
