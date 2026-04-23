@@ -366,16 +366,6 @@ REQUIRED_CHANNELS = [
         "url": "https://t.me/stryxxs",
     },
     {
-        "chat_id": "@otzivstryxxs",
-        "title": "otzivstryxxs",
-        "url": "https://t.me/otzivstryxxs",
-    },
-    {
-        "chat_id": "@stryxxsuz",
-        "title": "stryxxsuz",
-        "url": "https://t.me/stryxxsuz",
-    },
-    {
         "chat_id": "@chatxso",
         "title": "chatxso",
         "url": "https://t.me/chatxso",
