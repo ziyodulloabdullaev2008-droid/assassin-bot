@@ -28,6 +28,15 @@ def _connect_db():
     return conn
 
 
+def _ensure_users_notification_column(cursor):
+    cursor.execute("PRAGMA table_info(users)")
+    user_columns = {row[1] for row in cursor.fetchall()}
+    if "admin_notified_new_user" not in user_columns:
+        cursor.execute(
+            "ALTER TABLE users ADD COLUMN admin_notified_new_user INTEGER DEFAULT 0"
+        )
+
+
 def _retry_db_operation(func, max_retries=3, base_delay=0.5):
     """Выполнить DB операцию с retry при database locked"""
 
@@ -96,11 +105,14 @@ def init_db():
 
             first_name TEXT,
 
-            is_logged_in BOOLEAN DEFAULT 0
+            is_logged_in BOOLEAN DEFAULT 0,
+
+            admin_notified_new_user INTEGER DEFAULT 0
 
         )
 
     """)
+    _ensure_users_notification_column(cursor)
 
     # Таблица сессий логина
 
@@ -294,6 +306,29 @@ def set_user_logged_in(user_id: int, is_logged_in: bool):
         )
 
     _retry_db_write(_write)
+
+
+def claim_new_user_notification(user_id: int) -> bool:
+    """Mark that admin notification for a new bot user was sent."""
+
+    def _write(conn, cursor):
+        _ensure_users_notification_column(cursor)
+        cursor.execute(
+            "SELECT admin_notified_new_user FROM users WHERE user_id = ?",
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return False
+        if int(row[0] or 0) == 1:
+            return False
+        cursor.execute(
+            "UPDATE users SET admin_notified_new_user = 1 WHERE user_id = ?",
+            (user_id,),
+        )
+        return True
+
+    return bool(_retry_db_write(_write))
 
 def get_user_status(user_id: int) -> Optional[bool]:
     """Получить статус логирования пользователя"""

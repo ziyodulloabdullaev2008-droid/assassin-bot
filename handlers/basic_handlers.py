@@ -4,7 +4,7 @@ from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 
 from core.state import app_state
-from database import add_or_update_user, add_user_account_with_number
+from database import add_or_update_user, add_user_account_with_number, claim_new_user_notification
 from core.config import API_HASH, API_ID
 from services.admin_notify_service import notify_new_bot_user
 from services.session_service import ensure_connected_client
@@ -21,8 +21,8 @@ router = Router()
 @router.message(Command("start"))
 async def cmd_start(message: Message):
     user = message.from_user
-    created = add_or_update_user(user.id, user.username or "unknown", user.first_name)
-    if created:
+    add_or_update_user(user.id, user.username or "unknown", user.first_name)
+    if claim_new_user_notification(user.id):
         await notify_new_bot_user(
             user_id=user.id,
             username=user.username,
@@ -147,8 +147,8 @@ async def open_broadcast_from_main_menu(message: Message):
 )
 async def echo_handler(message: Message):
     user = message.from_user
-    created = add_or_update_user(user.id, user.username or "unknown", user.first_name)
-    if created:
+    add_or_update_user(user.id, user.username or "unknown", user.first_name)
+    if claim_new_user_notification(user.id):
         await notify_new_bot_user(
             user_id=user.id,
             username=user.username,

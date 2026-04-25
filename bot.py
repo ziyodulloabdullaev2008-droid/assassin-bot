@@ -114,6 +114,7 @@ from database import (
     save_phone_number,
     delete_login_session,
     add_user_account,
+    claim_new_user_notification,
     get_user_accounts,
     set_account_proxy,
     get_tracked_chats,
@@ -817,13 +818,12 @@ async def _notify_session_limit_reached(target_message: Message, user_id: int) -
 
 async def _notify_new_bot_user_if_needed(
     *,
-    created: bool,
     user_id: int,
     username: str | None,
     first_name: str | None,
     source: str,
 ) -> None:
-    if not created:
+    if not claim_new_user_notification(user_id):
         return
     await notify_new_bot_user(
         user_id=user_id,
@@ -876,9 +876,8 @@ async def _start_login_with_optional_proxy(
         await state.clear()
         return
 
-    created = add_or_update_user(user_id, username or "unknown", first_name)
+    add_or_update_user(user_id, username or "unknown", first_name)
     await _notify_new_bot_user_if_needed(
-        created=created,
         user_id=user_id,
         username=username,
         first_name=first_name,
