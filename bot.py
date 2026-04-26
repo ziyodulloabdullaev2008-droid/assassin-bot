@@ -1262,7 +1262,7 @@ def _build_session_delete_confirm_keyboard(account_number: int) -> InlineKeyboar
             [
                 InlineKeyboardButton(
                     text="✅ Да, удалить",
-                    callback_data=f"se_account_delete_confirm_{account_number}",
+                    callback_data=f"se_delete_confirm_account_{account_number}",
                 ),
                 InlineKeyboardButton(
                     text="⬅️ Назад",
@@ -2162,6 +2162,7 @@ async def delete_account(query: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("account_delete_confirm_"))
 @dp.callback_query(F.data.startswith("se_account_delete_confirm_"))
+@dp.callback_query(F.data.startswith("se_delete_confirm_account_"))
 async def delete_account_confirm(query: CallbackQuery):
     if not await _guard_broadcast_sensitive_action(query):
         return
