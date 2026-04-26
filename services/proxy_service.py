@@ -237,29 +237,24 @@ async def test_session_proxy(
                 pass
 
 
+def get_session_base_candidates(user_id: int, account_number: int) -> list[Path]:
+    return [
+        session_base_path(user_id, account_number),
+        Path(__file__).resolve().parent.parent / f"session_{user_id}_{account_number}",
+    ]
+
+
 def build_session_candidates(user_id: int, account_number: int) -> list[Path]:
     candidates: list[Path] = []
     seen: set[str] = set()
 
-    def add_base(path_base: Path) -> None:
+    for path_base in get_session_base_candidates(user_id, account_number):
         key = str(path_base)
         if key in seen:
-            return
+            continue
         if Path(f"{path_base}.session").exists():
             candidates.append(path_base)
             seen.add(key)
-
-    add_base(session_base_path(user_id, account_number))
-    add_base(
-        Path(__file__).resolve().parent.parent / f"session_{user_id}_{account_number}"
-    )
-
-    user_sessions_dir = session_base_path(user_id, account_number).parent
-    for path in user_sessions_dir.glob(f"session_{user_id}_*.session"):
-        add_base(path.with_suffix(""))
-
-    for path in Path(__file__).resolve().parent.parent.glob(f"session_{user_id}_*.session"):
-        add_base(path.with_suffix(""))
 
     return candidates
 

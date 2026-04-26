@@ -49,6 +49,7 @@ from services.proxy_service import (
     build_session_candidates,
     build_telegram_client,
     format_proxy_summary,
+    get_session_base_candidates,
     parse_proxy_input,
     test_session_proxy,
 )
@@ -2222,10 +2223,7 @@ async def delete_account_confirm(query: CallbackQuery):
             ".session-wal",
             ".session-shm",
         ]
-        session_bases = [
-            session_base_path(bot_user_id, account_number),
-            Path(__file__).resolve().parent / f"session_{bot_user_id}_{account_number}",
-        ]
+        session_bases = get_session_base_candidates(bot_user_id, account_number)
 
         for session_file in session_bases:
             for ext in session_extensions:
@@ -2277,21 +2275,23 @@ async def delete_account_confirm(query: CallbackQuery):
                     (new_idx, bot_user_id, old_idx),
                 )
 
-                old_session_base = session_base_path(bot_user_id, old_idx)
-                new_session_base = session_base_path(bot_user_id, new_idx)
-                for ext in session_extensions:
-                    old_path = Path(str(old_session_base) + ext)
-                    new_path = Path(str(new_session_base) + ext)
-                    if not old_path.exists():
-                        continue
-                    try:
-                        if new_path.exists():
-                            os.remove(new_path)
-                        old_path.rename(new_path)
-                    except Exception as rename_error:
-                        print(
-                            f"⚠️  Не удалось переименовать {old_path} -> {new_path}: {rename_error}"
-                        )
+                for old_session_base, new_session_base in zip(
+                    get_session_base_candidates(bot_user_id, old_idx),
+                    get_session_base_candidates(bot_user_id, new_idx),
+                ):
+                    for ext in session_extensions:
+                        old_path = Path(str(old_session_base) + ext)
+                        new_path = Path(str(new_session_base) + ext)
+                        if not old_path.exists():
+                            continue
+                        try:
+                            if new_path.exists():
+                                os.remove(new_path)
+                            old_path.rename(new_path)
+                        except Exception as rename_error:
+                            print(
+                                f"??  ?? ??????? ????????????? {old_path} -> {new_path}: {rename_error}"
+                            )
 
                 if (
                     bot_user_id in user_authenticated
